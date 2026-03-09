@@ -18,11 +18,11 @@
     "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=oEUR5rpdDEHECtSnloz%2BZQ%3D%3D",
     "font": "PLACSP",
     "kw": [
-      "CPV:diseño",
       "aplicación",
+      "CPV:diseño",
+      "marketing",
       "promoción",
-      "digital",
-      "marketing"
+      "digital"
     ],
     "cpv": "18712624, 92521100, 92110000"
   },
@@ -68,8 +68,8 @@
     "kw": [
       "CPV:diseño",
       "digital",
-      "marca",
-      "promoción"
+      "promoción",
+      "marca"
     ],
     "cpv": "18841787, 71351900, 34928470"
   },
