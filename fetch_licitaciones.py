@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-fetch_licitaciones.py — ADG Licitaciones v1.2
+fetch_licitaciones.py — ADG Licitaciones v1.3
 Solo Atom de PLACSP. Mantiene intacto el esquema de salida que consume index.html.
 
-Cambios v1.2:
+Cambios v1.3:
 - Sigue usando solo Atom de PLACSP.
 - Mantiene exactamente las mismas claves de salida JSON.
 - Endurece el scoring para reducir falsos positivos con términos demasiado genéricos.
 - Intenta extraer mejor organismo, presupuesto y fecha límite desde el payload completo del entry.
+
+Cambios v1.3:
+- Match CPV por prefijo de familia (5 dígitos) — captura subcódigos de la misma familia.
+- Filtro CPV_VALID_STARTS — elimina falsos positivos de IDs de URL que coincidían con el regex.
+- Resultado esperado: más licitaciones relevantes, menos ruido.
 """
 
 import argparse
@@ -33,7 +38,7 @@ MIN_SCORE = 15
 MAX_ITEMS = 500
 TIMEOUT = 45
 HEADERS = {
-    "User-Agent": "ADG-Licitaciones/1.2 (+https://adg-fad.org)",
+    "User-Agent": "ADG-Licitaciones/1.3 (+https://adg-fad.org)",
     "Accept": "application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
 }
 
@@ -128,6 +133,14 @@ TERR = {
     "NA":"Navarra","PV":"País Vasco","VC":"C. Valenciana","CE":"Ceuta","ML":"Melilla","ES":"Estatal",
 }
 
+# Prefijos de familia CPV (5 dígitos) para match más amplio
+CPV_PREFIXES = {c[:5] for c in CPV}
+
+# Prefijos de 2 dígitos que corresponden a categorías reales de diseño/comunicación
+CPV_VALID_STARTS = {
+    '79','22','34','72','92','55','71','73','75','85','90','98','39','32','48'
+}
+
 NS_ATOM = "http://www.w3.org/2005/Atom"
 
 
@@ -184,7 +197,7 @@ def score_item(titulo, desc, cpv_codes):
     medium_hits = 0
     generic_hits = 0
 
-    if any(c[:8] in CPV for c in cpv_codes):
+    if any(c[:5] in CPV_PREFIXES for c in cpv_codes):
         score += 35
         kws.add("CPV:diseño")
         strong_hits += 1
@@ -400,7 +413,11 @@ def fetch_atom(session, source):
             desc = strip_html(raw)[:1000]
             blob = gather_entry_blob(entry)
 
-            cpv_codes = list(dict.fromkeys(re.findall(r"\b(\d{8})\b", f"{blob} {titulo}")))
+            # Extraer solo CPVs reales (no IDs de URL): 8 dígitos con prefijo de categoría válida
+            cpv_raw = re.findall(r"\b([1-9]\d{7})\b", f"{blob} {titulo}")
+            cpv_codes = list(dict.fromkeys(
+                c for c in cpv_raw if c[:2] in CPV_VALID_STARTS
+            ))
             organisme = extract_org(blob, desc, titulo)
             pressupost = extract_budget(blob)
             fecha_limite = extract_deadline(blob)
@@ -451,7 +468,7 @@ def main():
     args = ap.parse_args()
     MIN_SCORE = args.min_score
 
-    print(f"\n{'═'*55}\n  ADG Licitaciones Fetcher v1.2\n  {datetime.now():%Y-%m-%d %H:%M}\n  Fuentes: solo Atom PLACSP\n  Min score: {MIN_SCORE}\n{'═'*55}\n")
+    print(f"\n{'═'*55}\n  ADG Licitaciones Fetcher v1.3\n  {datetime.now():%Y-%m-%d %H:%M}\n  Fuentes: solo Atom PLACSP\n  Min score: {MIN_SCORE}\n{'═'*55}\n")
 
     session = build_session()
     all_items = []
