@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-fetch_licitaciones.py — ADG Licitaciones v1.3
+fetch_licitaciones.py — ADG Licitaciones v1.4
 Solo Atom de PLACSP. Mantiene intacto el esquema de salida que consume index.html.
 
-Cambios v1.3:
-- Sigue usando solo Atom de PLACSP.
-- Mantiene exactamente las mismas claves de salida JSON.
-- Endurece el scoring para reducir falsos positivos con términos demasiado genéricos.
-- Intenta extraer mejor organismo, presupuesto y fecha límite desde el payload completo del entry.
-
-Cambios v1.3:
-- Match CPV por prefijo de familia (5 dígitos) — captura subcódigos de la misma familia.
-- Filtro CPV_VALID_STARTS — elimina falsos positivos de IDs de URL que coincidían con el regex.
-- Resultado esperado: más licitaciones relevantes, menos ruido.
+Novedades v1.4:
+- Salida en formato envelope: {"data": [...], "generated_at": "ISO 8601"}
+  → index.html v1.4 muestra la fecha real de la última actualización.
+- Campo `adjudicatari`: extrae el adjudicatario del blob XML cuando aparece.
+- Campo `historial`: array de {data, estat, nota} que crece en cada ejecución.
+  → Cuando una licitación cambia de Vigente → Adjudicado/Desierta, se registra.
+- Detección de estado: intenta extraer "Adjudicado"/"Desierta" del contenido del entry.
+- Merge con data.json existente: preserva historial y adjudicatari conocidos.
+- Resto de lógica idéntica a v1.3 (CPV prefix, CPV_VALID_STARTS, scoring).
 """
 
 import argparse
@@ -23,7 +22,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -31,15 +30,15 @@ try:
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
 except ImportError:
-    sys.exit("Instala requests: python -m pip install requests")
+    sys.exit("Instala requests:  python -m pip install requests")
 
 OUTPUT_FILE = Path("data.json")
-MIN_SCORE = 15
-MAX_ITEMS = 500
-TIMEOUT = 45
-HEADERS = {
-    "User-Agent": "ADG-Licitaciones/1.3 (+https://adg-fad.org)",
-    "Accept": "application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+MIN_SCORE   = 15
+MAX_ITEMS   = 500
+TIMEOUT     = 45
+HEADERS     = {
+    "User-Agent": "ADG-Licitaciones/1.4 (+https://adg-fad.org)",
+    "Accept":     "application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
 }
 
 SOURCES = [
@@ -47,7 +46,8 @@ SOURCES = [
         "name": "PLACSP",
         "ccaa": None,
         "kind": "atom",
-        "url": "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
+        "url":  "https://contrataciondelestado.es/sindicacion/sindicacion_643/"
+                "licitacionesPerfilesContratanteCompleto3.atom",
     }
 ]
 
@@ -69,7 +69,6 @@ KW_EXCLUDE = [
     "seguridad privada","catering","residuos","transporte de viajeros","asistencia sanitaria",
 ]
 
-# Señales fuertes: cuando aparecen suelen apuntar claramente a diseño/comunicación.
 STRONG_KW = [
     "diseño gráfico","disseny gràfic","identidad corporativa","identitat corporativa",
     "imagen corporativa","imatge corporativa","manual de identidad","manual de marca",
@@ -82,20 +81,18 @@ STRONG_KW = [
     "producció audiovisual","motion graphics","comunicación institucional",
     "comunicación corporativa","relaciones públicas","museografía","museografia",
     "dirección de arte","direcció d'art","ilustración","il·lustració","tipografía",
-    "logotipo","logotip"
+    "logotipo","logotip",
 ]
 
-# Señales medias: útiles, pero pueden colar ruido si van solas.
 MEDIUM_KW = [
     "branding","marca","editorial","carteles","folletos","fullets","publicidad","publicitat",
     "marketing","impresión","impressió","vídeo","video","fotografía","fotografia",
-    "animación","animació","multimedia","exposición","exposició","stand"
+    "animación","animació","multimedia","exposición","exposició","stand",
 ]
 
-# Señales genéricas: solo suman si aparecen acompañadas por otras pistas.
 GENERIC_KW = [
     "web","portal web","sitio web","contenidos digitales","redes sociales","xarxes socials",
-    "digital","interfaz","app","aplicación","promoción"
+    "digital","interfaz","app","aplicación","promoción",
 ]
 
 DISC_KW = {
@@ -130,52 +127,43 @@ TERR = {
     "AN":"Andalucía","AR":"Aragón","AS":"Asturias","IB":"Baleares","CN":"Canarias",
     "CB":"Cantabria","CM":"Castilla-La Mancha","CL":"Castilla y León","CT":"Catalunya",
     "EX":"Extremadura","GA":"Galicia","RI":"La Rioja","MD":"Madrid","MU":"Murcia",
-    "NA":"Navarra","PV":"País Vasco","VC":"C. Valenciana","CE":"Ceuta","ML":"Melilla","ES":"Estatal",
+    "NA":"Navarra","PV":"País Vasco","VC":"C. Valenciana","CE":"Ceuta","ML":"Melilla",
+    "ES":"Estatal",
 }
 
-# Prefijos de familia CPV (5 dígitos) para match más amplio
-CPV_PREFIXES = {c[:5] for c in CPV}
-
-# Prefijos de 2 dígitos que corresponden a categorías reales de diseño/comunicación
+CPV_PREFIXES    = {c[:5] for c in CPV}
 CPV_VALID_STARTS = {
-    '79','22','34','72','92','55','71','73','75','85','90','98','39','32','48'
+    "79","22","34","72","92","55","71","73","75","85","90","98","39","32","48"
 }
-
 NS_ATOM = "http://www.w3.org/2005/Atom"
 
 
+# ── SESSION ───────────────────────────────────────────────────────────────
 def build_session():
     retry = Retry(
-        total=3,
-        connect=3,
-        read=3,
-        status=3,
+        total=3, connect=3, read=3, status=3,
         backoff_factor=1.0,
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=("HEAD", "GET", "OPTIONS"),
     )
-    adapter = HTTPAdapter(max_retries=retry)
-    session = requests.Session()
-    session.headers.update(HEADERS)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
+    s = requests.Session()
+    s.headers.update(HEADERS)
+    s.mount("https://", HTTPAdapter(max_retries=retry))
+    s.mount("http://",  HTTPAdapter(max_retries=retry))
+    return s
 
 
+# ── TEXT UTILS ────────────────────────────────────────────────────────────
 def strip_html(raw):
     text = html.unescape(raw or "")
     text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    return re.sub(r"\s+", " ", text).strip()
 
-
-def normalize_text(text):
+def norm(text):
     return re.sub(r"\s+", " ", (text or "")).strip().lower()
 
-
-def keyword_match(text, kw):
-    text = normalize_text(text)
-    kw = normalize_text(kw)
+def kw_match(text, kw):
+    text, kw = norm(text), norm(kw)
     if not text or not kw:
         return False
     if kw in {"ux", "ui"}:
@@ -185,63 +173,43 @@ def keyword_match(text, kw):
     return kw in text
 
 
+# ── SCORING ───────────────────────────────────────────────────────────────
 def score_item(titulo, desc, cpv_codes):
-    title_text = normalize_text(titulo)
-    desc_text = normalize_text(desc)
-    full_text = f"{title_text} {desc_text}".strip()
+    title_text = norm(titulo)
+    desc_text  = norm(desc)
+    full_text  = f"{title_text} {desc_text}".strip()
 
-    score = 0
-    discs = set()
-    kws = set()
-    strong_hits = 0
-    medium_hits = 0
-    generic_hits = 0
+    score = 0; discs = set(); kws = set()
+    strong_hits = medium_hits = generic_hits = 0
 
     if any(c[:5] in CPV_PREFIXES for c in cpv_codes):
-        score += 35
-        kws.add("CPV:diseño")
-        strong_hits += 1
+        score += 35; kws.add("CPV:diseño"); strong_hits += 1
 
-    for kw in KW_EXCLUDE:
-        if keyword_match(full_text, kw):
-            score -= 25
-            break
+    if any(kw_match(full_text, kw) for kw in KW_EXCLUDE):
+        score -= 25
 
     for kw in STRONG_KW:
-        if keyword_match(title_text, kw):
-            score += 12
-            kws.add(kw)
-            strong_hits += 1
-        elif keyword_match(desc_text, kw):
-            score += 7
-            kws.add(kw)
-            strong_hits += 1
+        if kw_match(title_text, kw):
+            score += 12; kws.add(kw); strong_hits += 1
+        elif kw_match(desc_text, kw):
+            score += 7;  kws.add(kw); strong_hits += 1
 
     for kw in MEDIUM_KW:
-        if keyword_match(title_text, kw):
-            score += 6
-            kws.add(kw)
-            medium_hits += 1
-        elif keyword_match(desc_text, kw):
-            score += 3
-            kws.add(kw)
-            medium_hits += 1
+        if kw_match(title_text, kw):
+            score += 6; kws.add(kw); medium_hits += 1
+        elif kw_match(desc_text, kw):
+            score += 3; kws.add(kw); medium_hits += 1
 
     for kw in GENERIC_KW:
-        if keyword_match(title_text, kw):
-            score += 2
-            kws.add(kw)
-            generic_hits += 1
-        elif keyword_match(desc_text, kw):
-            score += 1
-            kws.add(kw)
-            generic_hits += 1
+        if kw_match(title_text, kw):
+            score += 2; kws.add(kw); generic_hits += 1
+        elif kw_match(desc_text, kw):
+            score += 1; kws.add(kw); generic_hits += 1
 
     for disc, keys in DISC_KW.items():
-        if any(keyword_match(full_text, k) for k in keys):
+        if any(kw_match(full_text, k) for k in keys):
             discs.add(disc)
 
-    # Penaliza resultados que entran solo por señales flojitas / genéricas.
     evidence = strong_hits + medium_hits
     if evidence == 0 and generic_hits > 0 and not cpv_codes:
         score -= 10
@@ -251,45 +219,41 @@ def score_item(titulo, desc, cpv_codes):
     return max(0, min(100, score)), sorted(discs), list(kws)[:12]
 
 
+# ── FIELD EXTRACTION ──────────────────────────────────────────────────────
 def detect_ccaa(src_ccaa, organisme, lloc):
     if src_ccaa:
         return src_ccaa
-    text = normalize_text(f"{organisme} {lloc}")
+    text = norm(f"{organisme} {lloc}")
     for code, kws in CCAA_KW.items():
-        if any(keyword_match(text, k) for k in kws):
+        if any(kw_match(text, k) for k in kws):
             return code
     return "ES"
-
 
 def parse_budget(text):
     if not text:
         return None
     clean = re.sub(r"[^\d,.-]", "", str(text)).replace(".", "").replace(",", ".")
     try:
-        value = float(clean)
-        return value if value > 100 else None
+        v = float(clean)
+        return v if v > 100 else None
     except Exception:
         return None
-
 
 def ensure_feed_content(content):
     head = content[:3000].lower()
     return (b"<feed" in head) or (b"<entry" in head)
 
-
 def get_entry_text(entry, tag):
     el = entry.find(f"{{{NS_ATOM}}}{tag}")
     if el is None:
         return ""
-    return " ".join(part.strip() for part in el.itertext() if part and part.strip()).strip()
-
+    return " ".join(p.strip() for p in el.itertext() if p and p.strip()).strip()
 
 def parse_atom_entries(root):
     entries = root.findall(f"{{{NS_ATOM}}}entry")
     if entries:
         return entries
-    return [el for el in root.iter() if str(el.tag).endswith("entry")]
-
+    return [e for e in root.iter() if str(e.tag).endswith("entry")]
 
 def extract_link(entry):
     for child in entry.iter():
@@ -300,20 +264,15 @@ def extract_link(entry):
             return child.get("href", "").strip()
     return ""
 
-
 def gather_entry_blob(entry):
     parts = []
-    for elem in entry.iter():
-        if elem.text and elem.text.strip():
-            parts.append(elem.text.strip())
-        if elem.tail and elem.tail.strip():
-            parts.append(elem.tail.strip())
-        for attr in ("term", "label", "title", "href"):
-            val = elem.get(attr)
-            if val:
-                parts.append(val.strip())
+    for el in entry.iter():
+        if el.text  and el.text.strip():  parts.append(el.text.strip())
+        if el.tail  and el.tail.strip():  parts.append(el.tail.strip())
+        for attr in ("term","label","title","href"):
+            val = el.get(attr)
+            if val: parts.append(val.strip())
     return strip_html(" ".join(parts))
-
 
 def extract_org(blob, desc, title):
     text = f"{blob} || {desc} || {title}"
@@ -338,22 +297,18 @@ def extract_org(blob, desc, title):
                 return candidate[:150]
     return ""
 
-
 def extract_budget(blob):
-    patterns = [
-        r"(?:presupuesto base de licitación|presupuesto base de licitacion)[^\d]{0,50}(\d[\d\.,]+)\s*€?",
-        r"(?:importe de licitación|importe de licitacion|importe total|valor estimado)[^\d]{0,50}(\d[\d\.,]+)\s*€?",
+    for pat in [
+        r"(?:presupuesto base de licitaci[oó]n)[^\d]{0,50}(\d[\d\.,]+)\s*€?",
+        r"(?:importe de licitaci[oó]n|importe total|valor estimado)[^\d]{0,50}(\d[\d\.,]+)\s*€?",
         r"(?:presupuesto|importe)[^\d]{0,40}(\d[\d\.,]+)\s*€",
         r"(\d[\d\.,]+)\s*€",
-    ]
-    for pat in patterns:
+    ]:
         m = re.search(pat, blob, re.I)
         if m:
-            value = parse_budget(m.group(1))
-            if value:
-                return value
+            v = parse_budget(m.group(1))
+            if v: return v
     return None
-
 
 def normalize_date_token(token):
     token = token.strip()
@@ -363,19 +318,107 @@ def normalize_date_token(token):
         return f"{token[6:]}-{token[3:5]}-{token[:2]}"
     return ""
 
-
 def extract_deadline(blob):
-    patterns = [
-        r"(?:fecha límite|fecha limite|plazo de presentación|plazo presentación|presentación de ofertas|presentacion de ofertas|termini)[^\d]{0,40}(\d{4}-\d{2}-\d{2})",
-        r"(?:fecha límite|fecha limite|plazo de presentación|plazo presentación|presentación de ofertas|presentacion de ofertas|termini)[^\d]{0,40}(\d{2}/\d{2}/\d{4})",
-    ]
-    for pat in patterns:
+    for pat in [
+        r"(?:fecha l[íi]mite|plazo de presentaci[oó]n|plazo presentaci[oó]n|presentaci[oó]n de ofertas|termini)[^\d]{0,40}(\d{4}-\d{2}-\d{2})",
+        r"(?:fecha l[íi]mite|plazo de presentaci[oó]n|plazo presentaci[oó]n|presentaci[oó]n de ofertas|termini)[^\d]{0,40}(\d{2}/\d{2}/\d{4})",
+    ]:
         m = re.search(pat, blob, re.I)
         if m:
             return normalize_date_token(m.group(1))
     return ""
 
+# ── NEW v1.4: extract adjudicatari ───────────────────────────────────────
+def extract_adjudicatari(blob):
+    """
+    Intenta extraer el nombre del adjudicatario desde el texto del entry Atom.
+    PLACSP publica adjudicaciones en el mismo feed con patrones como:
+      "adjudicado a / empresa adjudicataria / contratista: NOMBRE"
+    """
+    patterns = [
+        r"(?:adjudicado a|adjudicatario|empresa adjudicataria|contratista|licitador seleccionado)\s*[:\-]\s*([^|.;\n]{4,120})",
+        r"(?:empresa|sociedad|s\.l\.|s\.a\.|s\.l\.u\.|s\.l\.p\.|s\.a\.u\.)\s+([A-ZÁÉÍÓÚÜÑ][^|.;\n]{3,80})",
+    ]
+    for pat in patterns:
+        m = re.search(pat, blob, re.I)
+        if m:
+            candidate = re.sub(r"\s+", " ", m.group(1)).strip(" -:;,.|\"'")
+            # Skip if it looks like a date or number
+            if candidate and not re.match(r"^\d", candidate) and len(candidate) >= 4:
+                return candidate[:120]
+    return ""
 
+# ── NEW v1.4: detect estat ───────────────────────────────────────────────
+def extract_estat(blob):
+    """
+    Detecta si el entry indica que la licitación está Adjudicada o Desierta.
+    Por defecto devuelve Vigente.
+    """
+    b = norm(blob)
+    if re.search(r"\badjudica(?:do|da|t|ción)\b", b):
+        return "Adjudicado"
+    if any(w in b for w in ["desierta","deserta","sin adjudicar","sense adjudicació"]):
+        return "Desierta"
+    return "Vigente"
+
+# ── NEW v1.4: load previous data for merge ───────────────────────────────
+def load_previous(path: Path) -> dict:
+    """
+    Carga data.json existente y devuelve un dict {item_id: item}.
+    Soporta tanto el formato antiguo (array) como el nuevo envelope.
+    """
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        items = raw.get("data", raw) if isinstance(raw, dict) else raw
+        if not isinstance(items, list):
+            return {}
+        return {item["id"]: item for item in items if "id" in item}
+    except Exception as e:
+        print(f"  [!] No se pudo leer data.json anterior: {e}")
+        return {}
+
+# ── NEW v1.4: merge historial + adjudicatari ──────────────────────────────
+def merge_with_previous(new_items: list, previous: dict, today: str) -> list:
+    """
+    Para cada item nuevo:
+    - Si ya existía: preserva historial, detecta cambios de estado, actualiza adjudicatari.
+    - Si es nuevo: añade entrada inicial al historial.
+    """
+    result = []
+    for item in new_items:
+        prev = previous.get(item["id"])
+        if prev:
+            # Preserve historial from previous run
+            item["historial"] = prev.get("historial", [])
+            # Preserve adjudicatari if we found a better one now
+            if not item.get("adjudicatari") and prev.get("adjudicatari"):
+                item["adjudicatari"] = prev["adjudicatari"]
+            # Detect state change
+            prev_estat = prev.get("estat", "Vigente")
+            new_estat  = item.get("estat", "Vigente")
+            if new_estat != prev_estat:
+                entry = {
+                    "data":  today,
+                    "estat": new_estat,
+                    "nota":  f"Cambio de estado: {prev_estat} → {new_estat}",
+                }
+                if item.get("adjudicatari") and new_estat == "Adjudicado":
+                    entry["nota"] = f"Adjudicado a {item['adjudicatari']}"
+                item["historial"].append(entry)
+        else:
+            # Brand new item — create initial historial entry
+            item["historial"] = [{
+                "data":  item.get("data_pub", today),
+                "estat": item.get("estat", "Vigente"),
+                "nota":  "Publicación",
+            }]
+        result.append(item)
+    return result
+
+
+# ── ATOM FETCHER ─────────────────────────────────────────────────────────
 def fetch_atom(session, source):
     name, ccaa, url = source["name"], source.get("ccaa"), source["url"]
     print(f"  ↓ {name}: {url[:72]}…")
@@ -383,22 +426,20 @@ def fetch_atom(session, source):
         r = session.get(url, timeout=TIMEOUT)
         r.raise_for_status()
     except Exception as e:
-        print(f"    [!] {e}")
-        return []
+        print(f"    [!] {e}"); return []
 
     if not ensure_feed_content(r.content):
-        print(f"    [!] respuesta no parece Atom/XML ({r.headers.get('content-type','?')})")
-        return []
+        print(f"    [!] respuesta no parece Atom/XML ({r.headers.get('content-type','?')})"); return []
 
     try:
         root = ET.fromstring(r.content)
     except ET.ParseError as e:
-        print(f"    [!] XML: {e}")
-        return []
+        print(f"    [!] XML: {e}"); return []
 
-    entries = parse_atom_entries(root)
+    entries  = parse_atom_entries(root)
     print(f"    → {len(entries)} entries")
-    results = []
+    results  = []
+    today    = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     for entry in entries:
         try:
@@ -406,50 +447,54 @@ def fetch_atom(session, source):
             if not titulo:
                 continue
 
-            url_item = extract_link(entry)
-            item_id = (get_entry_text(entry, "id") or url_item or hashlib.md5(titulo.encode("utf-8")).hexdigest())
-            fecha_pub = (get_entry_text(entry, "published") or get_entry_text(entry, "updated"))[:10]
-            raw = get_entry_text(entry, "content") or get_entry_text(entry, "summary")
-            desc = strip_html(raw)[:1000]
-            blob = gather_entry_blob(entry)
+            url_item  = extract_link(entry)
+            item_id   = (get_entry_text(entry, "id") or url_item
+                         or hashlib.md5(titulo.encode("utf-8")).hexdigest())
+            fecha_pub = (get_entry_text(entry, "published") or get_entry_text(entry, "updated") or today)[:10]
+            raw       = get_entry_text(entry, "content") or get_entry_text(entry, "summary")
+            desc      = strip_html(raw)[:1000]
+            blob      = gather_entry_blob(entry)
 
-            # Extraer solo CPVs reales (no IDs de URL): 8 dígitos con prefijo de categoría válida
-            cpv_raw = re.findall(r"\b([1-9]\d{7})\b", f"{blob} {titulo}")
-            cpv_codes = list(dict.fromkeys(
-                c for c in cpv_raw if c[:2] in CPV_VALID_STARTS
-            ))
-            organisme = extract_org(blob, desc, titulo)
-            pressupost = extract_budget(blob)
-            fecha_limite = extract_deadline(blob)
+            # CPV: only real codes (8 digits, valid category prefix)
+            cpv_raw   = re.findall(r"\b([1-9]\d{7})\b", f"{blob} {titulo}")
+            cpv_codes = list(dict.fromkeys(c for c in cpv_raw if c[:2] in CPV_VALID_STARTS))
+
+            organisme   = extract_org(blob, desc, titulo)
+            pressupost  = extract_budget(blob)
+            fecha_limit = extract_deadline(blob)
+            estat       = extract_estat(blob)
+            adjudicatari = extract_adjudicatari(blob) if estat == "Adjudicado" else ""
 
             score, discs, kws = score_item(titulo, blob or desc, cpv_codes)
             if score < MIN_SCORE:
                 continue
 
             item_ccaa = detect_ccaa(ccaa, organisme, blob)
-            lloc = TERR.get(item_ccaa, "")
+            lloc  = TERR.get(item_ccaa, "")
             tipus = "Servicios"
-            low = normalize_text(f"{titulo} {blob}")
+            low   = norm(f"{titulo} {blob}")
             if "suministro" in low or "subministrament" in low:
                 tipus = "Suministros"
 
             results.append({
-                "id": item_id[:80],
-                "titol": titulo[:200],
-                "organisme": organisme[:150],
-                "tipus": tipus,
-                "pressupost": pressupost,
-                "disciplines": discs,
-                "ccaa": item_ccaa,
-                "lloc": lloc,
-                "data_pub": fecha_pub,
-                "data_limit": fecha_limite,
-                "estat": "Vigente",
-                "rellevancia": score,
-                "url": url_item[:300],
-                "font": name,
-                "kw": kws,
-                "cpv": ", ".join(cpv_codes[:3]),
+                "id":           item_id[:80],
+                "titol":        titulo[:200],
+                "organisme":    organisme[:150],
+                "adjudicatari": adjudicatari[:120],
+                "tipus":        tipus,
+                "pressupost":   pressupost,
+                "disciplines":  discs,
+                "ccaa":         item_ccaa,
+                "lloc":         lloc,
+                "data_pub":     fecha_pub,
+                "data_limit":   fecha_limit,
+                "estat":        estat,
+                "rellevancia":  score,
+                "url":          url_item[:300],
+                "font":         name,
+                "kw":           kws,
+                "cpv":          ", ".join(cpv_codes[:3]),
+                "historial":    [],   # filled by merge_with_previous
             })
         except Exception as e:
             print(f"    [!] entry: {e}")
@@ -458,27 +503,42 @@ def fetch_atom(session, source):
     return results
 
 
+# ── MAIN ─────────────────────────────────────────────────────────────────
 def main():
     global MIN_SCORE
 
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--stats", action="store_true")
-    ap.add_argument("--output", default=str(OUTPUT_FILE))
+    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.4")
+    ap.add_argument("--stats",     action="store_true", help="Solo mostrar stats, no guardar")
+    ap.add_argument("--output",    default=str(OUTPUT_FILE))
     ap.add_argument("--min-score", type=int, default=MIN_SCORE)
-    args = ap.parse_args()
+    args     = ap.parse_args()
     MIN_SCORE = args.min_score
 
-    print(f"\n{'═'*55}\n  ADG Licitaciones Fetcher v1.3\n  {datetime.now():%Y-%m-%d %H:%M}\n  Fuentes: solo Atom PLACSP\n  Min score: {MIN_SCORE}\n{'═'*55}\n")
+    today    = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now_iso  = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    out_path = Path(args.output)
 
-    session = build_session()
+    print(f"\n{'═'*55}")
+    print(f"  ADG Licitaciones Fetcher v1.4")
+    print(f"  {datetime.now():%Y-%m-%d %H:%M}")
+    print(f"  Fuentes: solo Atom PLACSP")
+    print(f"  Min score: {MIN_SCORE}")
+    print(f"{'═'*55}\n")
+
+    # Load previous data for merge
+    previous = load_previous(out_path)
+    print(f"  Datos anteriores: {len(previous)} items\n")
+
+    session   = build_session()
     all_items = []
     for src in SOURCES:
         all_items.extend(fetch_atom(session, src))
         print()
 
+    # Dedup (keep highest score per id)
     seen = {}
     for item in all_items:
-        key = item["id"] or item["url"] or hashlib.md5(item["titol"].encode("utf-8")).hexdigest()
+        key = item["id"] or item["url"] or hashlib.md5(item["titol"].encode()).hexdigest()
         if key not in seen or item["rellevancia"] > seen[key]["rellevancia"]:
             seen[key] = item
 
@@ -487,24 +547,57 @@ def main():
         key=lambda x: (-x["rellevancia"], -(x["pressupost"] or 0), x.get("data_limit") or "9999-99-99"),
     )[:MAX_ITEMS]
 
+    # Merge historial + adjudicatari with previous run
+    unique = merge_with_previous(unique, previous, today)
+
+    # Also carry forward items from previous run that weren't in this fetch
+    # (e.g. Adjudicados that fall off the feed but we want to keep in history)
+    prev_ids      = {item["id"] for item in unique}
+    carried_over  = []
+    for pid, pitem in previous.items():
+        if pid not in prev_ids:
+            carried_over.append(pitem)
+    # Keep carried-over items sorted after fresh ones, up to MAX_ITEMS total
+    combined = unique + sorted(
+        carried_over,
+        key=lambda x: (-x.get("rellevancia",0), x.get("data_limit") or "9999")
+    )
+    combined = combined[:MAX_ITEMS]
+
+    # ── Stats ────────────────────────────────────────────────────────────
+    adj_count   = sum(1 for x in combined if x.get("estat") == "Adjudicado")
+    new_today   = sum(1 for x in combined if x.get("data_pub","") == today)
+
     print(f"{'─'*40}")
-    print(f"  Total único:   {len(unique)}")
-    print(f"  Con ppto:      {sum(1 for x in unique if x['pressupost'])}")
-    print(f"  Alta rel (≥70):{sum(1 for x in unique if x['rellevancia'] >= 70)}")
+    print(f"  Total único:       {len(combined)}")
+    print(f"  Con ppto:          {sum(1 for x in combined if x.get('pressupost'))}")
+    print(f"  Alta rel (≥70):    {sum(1 for x in combined if x.get('rellevancia',0) >= 70)}")
+    print(f"  Adjudicados:       {adj_count}")
+    print(f"  Nuevos hoy:        {new_today}")
+    print(f"  Carried-over:      {len(carried_over)}")
     print("  Fuentes:")
-    for s, n in Counter(x["font"] for x in unique).most_common():
+    for s, n in Counter(x["font"] for x in combined).most_common():
         print(f"    {s:<20} {n}")
     print("  CCAA:")
-    for c, n in Counter(x["ccaa"] for x in unique).most_common(8):
+    for c, n in Counter(x["ccaa"] for x in combined).most_common(8):
         print(f"    {TERR.get(c, c):<25} {n}")
 
     if args.stats:
         print("\n  (--stats: no guardado)")
         return
 
-    out = Path(args.output)
-    out.write_text(json.dumps(unique, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"\n✅ {out.resolve()} ({out.stat().st_size//1024}KB) — {len(unique)} licitaciones\n")
+    # ── Write envelope ───────────────────────────────────────────────────
+    envelope = {
+        "generated_at": now_iso,
+        "count":        len(combined),
+        "data":         combined,
+    }
+    out_path.write_text(
+        json.dumps(envelope, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+    print(f"\n✅ {out_path.resolve()} ({out_path.stat().st_size // 1024}KB)")
+    print(f"   {len(combined)} licitaciones · generated_at: {now_iso}\n")
 
 
 if __name__ == "__main__":
