@@ -1,210 +1,256 @@
-[
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18773",
-    "titol": "Servicios de diseño y maquetación de la Memoria Anual y Memoria de Sostenibilidad de la Autoridad Portuaria de Las Palmas.",
-    "organisme": "Presidencia de la Autoridad Portuaria de Las Palmas",
-    "tipus": "Servicios",
-    "pressupost": null,
-    "disciplines": [
-      "editorial"
-    ],
-    "ccaa": "CN",
-    "lloc": "Canarias",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 59,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "maquetación",
-      "maquetació",
-      "CPV:diseño"
-    ],
-    "cpv": "79822500"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18712",
-    "titol": "Consistente en proveer de herramientas digitales al nuevo equipamiento turístico - Museo Palacete de Dª Isabel de Baltasara (Villanueva del Río Segura) para el Valle de Ricote, que den soporte al Plan",
-    "organisme": "Junta de Gobierno Local del Ayuntamiento de Villanueva del Río Segura",
-    "tipus": "Suministros",
-    "pressupost": null,
-    "disciplines": [
-      "publicitat",
-      "uxui"
-    ],
-    "ccaa": "MU",
-    "lloc": "Murcia",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 45,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=oEUR5rpdDEHECtSnloz%2BZQ%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "aplicación",
-      "digital",
-      "CPV:diseño",
-      "promoción",
-      "marketing"
-    ],
-    "cpv": "92521100, 92110000, 72212000"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18943",
-    "titol": "Secretaría técnica para la organización del III Congreso Puerto Sostenible.",
-    "organisme": "Presidencia de la Autoridad Portuaria de Bilbao",
-    "tipus": "Servicios",
-    "pressupost": null,
-    "disciplines": [],
-    "ccaa": "PV",
-    "lloc": "País Vasco",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 42,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=aESPZokRZ8R9Zh%2FyRJgM8w%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "imagen corporativa",
-      "CPV:diseño"
-    ],
-    "cpv": "79950000, 39525305"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/17839",
-    "titol": "Servicio de elaboración de la revista digital PATRAC -Plan de actuaciones para la tenencia responsable de animales de compañía-.",
-    "organisme": "Subdirección General de la Oficina Presupuestaria y Gestión Económica",
-    "tipus": "Servicios",
-    "pressupost": 142304.31,
-    "disciplines": [
-      "audiovisual",
-      "editorial",
-      "publicitat"
-    ],
-    "ccaa": "MD",
-    "lloc": "Madrid",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 40,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kQum%2FVDH0J5LAIVZdUs8KA%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "digital",
-      "CPV:diseño",
-      "publicidad"
-    ],
-    "cpv": "79822500"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18841",
-    "titol": "Servicios de diseño, señalización y dinamización de una Ruta de Geoturismo para la puesta en valor del patrimonio geológico y minero del Valle del Nalón",
-    "organisme": "Presidencia de la Mancomunidad de Servicios del Valle del Nalón",
-    "tipus": "Servicios",
-    "pressupost": 25000.0,
-    "disciplines": [
-      "publicitat",
-      "senyaletica"
-    ],
-    "ccaa": "AS",
-    "lloc": "Asturias",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 40,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=GdZkuo4A8%2F%2BS81gZFETWmA%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "digital",
-      "CPV:diseño",
-      "marca",
-      "promoción"
-    ],
-    "cpv": "71351900, 34928470, 79930000"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19199",
-    "titol": "Suministro de mobiliario urbano (bancos y papeleras) dañados por la DANA, para su homogeneización en los 20 municipios de la Mancomunitat de l'Horta Sud.",
-    "organisme": "Junta de Gobierno de la Mancomunidad Intermunicipal de l'Horta Sud",
-    "tipus": "Suministros",
-    "pressupost": null,
-    "disciplines": [
-      "fotografia"
-    ],
-    "ccaa": "VC",
-    "lloc": "C. Valenciana",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 38,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=akndOB9i8liExvMJXBMHHQ%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "fotografía",
-      "CPV:diseño"
-    ],
-    "cpv": "34928400"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19087",
-    "titol": "Servicios para la organización de las jornadas técnicas de RedIRIS 2026 y 2027",
-    "organisme": "Dirección General de la Entidad Pública Empresarial RED",
-    "tipus": "Servicios",
-    "pressupost": null,
-    "disciplines": [],
-    "ccaa": "MD",
-    "lloc": "Madrid",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 36,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=EBq4BFqt8IRVkTabT%2FRM8A%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "digital",
-      "CPV:diseño"
-    ],
-    "cpv": "79950000, 79951000, 79952000"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18897",
-    "titol": "Suministro en régimen de alquiler, mantenimiento, montaje y desmontaje de módulos sanitarios y equipo de 2 bombas para los módulos del muelle de amarres deportivos (lote 1) y de maquinaria y vallados ",
-    "organisme": "Agencia de Desarrollo Regional de las Illes Balears",
-    "tipus": "Suministros",
-    "pressupost": null,
-    "disciplines": [],
-    "ccaa": "IB",
-    "lloc": "Baleares",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 35,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=hEBoJ5mxtoDI8aL3PRS10Q%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "CPV:diseño"
-    ],
-    "cpv": "34928200"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18956",
-    "titol": "Servicio de desarrollo de guías interactivas y planificación personalizadas de rutas turísticas del Municipio de Los Realejos ( Tenerife), por procedimiento abierto simplificado sumario con varios cri",
-    "organisme": "Gestión de Proyectos y Estudios Turísticos en Canarias S",
-    "tipus": "Servicios",
-    "pressupost": null,
-    "disciplines": [],
-    "ccaa": "CT",
-    "lloc": "Catalunya",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 35,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=3lZh24ict8dSYrkJkLlFdw%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "CPV:diseño"
-    ],
-    "cpv": "72212331, 79800000"
-  }
-]
+{
+  "generated_at": "2026-03-09T23:43:04Z",
+  "count": 9,
+  "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18773",
+      "titol": "Servicios de diseño y maquetación de la Memoria Anual y Memoria de Sostenibilidad de la Autoridad Portuaria de Las Palmas.",
+      "organisme": "Presidencia de la Autoridad Portuaria de Las Palmas",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [
+        "editorial"
+      ],
+      "ccaa": "CN",
+      "lloc": "Canarias",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 59,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "maquetació",
+        "maquetación",
+        "CPV:diseño"
+      ],
+      "cpv": "79822500",
+      "historial": []
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18712",
+      "titol": "Consistente en proveer de herramientas digitales al nuevo equipamiento turístico - Museo Palacete de Dª Isabel de Baltasara (Villanueva del Río Segura) para el Valle de Ricote, que den soporte al Plan",
+      "organisme": "Junta de Gobierno Local del Ayuntamiento de Villanueva del Río Segura",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": null,
+      "disciplines": [
+        "publicitat",
+        "uxui"
+      ],
+      "ccaa": "MU",
+      "lloc": "Murcia",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 45,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=oEUR5rpdDEHECtSnloz%2BZQ%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "CPV:diseño",
+        "digital",
+        "marketing",
+        "promoción",
+        "aplicación"
+      ],
+      "cpv": "92521100, 92110000, 72212000",
+      "historial": []
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18943",
+      "titol": "Secretaría técnica para la organización del III Congreso Puerto Sostenible.",
+      "organisme": "Presidencia de la Autoridad Portuaria de Bilbao",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "PV",
+      "lloc": "País Vasco",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 42,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=aESPZokRZ8R9Zh%2FyRJgM8w%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "imagen corporativa",
+        "CPV:diseño"
+      ],
+      "cpv": "79950000, 39525305",
+      "historial": [
+        {
+          "data": "2026-03-09",
+          "estat": "Adjudicado",
+          "nota": "Cambio de estado: Vigente → Adjudicado"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/17839",
+      "titol": "Servicio de elaboración de la revista digital PATRAC -Plan de actuaciones para la tenencia responsable de animales de compañía-.",
+      "organisme": "Subdirección General de la Oficina Presupuestaria y Gestión Económica",
+      "adjudicatari": "ES MÁLAGA 29016 ES 41105 49737",
+      "tipus": "Servicios",
+      "pressupost": 142304.31,
+      "disciplines": [
+        "audiovisual",
+        "editorial",
+        "publicitat"
+      ],
+      "ccaa": "MD",
+      "lloc": "Madrid",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kQum%2FVDH0J5LAIVZdUs8KA%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "publicidad",
+        "digital",
+        "CPV:diseño"
+      ],
+      "cpv": "79822500",
+      "historial": [
+        {
+          "data": "2026-03-09",
+          "estat": "Adjudicado",
+          "nota": "Adjudicado a ES MÁLAGA 29016 ES 41105 49737"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18841",
+      "titol": "Servicios de diseño, señalización y dinamización de una Ruta de Geoturismo para la puesta en valor del patrimonio geológico y minero del Valle del Nalón",
+      "organisme": "Presidencia de la Mancomunidad de Servicios del Valle del Nalón",
+      "adjudicatari": "presentará una declaración responsable indicando el volumen anual de negocios de",
+      "tipus": "Servicios",
+      "pressupost": 25000.0,
+      "disciplines": [
+        "publicitat",
+        "senyaletica"
+      ],
+      "ccaa": "AS",
+      "lloc": "Asturias",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=GdZkuo4A8%2F%2BS81gZFETWmA%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "promoción",
+        "digital",
+        "CPV:diseño",
+        "marca"
+      ],
+      "cpv": "71351900, 34928470, 79930000",
+      "historial": [
+        {
+          "data": "2026-03-09",
+          "estat": "Adjudicado",
+          "nota": "Adjudicado a presentará una declaración responsable indicando el volumen anual de negocios de"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19199",
+      "titol": "Suministro de mobiliario urbano (bancos y papeleras) dañados por la DANA, para su homogeneización en los 20 municipios de la Mancomunitat de l'Horta Sud.",
+      "organisme": "Junta de Gobierno de la Mancomunidad Intermunicipal de l'Horta Sud",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": null,
+      "disciplines": [
+        "fotografia"
+      ],
+      "ccaa": "VC",
+      "lloc": "C. Valenciana",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 38,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=akndOB9i8liExvMJXBMHHQ%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "fotografía",
+        "CPV:diseño"
+      ],
+      "cpv": "34928400",
+      "historial": []
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19087",
+      "titol": "Servicios para la organización de las jornadas técnicas de RedIRIS 2026 y 2027",
+      "organisme": "Dirección General de la Entidad Pública Empresarial RED",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "MD",
+      "lloc": "Madrid",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 36,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=EBq4BFqt8IRVkTabT%2FRM8A%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "digital",
+        "CPV:diseño"
+      ],
+      "cpv": "79950000, 79951000, 79952000",
+      "historial": []
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18897",
+      "titol": "Suministro en régimen de alquiler, mantenimiento, montaje y desmontaje de módulos sanitarios y equipo de 2 bombas para los módulos del muelle de amarres deportivos (lote 1) y de maquinaria y vallados ",
+      "organisme": "Agencia de Desarrollo Regional de las Illes Balears",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "IB",
+      "lloc": "Baleares",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=hEBoJ5mxtoDI8aL3PRS10Q%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "CPV:diseño"
+      ],
+      "cpv": "34928200",
+      "historial": []
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18956",
+      "titol": "Servicio de desarrollo de guías interactivas y planificación personalizadas de rutas turísticas del Municipio de Los Realejos ( Tenerife), por procedimiento abierto simplificado sumario con varios cri",
+      "organisme": "Gestión de Proyectos y Estudios Turísticos en Canarias S",
+      "adjudicatari": "MP Las Palmas de Gran Canaria 35004 C/León y Castillo, 200-6ª planta ES España Ge",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=3lZh24ict8dSYrkJkLlFdw%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "CPV:diseño"
+      ],
+      "cpv": "72212331, 79800000",
+      "historial": [
+        {
+          "data": "2026-03-09",
+          "estat": "Adjudicado",
+          "nota": "Adjudicado a MP Las Palmas de Gran Canaria 35004 C/León y Castillo, 200-6ª planta ES España Ge"
+        }
+      ]
+    }
+  ]
+}
