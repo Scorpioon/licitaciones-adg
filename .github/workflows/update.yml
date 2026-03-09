@@ -1,9 +1,13 @@
 name: Actualizar licitaciones
 
 on:
+
   schedule:
     - cron: '0 7 * * 1-5'   # Lunes-viernes 9:00h Madrid
-  workflow_dispatch:          
+  workflow_dispatch:    
+
+permissions:
+ contents: write
 
 jobs:
   update:
