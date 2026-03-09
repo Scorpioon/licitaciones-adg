@@ -1,5 +1,29 @@
 [
   {
+    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18773",
+    "titol": "Servicios de diseño y maquetación de la Memoria Anual y Memoria de Sostenibilidad de la Autoridad Portuaria de Las Palmas.",
+    "organisme": "Presidencia de la Autoridad Portuaria de Las Palmas",
+    "tipus": "Servicios",
+    "pressupost": null,
+    "disciplines": [
+      "editorial"
+    ],
+    "ccaa": "CN",
+    "lloc": "Canarias",
+    "data_pub": "2026-03-09",
+    "data_limit": "",
+    "estat": "Vigente",
+    "rellevancia": 59,
+    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
+    "font": "PLACSP",
+    "kw": [
+      "maquetación",
+      "maquetació",
+      "CPV:diseño"
+    ],
+    "cpv": "79822500"
+  },
+  {
     "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18712",
     "titol": "Consistente en proveer de herramientas digitales al nuevo equipamiento turístico - Museo Palacete de Dª Isabel de Baltasara (Villanueva del Río Segura) para el Valle de Ricote, que den soporte al Plan",
     "organisme": "Junta de Gobierno Local del Ayuntamiento de Villanueva del Río Segura",
@@ -19,12 +43,12 @@
     "font": "PLACSP",
     "kw": [
       "aplicación",
+      "digital",
       "CPV:diseño",
-      "marketing",
       "promoción",
-      "digital"
+      "marketing"
     ],
-    "cpv": "18712624, 92521100, 92110000"
+    "cpv": "92521100, 92110000, 72212000"
   },
   {
     "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18943",
@@ -42,10 +66,36 @@
     "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=aESPZokRZ8R9Zh%2FyRJgM8w%3D%3D",
     "font": "PLACSP",
     "kw": [
-      "CPV:diseño",
-      "imagen corporativa"
+      "imagen corporativa",
+      "CPV:diseño"
     ],
-    "cpv": "18943035, 79950000, 39525305"
+    "cpv": "79950000, 39525305"
+  },
+  {
+    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/17839",
+    "titol": "Servicio de elaboración de la revista digital PATRAC -Plan de actuaciones para la tenencia responsable de animales de compañía-.",
+    "organisme": "Subdirección General de la Oficina Presupuestaria y Gestión Económica",
+    "tipus": "Servicios",
+    "pressupost": 142304.31,
+    "disciplines": [
+      "audiovisual",
+      "editorial",
+      "publicitat"
+    ],
+    "ccaa": "MD",
+    "lloc": "Madrid",
+    "data_pub": "2026-03-09",
+    "data_limit": "",
+    "estat": "Vigente",
+    "rellevancia": 40,
+    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kQum%2FVDH0J5LAIVZdUs8KA%3D%3D",
+    "font": "PLACSP",
+    "kw": [
+      "digital",
+      "CPV:diseño",
+      "publicidad"
+    ],
+    "cpv": "79822500"
   },
   {
     "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18841",
@@ -66,12 +116,35 @@
     "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=GdZkuo4A8%2F%2BS81gZFETWmA%3D%3D",
     "font": "PLACSP",
     "kw": [
-      "CPV:diseño",
       "digital",
-      "promoción",
-      "marca"
+      "CPV:diseño",
+      "marca",
+      "promoción"
     ],
-    "cpv": "18841787, 71351900, 34928470"
+    "cpv": "71351900, 34928470, 79930000"
+  },
+  {
+    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19199",
+    "titol": "Suministro de mobiliario urbano (bancos y papeleras) dañados por la DANA, para su homogeneización en los 20 municipios de la Mancomunitat de l'Horta Sud.",
+    "organisme": "Junta de Gobierno de la Mancomunidad Intermunicipal de l'Horta Sud",
+    "tipus": "Suministros",
+    "pressupost": null,
+    "disciplines": [
+      "fotografia"
+    ],
+    "ccaa": "VC",
+    "lloc": "C. Valenciana",
+    "data_pub": "2026-03-09",
+    "data_limit": "",
+    "estat": "Vigente",
+    "rellevancia": 38,
+    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=akndOB9i8liExvMJXBMHHQ%3D%3D",
+    "font": "PLACSP",
+    "kw": [
+      "fotografía",
+      "CPV:diseño"
+    ],
+    "cpv": "34928400"
   },
   {
     "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19087",
@@ -89,30 +162,30 @@
     "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=EBq4BFqt8IRVkTabT%2FRM8A%3D%3D",
     "font": "PLACSP",
     "kw": [
-      "CPV:diseño",
-      "digital"
+      "digital",
+      "CPV:diseño"
     ],
-    "cpv": "19087401, 79950000, 79951000"
+    "cpv": "79950000, 79951000, 79952000"
   },
   {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19199",
-    "titol": "Contrato de difusión publicitaria entre la Autoridad Portuaria de Barcelona y el Periódico de Catalunya, S.L. Clave de expediente: 2026P050035.",
-    "organisme": "Presidencia del Consejo de Administración de la Autoridad Portuaria de Barcelona (PORT DE BARCELONA)",
-    "tipus": "Servicios",
+    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18897",
+    "titol": "Suministro en régimen de alquiler, mantenimiento, montaje y desmontaje de módulos sanitarios y equipo de 2 bombas para los módulos del muelle de amarres deportivos (lote 1) y de maquinaria y vallados ",
+    "organisme": "Agencia de Desarrollo Regional de las Illes Balears",
+    "tipus": "Suministros",
     "pressupost": null,
     "disciplines": [],
-    "ccaa": "CT",
-    "lloc": "Catalunya",
+    "ccaa": "IB",
+    "lloc": "Baleares",
     "data_pub": "2026-03-09",
     "data_limit": "",
     "estat": "Vigente",
     "rellevancia": 35,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=CJFunoqpd8bzAq95uGTrDQ%3D%3D",
+    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=hEBoJ5mxtoDI8aL3PRS10Q%3D%3D",
     "font": "PLACSP",
     "kw": [
       "CPV:diseño"
     ],
-    "cpv": "19199293, 79341000, 92400000"
+    "cpv": "34928200"
   },
   {
     "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18956",
@@ -132,29 +205,6 @@
     "kw": [
       "CPV:diseño"
     ],
-    "cpv": "18956130, 72212331, 79800000"
-  },
-  {
-    "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18773",
-    "titol": "Servicios de diseño y maquetación de la Memoria Anual y Memoria de Sostenibilidad de la Autoridad Portuaria de Las Palmas.",
-    "organisme": "Presidencia de la Autoridad Portuaria de Las Palmas",
-    "tipus": "Servicios",
-    "pressupost": null,
-    "disciplines": [
-      "editorial"
-    ],
-    "ccaa": "CN",
-    "lloc": "Canarias",
-    "data_pub": "2026-03-09",
-    "data_limit": "",
-    "estat": "Vigente",
-    "rellevancia": 24,
-    "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
-    "font": "PLACSP",
-    "kw": [
-      "maquetació",
-      "maquetación"
-    ],
-    "cpv": "18773656, 79822500, 20251226"
+    "cpv": "72212331, 79800000"
   }
 ]
