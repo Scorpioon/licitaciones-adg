@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-fetch_licitaciones.py — ADG Licitaciones v1.5
+fetch_licitaciones.py — ADG Licitaciones v1.6
 Fetcher para licitaciones públicas relevantes al diseño gráfico y comunicación visual.
 
 ARQUITECTURA (leer antes de modificar):
@@ -15,6 +15,15 @@ ARQUITECTURA (leer antes de modificar):
   3. Lista de exclusión agresiva aplicada sobre el título.
   4. Scoring separado: título pesa 2x más que descripción.
   5. --enrich: para adjudicatarios, scraping del HTML de detalle (lento, manual).
+
+  v1.6 cambios (2026-03-10):
+  - Paginación real con rel="next" según spec PLACSP v1.3 (RFC 5005).
+    Antes: solo una página con ?numItems=N. Ahora: sigue links rel="next"
+    hasta --pages páginas. Esto permite acceder al histórico completo.
+  - Budget regex ampliado: captura formato PLACSP summary "Importe:NNNNEUR"
+  - extract_estat_xml(): usa ContractFolderStatusCode (ADJ/PUB/RES/DES/EV)
+    en lugar de solo regex sobre texto libre. Más fiable para feed 1044.
+  - extract_org_xml(): añadida ruta LocatedContractingParty según spec §4.17.
 
 Dependencias: pip install requests
 """
@@ -453,8 +462,15 @@ def extract_deadline_xml(entry) -> str:
     return ""
 
 def extract_org_xml(entry) -> str:
-    """Extract contracting body name from UBL XML."""
+    """Extract contracting body name from UBL XML.
+    See spec §4.17: LocatedContractingParty/Party/PartyName/Name
+    Also tries ContractingParty paths for direct PLACSP entries.
+    """
     for path in [
+        # spec §4.17 — primary path for aggregated platforms (feed 1044)
+        ("LocatedContractingParty", "Party", "PartyName", "Name"),
+        ("LocatedContractingParty", "PartyName", "Name"),
+        # UBL standard paths (feed 643 / full CODICE)
         ("ContractingParty", "Party", "PartyName", "Name"),
         ("ContractingParty", "PartyName", "Name"),
         ("AccountingSupplierParty", "Party", "PartyName", "Name"),
@@ -475,6 +491,35 @@ def extract_cpv_xml(entry) -> list:
             if re.fullmatch(r"[1-9]\d{7}", text):
                 codes.append(text)
     return list(dict.fromkeys(codes))
+
+
+# Map ContractFolderStatusCode values to our internal estat labels.
+# Source: spec §4.1 + SyndicationContractFolderStatusCode-2.07.gc
+_STATUS_CODES = {
+    "PUB":  "Vigente",   # Publicada / en plazo
+    "PRE":  "Vigente",   # Publicada en preparación
+    "EV":   "Vigente",   # En evaluación de ofertas
+    "ADJ":  "Adjudicado",
+    "RES":  "Adjudicado",  # Resuelta
+    "FOR":  "Adjudicado",  # Formalizada
+    "ANU":  "Desierta",    # Anulada
+    "DES":  "Desierta",    # Desierta
+    "SUS":  "Desierta",    # Suspendida
+    "ANUL": "Desierta",
+}
+
+def extract_estat_xml(entry) -> str:
+    """
+    Extract tender status from ContractFolderStatusCode XML element.
+    See spec §4.1 — more reliable than text regex for feed 1044.
+    Returns 'Adjudicado' | 'Desierta' | 'Vigente' | '' (empty = use text fallback).
+    """
+    for el in entry.iter():
+        if _local(el.tag) == "ContractFolderStatusCode":
+            code = (el.text or "").strip().upper()
+            if code in _STATUS_CODES:
+                return _STATUS_CODES[code]
+    return ""
 
 def parse_atom_entries(root):
     entries = root.findall(f"{{{NS_ATOM}}}entry")
@@ -573,6 +618,10 @@ def extract_budget(content: str):
         r"importe de licitaci[oó]n[^:]*:\s*([\d\.,]+)",
         r"importe total[^:]*:\s*([\d\.,]+)",
         r"presupuesto[^:]*:\s*([\d\.,]+)\s*(?:€|euros|eur)",
+        # PLACSP summary format: "Importe:5000000,00EUR" or "Importe: 200.000 EUR"
+        # See spec §3.1.1 — summary pattern: Importe:N; Estado:X
+        r"[Ii]mporte\s*:?\s*([\d\.,]+)\s*(?:EUR|€|euros|eur)\b",
+        r"[Ii]mporte\s*:?\s*([\d\.,]+)EUR",   # no space variant
         r"([\d\.,]+)\s*(?:€|euros)\b",
     ]
     for pat in patterns:
@@ -720,104 +769,160 @@ def merge_with_previous(new_items: list, previous: dict, today: str) -> list:
 
 
 # ── ATOM FETCHER ──────────────────────────────────────────────────────────
-def fetch_atom(session, source: dict, num_items: int = 100) -> list:
-    name = source["name"]
+def _get_next_url(root) -> str:
+    """
+    Extract rel="next" pagination link from Atom feed root.
+    See spec §3.2 (RFC 5005 Paged Feeds).
+    Returns empty string if no next page.
+    """
+    for child in root:
+        tag = _local(child.tag)
+        if tag == "link" and child.get("rel") == "next":
+            href = child.get("href", "").strip()
+            if href:
+                return href
+    return ""
+
+
+def fetch_source(session, source: dict, max_pages: int = 1) -> list:
+    """
+    Fetch a PLACSP Atom source, following rel="next" pagination links.
+
+    v1.6: Each page is ~100 items. --pages N fetches up to N pages total,
+    traversing backwards in time via rel="next". This is the correct way
+    to access historical data per spec §3.2 (RFC 5005 Paged Feeds).
+
+    Previously (v1.5): only one request with ?numItems=N×100.
+    """
+    name     = source["name"]
     src_ccaa = source.get("ccaa")
-    url = source["url"]
-    if num_items > 100:
-        sep = "&" if "?" in url else "?"
-        url = f"{url}{sep}numItems={num_items}"
+    base_url = source["url"]
 
-    print(f"  ↓ {name}  [{num_items} items max]")
-    print(f"    {url[:90]}…")
-    try:
-        r = session.get(url, timeout=TIMEOUT)
-        r.raise_for_status()
-    except Exception as e:
-        print(f"    [!] {e}"); return []
+    print(f"  ↓ {name}  [hasta {max_pages} página(s) × ~100 items]")
 
-    head = r.content[:3000].lower()
-    if b"<feed" not in head and b"<entry" not in head:
-        print(f"    [!] Respuesta no parece Atom (content-type: {r.headers.get('content-type','?')})"); return []
+    all_results   = []
+    seen_ids      = set()
+    url           = base_url
+    pages_done    = 0
+    today         = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    try:
-        root = ET.fromstring(r.content)
-    except ET.ParseError as e:
-        print(f"    [!] XML parse error: {e}"); return []
+    while url and pages_done < max_pages:
+        page_label = f"p{pages_done+1}" if max_pages > 1 else ""
+        print(f"    {url[:90]}{'…' if len(url)>90 else ''} {page_label}")
 
-    entries = parse_atom_entries(root)
-    print(f"    → {len(entries)} entries en el feed")
-
-    results   = []
-    discarded = {"no_title":0,"title_gate":0,"low_score":0}
-    today     = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    for entry in entries:
         try:
-            titulo = get_entry_text(entry, "title")
-            if not titulo:
-                discarded["no_title"] += 1; continue
-
-            # ── HARD GATE: title must contain design keyword (BUG-001 fix) ──
-            if not title_passes_gate(titulo):
-                discarded["title_gate"] += 1; continue
-
-            content  = get_entry_content(entry)
-            url_item = extract_link(entry)
-            item_id  = (get_entry_text(entry,"id") or url_item
-                        or hashlib.md5(titulo.encode()).hexdigest())
-            fecha_pub = (get_entry_text(entry,"published") or
-                         get_entry_text(entry,"updated") or today)[:10]
-
-            # ── CPV: try structured XML first, fallback to <category> ──────
-            cpv_codes = extract_cpv_xml(entry) or extract_cpv_from_categories(entry)
-
-            # ── Fields: try UBL XML first, fallback to regex on text ────────
-            organisme   = extract_org_xml(entry)  or extract_org(content, titulo)
-            pressupost  = extract_budget_xml(entry) or extract_budget(content)
-            fecha_limit = extract_deadline_xml(entry) or extract_deadline(content)
-            estat       = extract_estat(content)
-
-            # ── WinningParty: from UBL XML (the correct source!) ─────────────
-            # See BUGTRACKER BUG-003 + user-confirmed XML structure
-            adjudicatari = ""
-            if estat == "Adjudicado":
-                adjudicatari = extract_winning_party_xml(entry)
-
-            score, discs, kws = score_item(titulo, content, cpv_codes)
-            if score < MIN_SCORE:
-                discarded["low_score"] += 1; continue
-
-            item_ccaa = detect_ccaa(src_ccaa, organisme, content)
-            lloc  = TERR.get(item_ccaa, "")
-            tipus = "Suministros" if re.search(r"\bsuministro\b|\bsubministrament\b", norm(titulo)) else "Servicios"
-
-            results.append({
-                "id":           item_id[:80],
-                "titol":        titulo[:200],
-                "organisme":    organisme[:150],
-                "adjudicatari": adjudicatari[:120],
-                "tipus":        tipus,
-                "pressupost":   pressupost,
-                "disciplines":  discs,
-                "ccaa":         item_ccaa,
-                "lloc":         lloc,
-                "data_pub":     fecha_pub,
-                "data_limit":   fecha_limit,
-                "estat":        estat,
-                "rellevancia":  score,
-                "url":          url_item[:300],
-                "font":         name,
-                "kw":           kws,
-                "cpv":          ", ".join(cpv_codes[:3]),
-                "historial":    [],
-            })
+            r = session.get(url, timeout=TIMEOUT)
+            r.raise_for_status()
         except Exception as e:
-            print(f"    [!] entry error: {e}")
+            print(f"    [!] {e}"); break
 
-    print(f"    → {len(results)} relevantes | descartados: "
-          f"gate={discarded['title_gate']} score={discarded['low_score']} notitle={discarded['no_title']}")
-    return results
+        head = r.content[:3000].lower()
+        if b"<feed" not in head and b"<entry" not in head:
+            print(f"    [!] Respuesta no parece Atom"); break
+
+        try:
+            root = ET.fromstring(r.content)
+        except ET.ParseError as e:
+            print(f"    [!] XML parse error: {e}"); break
+
+        entries = parse_atom_entries(root)
+        print(f"    → {len(entries)} entries")
+
+        discarded = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
+        page_results = []
+
+        for entry in entries:
+            try:
+                titulo = get_entry_text(entry, "title")
+                if not titulo:
+                    discarded["no_title"] += 1; continue
+
+                # ── HARD GATE ──────────────────────────────────────────────
+                if not title_passes_gate(titulo):
+                    discarded["title_gate"] += 1; continue
+
+                content  = get_entry_content(entry)
+                url_item = extract_link(entry)
+                item_id  = (get_entry_text(entry, "id") or url_item
+                            or hashlib.md5(titulo.encode()).hexdigest())
+
+                # Dedup across pages
+                if item_id in seen_ids:
+                    discarded["dup"] += 1; continue
+                seen_ids.add(item_id)
+
+                fecha_pub = (get_entry_text(entry, "published") or
+                             get_entry_text(entry, "updated") or today)[:10]
+
+                # ── CPV: XML first, fallback category ──────────────────────
+                cpv_codes = extract_cpv_xml(entry) or extract_cpv_from_categories(entry)
+
+                # ── Fields: XML first, fallback text regex ──────────────────
+                organisme   = extract_org_xml(entry)  or extract_org(content, titulo)
+                pressupost  = extract_budget_xml(entry) or extract_budget(content)
+                fecha_limit = extract_deadline_xml(entry) or extract_deadline(content)
+
+                # ── Status: XML code first (§4.1), fallback text regex ──────
+                estat = extract_estat_xml(entry) or extract_estat(content)
+
+                # ── WinningParty from UBL XML ───────────────────────────────
+                adjudicatari = ""
+                if estat == "Adjudicado":
+                    adjudicatari = extract_winning_party_xml(entry)
+
+                score, discs, kws = score_item(titulo, content, cpv_codes)
+                if score < MIN_SCORE:
+                    discarded["low_score"] += 1; continue
+
+                item_ccaa = detect_ccaa(src_ccaa, organisme, content)
+                lloc  = TERR.get(item_ccaa, "")
+                tipus = "Suministros" if re.search(r"\bsuministro\b|\bsubministrament\b", norm(titulo)) else "Servicios"
+
+                page_results.append({
+                    "id":           item_id[:80],
+                    "titol":        titulo[:200],
+                    "organisme":    organisme[:150],
+                    "adjudicatari": adjudicatari[:120],
+                    "tipus":        tipus,
+                    "pressupost":   pressupost,
+                    "disciplines":  discs,
+                    "ccaa":         item_ccaa,
+                    "lloc":         lloc,
+                    "data_pub":     fecha_pub,
+                    "data_limit":   fecha_limit,
+                    "estat":        estat,
+                    "rellevancia":  score,
+                    "url":          url_item[:300],
+                    "font":         name,
+                    "kw":           kws,
+                    "cpv":          ", ".join(cpv_codes[:3]),
+                    "historial":    [],
+                })
+            except Exception as e:
+                print(f"    [!] entry error: {e}")
+
+        dup_info = f" dup={discarded['dup']}" if discarded['dup'] else ""
+        print(f"    → {len(page_results)} relevantes | "
+              f"gate={discarded['title_gate']} score={discarded['low_score']} "
+              f"notitle={discarded['no_title']}{dup_info}")
+
+        all_results.extend(page_results)
+        pages_done += 1
+
+        # Follow rel="next" for older pages (historical data)
+        url = _get_next_url(root)
+        if url and pages_done < max_pages:
+            time.sleep(0.4)  # polite delay between pages
+
+    if pages_done > 1:
+        print(f"    ── {pages_done} páginas, {len(all_results)} relevantes en total")
+    return all_results
+
+
+# Keep old name as alias for any callers
+def fetch_atom(session, source: dict, num_items: int = 100) -> list:
+    pages = max(1, num_items // 100)
+    return fetch_source(session, source, max_pages=pages)
 
 
 # ── MAIN ──────────────────────────────────────────────────────────────────
@@ -830,8 +935,9 @@ def main():
     ap.add_argument("--min-score", type=int, default=MIN_SCORE,
                     help=f"Puntuación mínima (default: {MIN_SCORE})")
     ap.add_argument("--pages",     type=int, default=1,
-                    help="Páginas a pedir por feed (~100 items/página, max 5 → 500 items). "
-                         "Usa --pages 5 para backfill histórico 2025–2026.")
+                    help="Páginas a recorrer por feed siguiendo rel='next' (~100 items/página). "
+                         "Usa --pages 10 para backfill histórico 2024–2026. "
+                         "Cada página extra = ~1s de espera. Default: 1")
     ap.add_argument("--source",    choices=["all","643","1044"], default="all",
                     help="Feed a usar: 643 (perfiles), 1044 (agregadas, incluye WinningParty XML), all (ambos). Default: all")
     ap.add_argument("--enrich",    action="store_true",
@@ -846,12 +952,11 @@ def main():
     today   = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     out_path = Path(args.output)
-    num_items = min(args.pages * 100, 500)
 
     print(f"\n{'═'*60}")
-    print(f"  ADG Licitaciones Fetcher v1.5")
+    print(f"  ADG Licitaciones Fetcher v1.6")
     print(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
-    print(f"  Min score:  {MIN_SCORE}  |  Items pedidos: {num_items}")
+    print(f"  Min score:  {MIN_SCORE}  |  Páginas: {args.pages} × ~100 items/feed")
     print(f"  Enrich:     {'SÍ (lento)' if args.enrich else 'NO'}")
     print(f"  Output:     {out_path}")
     print(f"{'═'*60}\n")
@@ -866,7 +971,7 @@ def main():
         s for s in SOURCES if args.source in s["name"]
     ]
     for src in active_sources:
-        all_items.extend(fetch_atom(session, src, num_items=num_items))
+        all_items.extend(fetch_source(session, src, max_pages=args.pages))
         print()
 
     # Dedup (keep highest score per id)
@@ -930,7 +1035,7 @@ def main():
     envelope = {
         "generated_at": now_iso,
         "count":        len(combined),
-        "fetcher_version": "1.5",
+        "fetcher_version": "1.6",
         "data": combined,
     }
     with open(out_path, "w", encoding="utf-8") as f:
