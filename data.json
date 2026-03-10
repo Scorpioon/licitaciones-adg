@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T00:16:13Z",
+  "generated_at": "2026-03-10T07:41:13Z",
   "count": 9,
   "data": [
     {
@@ -21,8 +21,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "maquetación",
         "CPV:diseño",
+        "maquetación",
         "maquetació"
       ],
       "cpv": "79822500",
@@ -48,9 +48,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=oEUR5rpdDEHECtSnloz%2BZQ%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "promoción",
         "aplicación",
         "marketing",
+        "promoción",
         "digital",
         "CPV:diseño"
       ],
@@ -74,8 +74,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=aESPZokRZ8R9Zh%2FyRJgM8w%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "imagen corporativa",
-        "CPV:diseño"
+        "CPV:diseño",
+        "imagen corporativa"
       ],
       "cpv": "79950000",
       "historial": [
@@ -107,9 +107,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kQum%2FVDH0J5LAIVZdUs8KA%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "digital",
+        "CPV:diseño",
         "publicidad",
-        "CPV:diseño"
+        "digital"
       ],
       "cpv": "79822500",
       "historial": [
@@ -140,10 +140,10 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=GdZkuo4A8%2F%2BS81gZFETWmA%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "promoción",
-        "digital",
+        "CPV:diseño",
         "marca",
-        "CPV:diseño"
+        "promoción",
+        "digital"
       ],
       "cpv": "79930000",
       "historial": [
@@ -171,8 +171,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=EBq4BFqt8IRVkTabT%2FRM8A%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "digital",
-        "CPV:diseño"
+        "CPV:diseño",
+        "digital"
       ],
       "cpv": "79950000, 79951000, 79952000",
       "historial": []
