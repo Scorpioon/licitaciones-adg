@@ -84,10 +84,10 @@ i.bi { font-style:normal; line-height:1; display:inline-flex; align-items:center
 .header-actions { display:flex; align-items:center; gap:5px; margin-left:auto; }
 
 /* Lang switcher */
-.lang-wrap { display:flex; border:1px solid var(--border2); border-radius:var(--radius); overflow:hidden; }
+.lang-wrap { display:flex; height:30px; border:1px solid var(--border2); border-radius:var(--radius); overflow:hidden; }
 .lang-btn {
   font-size:9px; letter-spacing:.1em; text-transform:uppercase;
-  padding:5px 7px; background:none; border:none;
+  padding:0 8px; height:100%; background:none; border:none;
   border-right:1px solid var(--border2); color:var(--text3); cursor:pointer;
   line-height:1; transition:all .1s;
 }
@@ -131,7 +131,7 @@ i.bi { font-style:normal; line-height:1; display:inline-flex; align-items:center
   display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
   gap:0; padding:0 16px; border-right:1px solid var(--border2); flex-shrink:0; height:100%;
 }
-.sstat:last-child { border-right:none; margin-left:auto; padding-right:20px; }
+.sstat:last-child { border-right:none; margin-left:auto; padding-right:20px; flex-direction:row; align-items:center; gap:0; }
 .sstat-val { font-size:17px; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
 .sstat-lbl { font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); margin-top:1px; }
 @media (max-width:700px) { .sstat { padding:0 10px; } .sstat-val { font-size:14px; } }
@@ -1231,6 +1231,10 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
       <i class="bi bi-code-slash"></i><span>v1.5.3</span>
+    </span>
+    <div class="footer-sep"></div>
+    <span class="footer-link" style="cursor:default; letter-spacing:.05em; text-transform:none">
+      made with <span style="color:#e44;margin:0 1px">♥</span> by&nbsp;<a href="https://collapsecreative.com" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid var(--border3)">collapsecreative</a>
     </span>
   </div>
 </footer>
