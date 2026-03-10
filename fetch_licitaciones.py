@@ -57,7 +57,6 @@ CPV = {
     "79416000","79416100","79416200",
     "79800000","79810000","79811000","79812000","79820000","79821000","79822000","79823000",
     "22000000","22100000","22140000","22150000","22160000","22462000","22900000",
-    "34928470","34928471",
     "79961000","79961100","79961200","79961300",
     "92111000","92111200","92111210","92111300",
     "72413000","72415000","72420000",
@@ -132,9 +131,10 @@ TERR = {
 }
 
 CPV_PREFIXES    = {c[:5] for c in CPV}
-CPV_VALID_STARTS = {
-    "79","22","34","72","92","55","71","73","75","85","90","98","39","32","48"
-}
+# Only accept 8-digit numbers from categories genuinely related to design/communication.
+# 79=business/advertising/design services, 22=printed matter, 72=IT/web, 92=AV/recreation
+# Removed broad categories (34,55,71,73,75,85,90,98,39,32,48) that caused false positives.
+CPV_VALID_STARTS = {"79","22","72","92"}
 NS_ATOM = "http://www.w3.org/2005/Atom"
 
 
@@ -329,24 +329,67 @@ def extract_deadline(blob):
     return ""
 
 # ── NEW v1.4: extract adjudicatari ───────────────────────────────────────
-def extract_adjudicatari(blob):
+# NUTS/territory codes look like "ES 29016" or "ES612" — not company names
+_NUTS_RE = re.compile(r'^ES[\s\-]?\d', re.I)
+# Common Spanish company suffixes
+_COMPANY_SUFFIX_RE = re.compile(
+    r'\b(?:S\.?\s?L\.?U?\.?|S\.?\s?A\.?U?\.?|S\.?\s?L\.?\s?P\.?|'
+    r'S\.?\s?C\.?\s?L?\.?|S\.?\s?COOP\.?|C\.?\s?B\.?|AIE\.?)\b',
+    re.I
+)
+
+def extract_adjudicatari(blob: str) -> str:
     """
-    Intenta extraer el nombre del adjudicatario desde el texto del entry Atom.
-    PLACSP publica adjudicaciones en el mismo feed con patrones como:
-      "adjudicado a / empresa adjudicataria / contratista: NOMBRE"
+    Extrae el nombre del adjudicatario del blob XML de PLACSP.
+    - Busca etiquetas explícitas ("empresa adjudicataria:", "adjudicado a:")
+    - Valida que no sea un código NUTS ni una cadena sin palabras reales
+    - Prioriza strings que terminan en sufijo de empresa española (S.L., S.A., etc.)
     """
-    patterns = [
-        r"(?:adjudicado a|adjudicatario|empresa adjudicataria|contratista|licitador seleccionado)\s*[:\-]\s*([^|.;\n]{4,120})",
-        r"(?:empresa|sociedad|s\.l\.|s\.a\.|s\.l\.u\.|s\.l\.p\.|s\.a\.u\.)\s+([A-ZÁÉÍÓÚÜÑ][^|.;\n]{3,80})",
-    ]
-    for pat in patterns:
+    # 1. Explicit label → capture until line break or known field boundary
+    for pat in [
+        r"(?:empresa adjudicataria|adjudicatario|adjudicado a|"
+        r"licitador seleccionado|licitador ganador|winning party)"
+        r"\s*[:\-]?\s*"
+        r"([A-Za-záéíóúüñÁÉÍÓÚÜÑ\"][^\n\r|<>]{5,130}?)(?=\s*(?:\n|\r|$|NIF\b|CIF\b|\b\d{8}[A-Z]\b))",
+    ]:
         m = re.search(pat, blob, re.I)
         if m:
-            candidate = re.sub(r"\s+", " ", m.group(1)).strip(" -:;,.|\"'")
-            # Skip if it looks like a date or number
-            if candidate and not re.match(r"^\d", candidate) and len(candidate) >= 4:
-                return candidate[:120]
+            raw = re.sub(r"\s+", " ", m.group(1)).strip(" -:;,.|\"'")
+            if _is_valid_company(raw):
+                return raw[:120]
+
+    # 2. String ending in company suffix (high-precision signal)
+    for m in re.finditer(_COMPANY_SUFFIX_RE, blob):
+        # Back-track up to 80 chars to find start of company name
+        start = max(0, m.start() - 80)
+        segment = blob[start:m.end()]
+        # Take the last "word chunk" before the suffix
+        parts = re.split(r'[\n\r|<>]', segment)
+        candidate = parts[-1].strip() if parts else ""
+        candidate = re.sub(r"\s+", " ", candidate).strip(" -:;,.|\"'")
+        if _is_valid_company(candidate):
+            return candidate[:120]
+
     return ""
+
+def _is_valid_company(s: str) -> bool:
+    """Returns True if s looks like a real company name, not a code or location."""
+    if not s or len(s) < 5:
+        return False
+    if _NUTS_RE.match(s):
+        return False
+    if re.match(r"^\d", s):
+        return False
+    # Must have at least 2 words
+    if len(s.split()) < 2:
+        return False
+    # Reject if it's mostly uppercase single tokens (likely codes)
+    tokens = s.split()
+    all_code_like = all(re.match(r'^[A-Z0-9\-]+$', t) for t in tokens)
+    if all_code_like and len(tokens) <= 3:
+        return False
+    return True
+
 
 # ── NEW v1.4: detect estat ───────────────────────────────────────────────
 def extract_estat(blob):
