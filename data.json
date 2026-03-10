@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-09T23:43:04Z",
+  "generated_at": "2026-03-10T00:16:13Z",
   "count": 9,
   "data": [
     {
@@ -21,9 +21,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "maquetació",
         "maquetación",
-        "CPV:diseño"
+        "CPV:diseño",
+        "maquetació"
       ],
       "cpv": "79822500",
       "historial": []
@@ -48,11 +48,11 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=oEUR5rpdDEHECtSnloz%2BZQ%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "CPV:diseño",
-        "digital",
-        "marketing",
         "promoción",
-        "aplicación"
+        "aplicación",
+        "marketing",
+        "digital",
+        "CPV:diseño"
       ],
       "cpv": "92521100, 92110000, 72212000",
       "historial": []
@@ -77,7 +77,7 @@
         "imagen corporativa",
         "CPV:diseño"
       ],
-      "cpv": "79950000, 39525305",
+      "cpv": "79950000",
       "historial": [
         {
           "data": "2026-03-09",
@@ -107,8 +107,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kQum%2FVDH0J5LAIVZdUs8KA%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "publicidad",
         "digital",
+        "publicidad",
         "CPV:diseño"
       ],
       "cpv": "79822500",
@@ -142,10 +142,10 @@
       "kw": [
         "promoción",
         "digital",
-        "CPV:diseño",
-        "marca"
+        "marca",
+        "CPV:diseño"
       ],
-      "cpv": "71351900, 34928470, 79930000",
+      "cpv": "79930000",
       "historial": [
         {
           "data": "2026-03-09",
@@ -153,31 +153,6 @@
           "nota": "Adjudicado a presentará una declaración responsable indicando el volumen anual de negocios de"
         }
       ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19199",
-      "titol": "Suministro de mobiliario urbano (bancos y papeleras) dañados por la DANA, para su homogeneización en los 20 municipios de la Mancomunitat de l'Horta Sud.",
-      "organisme": "Junta de Gobierno de la Mancomunidad Intermunicipal de l'Horta Sud",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": null,
-      "disciplines": [
-        "fotografia"
-      ],
-      "ccaa": "VC",
-      "lloc": "C. Valenciana",
-      "data_pub": "2026-03-09",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 38,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=akndOB9i8liExvMJXBMHHQ%3D%3D",
-      "font": "PLACSP",
-      "kw": [
-        "fotografía",
-        "CPV:diseño"
-      ],
-      "cpv": "34928400",
-      "historial": []
     },
     {
       "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19087",
@@ -203,32 +178,32 @@
       "historial": []
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18897",
-      "titol": "Suministro en régimen de alquiler, mantenimiento, montaje y desmontaje de módulos sanitarios y equipo de 2 bombas para los módulos del muelle de amarres deportivos (lote 1) y de maquinaria y vallados ",
-      "organisme": "Agencia de Desarrollo Regional de las Illes Balears",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19199",
+      "titol": "Contrato de difusión publicitaria entre la Autoridad Portuaria de Barcelona y el Periódico de Catalunya, S.L. Clave de expediente: 2026P050035.",
+      "organisme": "Presidencia del Consejo de Administración de la Autoridad Portuaria de Barcelona (PORT DE BARCELONA)",
       "adjudicatari": "",
-      "tipus": "Suministros",
+      "tipus": "Servicios",
       "pressupost": null,
       "disciplines": [],
-      "ccaa": "IB",
-      "lloc": "Baleares",
+      "ccaa": "CT",
+      "lloc": "Catalunya",
       "data_pub": "2026-03-09",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=hEBoJ5mxtoDI8aL3PRS10Q%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=CJFunoqpd8bzAq95uGTrDQ%3D%3D",
       "font": "PLACSP",
       "kw": [
         "CPV:diseño"
       ],
-      "cpv": "34928200",
+      "cpv": "79341000, 92400000",
       "historial": []
     },
     {
       "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18956",
       "titol": "Servicio de desarrollo de guías interactivas y planificación personalizadas de rutas turísticas del Municipio de Los Realejos ( Tenerife), por procedimiento abierto simplificado sumario con varios cri",
       "organisme": "Gestión de Proyectos y Estudios Turísticos en Canarias S",
-      "adjudicatari": "MP Las Palmas de Gran Canaria 35004 C/León y Castillo, 200-6ª planta ES España Ge",
+      "adjudicatari": "Órgano de Contratación: Gestión de Proyectos y Estudios Turísticos en Canarias S.A.U",
       "tipus": "Servicios",
       "pressupost": null,
       "disciplines": [],
@@ -251,6 +226,28 @@
           "nota": "Adjudicado a MP Las Palmas de Gran Canaria 35004 C/León y Castillo, 200-6ª planta ES España Ge"
         }
       ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18897",
+      "titol": "Suministro en régimen de alquiler, mantenimiento, montaje y desmontaje de módulos sanitarios y equipo de 2 bombas para los módulos del muelle de amarres deportivos (lote 1) y de maquinaria y vallados ",
+      "organisme": "Agencia de Desarrollo Regional de las Illes Balears",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "IB",
+      "lloc": "Baleares",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=hEBoJ5mxtoDI8aL3PRS10Q%3D%3D",
+      "font": "PLACSP",
+      "kw": [
+        "CPV:diseño"
+      ],
+      "cpv": "34928200",
+      "historial": []
     }
   ]
 }
