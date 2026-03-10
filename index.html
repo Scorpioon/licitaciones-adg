@@ -483,9 +483,22 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 .sv-adj-val  { font-size:9.5px; color:var(--text3); flex-shrink:0; }
 .sv-empty { font-size:10.5px; color:var(--text3); padding:8px 0; }
 
-/* ─── ABOUT PANEL ────────────────────────────────────────────────────── */
-.about-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-@media (max-width:700px) { .about-grid { grid-template-columns:1fr; } }
+/* ─── CHARTS ──────────────────────────────────────────────────────────── */
+.chart-wrap { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+.donut-wrap { position:relative; flex-shrink:0; }
+.donut-svg  { display:block; }
+.donut-legend { flex:1; min-width:100px; display:flex; flex-direction:column; gap:5px; padding-top:4px; }
+.donut-legend-item { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text2); }
+.donut-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.donut-pct  { margin-left:auto; color:var(--text3); font-size:9.5px; }
+
+.trend-bars { display:flex; align-items:flex-end; gap:3px; height:60px; }
+.trend-bar-col { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1; }
+.trend-bar-fill { width:100%; background:var(--text); border-radius:1px 1px 0 0; min-height:2px; transition:height .4s; }
+.trend-bar-lbl  { font-size:8px; color:var(--text3); white-space:nowrap; }
+
+/* ─── ABOUT: force single column ─────────────────────────────────────── */
+.about-grid { display:flex; flex-direction:column; gap:14px; }
 .about-card { border:1px solid var(--border2); border-radius:2px; padding:16px; }
 .about-card-title { font-size:8px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:9px; }
 .about-body { font-size:11.5px; color:var(--text2); line-height:1.75; }
@@ -684,6 +697,9 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     <button class="htbtn" id="btn-guide" aria-label="Guía de licitaciones">
       <i class="bi bi-shield-check"></i><span data-i18n="btn_guide">Guía</span>
     </button>
+    <button class="htbtn" id="btn-conditions" aria-label="Observatorio de condiciones">
+      <i class="bi bi-graph-up-arrow"></i><span data-i18n="btn_conditions">Condiciones</span>
+    </button>
     <button class="htbtn" id="btn-about" aria-label="Acerca de">
       <i class="bi bi-info-circle"></i><span data-i18n="btn_about">Acerca de</span>
     </button>
@@ -745,7 +761,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       <button class="pill" data-disc="web"        ><i class="bi bi-globe2"></i>Web</button>
       <button class="pill" data-disc="uxui"       ><i class="bi bi-cursor"></i>UX · UI</button>
       <button class="pill" data-disc="publicitat" ><i class="bi bi-megaphone"></i>Publicidad</button>
-      <button class="pill" data-disc="senyaletica"><i class="bi bi-sign-post-split"></i>Señalética</button>
+      <button class="pill" data-disc="senyaletica"><i class="bi bi-signpost-split"></i>Señalética</button>
       <button class="pill" data-disc="fotografia" ><i class="bi bi-camera"></i>Fotografía</button>
       <button class="pill" data-disc="audiovisual"><i class="bi bi-film"></i>Audiovisual</button>
       <button class="pill" data-disc="illustracio"><i class="bi bi-pen"></i>Ilustración</button>
@@ -837,7 +853,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
           <div class="about-card" style="grid-column:1/-1">
             <div class="about-card-title">Changelog</div>
             <div>
-              <div class="changelog-item"><span class="cl-ver">v1.4.2</span><span class="cl-date">Mar 2026</span> — Bootstrap Icons, i18n completo, panel Guía de licitaciones, panel Acerca de, overlay de estadísticas, fix adjudicatarios, fix CPV falsos positivos, WIP footer, Señalética icon fix.</div>
+              <div class="changelog-item"><span class="cl-ver">v1.5</span><span class="cl-date">Mar 2026</span> — Bootstrap Icons, i18n completo, panel Guía de licitaciones, panel Acerca de, overlay de estadísticas, fix adjudicatarios, fix CPV falsos positivos, WIP footer, Señalética icon fix.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4.1</span><span class="cl-date">Mar 2026</span> — Fix fila seleccionada dark/light, fix overlay estadísticas, adjudicatarios en panel, fix CPV 34928470 mobiliario urbano.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4</span><span class="cl-date">Mar 2026</span> — Badge NUEVA, contador vencen esta semana, fecha de última actualización real, exportar CSV, compartir licitación por URL, vista estadísticas, campo adjudicatario, buscador adjudicatarios, historial de estados.</div>
               <div class="changelog-item"><span class="cl-ver">v1.3</span><span class="cl-date">Feb 2026</span> — Fix CPV match por familia de 5 dígitos, filtro CPV_VALID_STARTS, reducción de falsos positivos.</div>
@@ -913,16 +929,31 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       </div>
     </div>
 
-    <!-- TABLE -->
+    <!-- CONDITIONS OVERLAY -->
+    <div class="panel-overlay" id="pnl-conditions" aria-label="Observatorio de condiciones">
+      <div class="ov-head">
+        <span class="ov-title">Observatorio de condiciones · Diseño en la contratación pública</span>
+        <button class="ov-close" id="conditions-close">Cerrar ✕</button>
+      </div>
+      <div class="ov-body">
+        <p class="guide-intro">Análisis de las condiciones en las que la administración pública contrata servicios de diseño y comunicación visual. Datos extraídos directamente de las licitaciones monitorizadas.</p>
+        <div id="cond-bignums" class="sv-bignums" style="margin-bottom:20px"></div>
+        <div id="cond-grid" class="sv-grid"></div>
+        <p style="font-size:10px;color:var(--text3);margin-top:18px;line-height:1.65">
+          <strong>Nota metodológica:</strong> Los presupuestos base de licitación no incluyen IVA. Los plazos se calculan entre la fecha de publicación y la fecha límite de presentación de ofertas. Las disciplinas se asignan por palabras clave y CPV — pueden existir solapamientos. El volumen aumentará con más datos históricos.
+        </p>
+      </div>
+    </div>
+
     <table role="grid" aria-label="Licitaciones" id="main-table">
       <thead>
         <tr>
-          <th class="sortable" data-col="titol" data-i18n="col_licit">Licitación<i class="sort-arrow">↕</i></th>
-          <th class="sortable" data-col="organisme" data-i18n="col_org">Organismo<i class="sort-arrow">↕</i></th>
-          <th class="sortable" data-col="pressupost" data-i18n="col_ppto">Presupuesto<i class="sort-arrow">↕</i></th>
-          <th class="sortable" data-col="rellevancia" data-i18n="col_rel">Relevancia<i class="sort-arrow">↕</i></th>
-          <th class="sortable" data-col="estat" data-i18n="col_estat">Estado<i class="sort-arrow">↕</i></th>
-          <th class="sortable" data-col="data_limit" data-i18n="col_term">Termina<i class="sort-arrow">↕</i></th>
+          <th class="sortable" data-col="titol"><span data-i18n="col_licit">Licitación</span><i class="sort-arrow">↕</i></th>
+          <th class="sortable" data-col="organisme"><span data-i18n="col_org">Organismo</span><i class="sort-arrow">↕</i></th>
+          <th class="sortable" data-col="pressupost"><span data-i18n="col_ppto">Presupuesto</span><i class="sort-arrow">↕</i></th>
+          <th class="sortable" data-col="rellevancia"><span data-i18n="col_rel">Relevancia</span><i class="sort-arrow">↕</i></th>
+          <th class="sortable" data-col="estat"><span data-i18n="col_estat">Estado</span><i class="sort-arrow">↕</i></th>
+          <th class="sortable" data-col="data_limit"><span data-i18n="col_term">Termina</span><i class="sort-arrow">↕</i></th>
           <th aria-label="Notificaciones"></th>
         </tr>
       </thead>
@@ -1052,7 +1083,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span>v1.4.2</span>
+      <i class="bi bi-code-slash"></i><span>v1.5</span>
     </span>
   </div>
 </footer>
@@ -1064,7 +1095,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const DISC_ICONS = {
   branding:'bi-award', editorial:'bi-journal-text', web:'bi-globe2',
-  uxui:'bi-cursor', publicitat:'bi-megaphone', senyaletica:'bi-sign-post-split',
+  uxui:'bi-cursor', publicitat:'bi-megaphone', senyaletica:'bi-signpost-split',
   fotografia:'bi-camera', audiovisual:'bi-film', illustracio:'bi-pen', impressio:'bi-printer'
 };
 const DISC_LABELS = {
@@ -1108,7 +1139,7 @@ const I18N = {
     lang:'es',
     hd_eyebrow:'Observatorio de Contratación Pública',
     hd_name:'Licitaciones · Diseño y Comunicación Visual',
-    btn_stats:'Estadísticas', btn_guide:'Guía', btn_about:'Acerca de', btn_alerts:'Alertas',
+    btn_stats:'Estadísticas', btn_guide:'Guía', btn_conditions:'Condiciones', btn_about:'Acerca de', btn_alerts:'Alertas',
     btn_csv:'CSV', btn_close:'Cerrar ✕',
     st_total:'licitaciones', st_vigent:'vigentes', st_vol:'volumen €',
     st_week:'vencen esta semana', st_new:'nuevas hoy', st_loading:'Cargando…',
@@ -1137,7 +1168,7 @@ const I18N = {
     lang:'ca',
     hd_eyebrow:'Observatori de Contractació Pública',
     hd_name:'Licitacions · Disseny i Comunicació Visual',
-    btn_stats:'Estadístiques', btn_guide:'Guia', btn_about:'Sobre nosaltres', btn_alerts:'Alertes',
+    btn_stats:'Estadístiques', btn_guide:'Guia', btn_conditions:'Condicions', btn_about:'Sobre nosaltres', btn_alerts:'Alertes',
     btn_csv:'CSV', btn_close:'Tancar ✕',
     st_total:'licitacions', st_vigent:'vigents', st_vol:'volum €',
     st_week:'vencen aviat', st_new:'noves avui', st_loading:'Carregant…',
@@ -1166,7 +1197,7 @@ const I18N = {
     lang:'eu',
     hd_eyebrow:'Kontratu Publikoen Behatokia',
     hd_name:'Lizitazioak · Diseinu eta Ikusizko Komunikazioa',
-    btn_stats:'Estatistikak', btn_guide:'Gida', btn_about:'Informazioa', btn_alerts:'Alertak',
+    btn_stats:'Estatistikak', btn_guide:'Gida', btn_conditions:'Baldintzak', btn_about:'Informazioa', btn_alerts:'Alertak',
     btn_csv:'CSV', btn_close:'Itxi ✕',
     st_total:'lizitazioak', st_vigent:'indarrean', st_vol:'bolumena €',
     st_week:'laster iraungitzen', st_new:'gaur berriak', st_loading:'Kargatzen…',
@@ -1195,7 +1226,7 @@ const I18N = {
     lang:'gl',
     hd_eyebrow:'Observatorio de Contratación Pública',
     hd_name:'Licitacións · Deseño e Comunicación Visual',
-    btn_stats:'Estatísticas', btn_guide:'Guía', btn_about:'Sobre nós', btn_alerts:'Alertas',
+    btn_stats:'Estatísticas', btn_guide:'Guía', btn_conditions:'Condicións', btn_about:'Sobre nós', btn_alerts:'Alertas',
     btn_csv:'CSV', btn_close:'Pechar ✕',
     st_total:'licitacións', st_vigent:'vixentes', st_vol:'volume €',
     st_week:'vencen axiña', st_new:'novas hoxe', st_loading:'Cargando…',
@@ -1264,24 +1295,48 @@ const bi    = (icon, extra='') => `<i class="bi ${icon}${extra?' '+extra:''}"></
 function applyI18n() {
   const tr = t();
   document.documentElement.lang = tr.lang;
+
+  // Update all nodes with data-i18n — safe: only leaf text, never clobbers icon siblings
   document.querySelectorAll('[data-i18n]').forEach(node => {
     const key = node.dataset.i18n;
-    if (tr[key] !== undefined) node.textContent = tr[key];
+    if (tr[key] === undefined) return;
+    // If node has element children (icons), don't use textContent → find/update first text node
+    const hasElementChildren = [...node.childNodes].some(n => n.nodeType === 1);
+    if (hasElementChildren) {
+      // Walk child nodes, update first text node
+      for (const child of node.childNodes) {
+        if (child.nodeType === 3 && child.textContent.trim()) {
+          child.textContent = tr[key];
+          return;
+        }
+      }
+      // No text node found — append one
+      node.appendChild(document.createTextNode(tr[key]));
+    } else {
+      node.textContent = tr[key];
+    }
   });
-  // Placeholders
-  const srch = el('search');
-  if (srch) srch.placeholder = tr.search_ph;
-  const adj = el('adj-search');
-  if (adj) adj.placeholder = tr.adj_ph;
-  // Sort options
+
+  // Inputs: placeholders
+  const srch = el('search');     if (srch) srch.placeholder = tr.search_ph;
+  const adj  = el('adj-search'); if (adj)  adj.placeholder  = tr.adj_ph;
+
+  // Sort select options
   el('sort-sel').querySelectorAll('option').forEach(o => {
     const k = o.dataset.i18n;
     if (k && tr[k]) o.textContent = tr[k];
   });
-  // Result count — re-render
-  renderCount();
-  // Detail panel labels if open
+
+  // CCAA select: first option only (territory names don't translate)
+  const firstOpt = el('sel-ccaa')?.querySelector('option[data-i18n]');
+  if (firstOpt && tr[firstOpt.dataset.i18n]) firstOpt.textContent = tr[firstOpt.dataset.i18n];
+
+  // Re-render dynamic content
+  renderStrip();
+  renderTable();
   if (state.selectedId) renderDetail();
+  if (state.activePanel === 'stats')      renderStats();
+  if (state.activePanel === 'conditions') renderConditions();
 }
 
 // ── FILTER + SORT ──────────────────────────────────────────────────────────
@@ -1545,9 +1600,61 @@ function renderDetail() {
   el('dp-notify-ok').style.display='none';
 }
 
+// ── CHART HELPERS ──────────────────────────────────────────────────────────
+const CHART_COLORS = [
+  'var(--text)', '#555', '#888', '#aaa', '#ccc',
+  '#333', '#777', '#999', '#bbb', '#ddd'
+];
+// For dark mode, swap
+const chartColor = i => CHART_COLORS[i % CHART_COLORS.length];
+
+function svgDonut(entries, total, size=110) {
+  if (!total || !entries.length) {
+    return `<svg class="donut-svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2-10}" fill="none" stroke="var(--border2)" stroke-width="${size*0.18}"/>
+      <text x="${size/2}" y="${size/2+4}" text-anchor="middle" font-size="${size*0.12}" fill="var(--text3)">—</text>
+    </svg>`;
+  }
+  const cx = size/2, cy = size/2, r = size/2 - 12;
+  const strokeW = Math.round(size * 0.19);
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  let circles = '';
+  entries.forEach(([, val], i) => {
+    const pct = val / total;
+    const dash = pct * circ;
+    const gap  = circ - dash;
+    const rot  = (offset / total) * 360 - 90;
+    circles += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+      stroke="${chartColor(i)}" stroke-width="${strokeW}"
+      stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}"
+      transform="rotate(${rot.toFixed(1)} ${cx} ${cy})" />`;
+    offset += val;
+  });
+  return `<svg class="donut-svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">
+    ${circles}
+    <circle cx="${cx}" cy="${cy}" r="${r - strokeW/2 - 1}" fill="var(--bg)" />
+    <text x="${cx}" y="${cy - 5}" text-anchor="middle" font-size="${size*0.13}" font-weight="700" fill="var(--text)">${total}</text>
+    <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="${size*0.09}" fill="var(--text3)">total</text>
+  </svg>`;
+}
+
+function trendBars(monthData) {
+  const max = Math.max(...monthData.map(m=>m.count), 1);
+  return `<div class="trend-bars" role="img" aria-label="Tendencia mensual">
+    ${monthData.map(m => `
+      <div class="trend-bar-col" title="${m.label}: ${m.count} licitaciones">
+        <div class="trend-bar-fill" style="height:${Math.max(4, Math.round((m.count/max)*52))}px"></div>
+        <div class="trend-bar-lbl">${m.label}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
 // ── RENDER STATS ───────────────────────────────────────────────────────────
 function renderStats() {
   const d = state.data;
+  if (!d.length) { el('sv-bignums').innerHTML=''; el('sv-grid').innerHTML='<div class="sv-empty" style="padding:24px 0">Sin datos</div>'; return; }
+
   const totalVol = d.reduce((s,r)=>s+(r.pressupost||0),0);
   const withPpto = d.filter(r=>r.pressupost);
   const avgVol   = withPpto.length ? Math.round(totalVol/withPpto.length) : 0;
@@ -1559,65 +1666,244 @@ function renderStats() {
     <div class="sv-bignum"><div class="sv-bignum-val">${fmt(avgVol)||'—'}</div><div class="sv-bignum-lbl">Ppto. medio</div></div>
   `;
 
-  const countBy = (fn) => {
-    const m={};
-    d.forEach(r=>{ const k=fn(r); if(k){ m[k]=(m[k]||0)+1; } });
-    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
-  };
-  const bars = (entries, max) => entries.map(([lbl,val])=>`
+  // Discipline counts
+  const discMap={};
+  d.forEach(r=>(r.disciplines||[]).forEach(dd=>{ discMap[dd]=(discMap[dd]||0)+1; }));
+  const discE  = Object.entries(discMap).sort((a,b)=>b[1]-a[1]);
+  const discMax = discE[0]?.[1]||1;
+  const discTotal = discE.reduce((s,[,v])=>s+v,0);
+
+  // Territory counts
+  const ccaaMap={};
+  d.forEach(r=>{const k=TERRITORIES[r.ccaa]?.name||r.lloc||r.ccaa||'?'; ccaaMap[k]=(ccaaMap[k]||0)+1;});
+  const ccaaE = Object.entries(ccaaMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const ccaaMax = ccaaE[0]?.[1]||1;
+
+  // Budget ranges
+  const ranges = [['< 10K',0],['10–50K',0],['50–200K',0],['> 200K',0],['Sin dato',0]];
+  d.forEach(r=>{
+    if(!r.pressupost) ranges[4][1]++;
+    else if(r.pressupost<10000)  ranges[0][1]++;
+    else if(r.pressupost<50000)  ranges[1][1]++;
+    else if(r.pressupost<200000) ranges[2][1]++;
+    else ranges[3][1]++;
+  });
+  const rangeTotal = ranges.reduce((s,[,v])=>s+v,0);
+  const rangeMax = Math.max(...ranges.map(([,v])=>v))||1;
+
+  // Monthly trend
+  const monthMap={};
+  d.forEach(r=>{ if(r.data_pub){ const m=r.data_pub.slice(0,7); monthMap[m]=(monthMap[m]||0)+1; }});
+  const months = Object.entries(monthMap).sort().slice(-8).map(([k,v])=>({label:k.slice(5),count:v}));
+
+  // Source
+  const fontMap={};
+  d.forEach(r=>{ fontMap[r.font||'?']=(fontMap[r.font||'?']||0)+1; });
+  const fontE  = Object.entries(fontMap).sort((a,b)=>b[1]-a[1]);
+  const fontMax = fontE[0]?.[1]||1;
+
+  // Adjudicatarios
+  const adjMap={};
+  d.filter(r=>r.adjudicatari&&r.adjudicatari.trim().length>4&&!/^\d|^ES[\s\d]/.test(r.adjudicatari)).forEach(r=>{
+    const k=r.adjudicatari.trim();
+    if(!adjMap[k]) adjMap[k]={count:0,total:0};
+    adjMap[k].count++; adjMap[k].total+=(r.pressupost||0);
+  });
+  const adjE = Object.entries(adjMap).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
+
+  const hbars = (entries, max) => entries.map(([lbl,val])=>`
     <div class="sv-bar-row">
       <span class="sv-bar-label" title="${lbl}">${DISC_LABELS[lbl]||lbl}</span>
       <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(val/max*100)}%"></div></div>
       <span class="sv-bar-val">${val}</span>
     </div>`).join('');
 
-  const discE  = countBy(r=>(r.disciplines||[]).map((_, __, arr)=>arr).flat()).length
-    ? (() => { const m={}; d.forEach(r=>(r.disciplines||[]).forEach(dd=>{ m[dd]=(m[dd]||0)+1; })); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })()
-    : [];
-  const discMax = discE[0]?.[1]||1;
-
-  const ccaaE  = countBy(r=>TERRITORIES[r.ccaa]?.name||r.lloc||r.ccaa||null).slice(0,8);
-  const ccaaMax = ccaaE[0]?.[1]||1;
-
-  const ranges = {'< 10K':0,'10–50K':0,'50–200K':0,'> 200K':0,'Sin dato':0};
-  d.forEach(r=>{
-    if(!r.pressupost) ranges['Sin dato']++;
-    else if(r.pressupost<10000)  ranges['< 10K']++;
-    else if(r.pressupost<50000)  ranges['10–50K']++;
-    else if(r.pressupost<200000) ranges['50–200K']++;
-    else ranges['> 200K']++;
-  });
-  const rangeMax = Math.max(...Object.values(ranges))||1;
-
-  const fontE  = countBy(r=>r.font||null);
-  const fontMax = fontE[0]?.[1]||1;
-
-  // Adjudicatarios
-  const adjMap={};
-  d.filter(r=>r.adjudicatari&&r.adjudicatari.trim().length>4).forEach(r=>{
-    const k=r.adjudicatari.trim();
-    if(!adjMap[k]) adjMap[k]={count:0,total:0};
-    adjMap[k].count++; adjMap[k].total+=(r.pressupost||0);
-  });
-  const adjE = Object.entries(adjMap).sort((a,b)=>b[1].count-a[1].count).slice(0,8);
+  // Donut legend
+  const donutLegend = (entries, total, max=6) => entries.slice(0,max).map(([lbl,val],i)=>`
+    <div class="donut-legend-item">
+      <span class="donut-dot" style="background:${chartColor(i)}"></span>
+      <span>${DISC_LABELS[lbl]||lbl}</span>
+      <span class="donut-pct">${total?Math.round(val/total*100):0}%</span>
+    </div>`).join('');
 
   el('sv-grid').innerHTML = `
-    <div class="sv-card"><div class="sv-card-title">Por disciplina</div><div class="sv-bars">${bars(discE,discMax)}</div></div>
-    <div class="sv-card"><div class="sv-card-title">Por territorio</div><div class="sv-bars">${bars(ccaaE,ccaaMax)}</div></div>
-    <div class="sv-card"><div class="sv-card-title">Por rango de presupuesto</div><div class="sv-bars">${bars(Object.entries(ranges),rangeMax)}</div></div>
-    <div class="sv-card"><div class="sv-card-title">Por fuente de datos</div><div class="sv-bars">${bars(fontE,fontMax)}</div></div>
-    <div class="sv-card" style="grid-column:1/-1">
-      <div class="sv-card-title">Empresas adjudicatarias recientes</div>
+    <div class="sv-card">
+      <div class="sv-card-title">Por disciplina</div>
+      <div class="chart-wrap">
+        ${svgDonut(discE, discTotal)}
+        <div class="donut-legend">${donutLegend(discE, discTotal)}</div>
+      </div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Por territorio</div>
+      <div class="sv-bars">${hbars(ccaaE, ccaaMax)}</div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Por rango de presupuesto</div>
+      <div class="chart-wrap">
+        ${svgDonut(ranges.filter(([,v])=>v>0), rangeTotal, 100)}
+        <div class="donut-legend">${donutLegend(ranges.filter(([,v])=>v>0), rangeTotal, 5)}</div>
+      </div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Publicaciones por mes</div>
+      ${months.length >= 2 ? trendBars(months) : '<div class="sv-empty">Más datos con el tiempo</div>'}
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Por fuente de datos</div>
+      <div class="sv-bars">${hbars(fontE, fontMax)}</div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Empresas adjudicatarias</div>
       ${adjE.length
-        ? adjE.map(([name,info])=>`<div class="sv-adj-item"><span class="sv-adj-name" title="${name}">${name}</span><span class="sv-adj-val">${info.count} licit.${info.total?' · '+fmt(info.total):''}</span></div>`).join('')
-        : '<div class="sv-empty">Sin datos de adjudicatarios todavía — se irán acumulando con cada actualización del feed.</div>'}
+        ? adjE.map(([name,info])=>`<div class="sv-adj-item">
+            <span class="sv-adj-name" title="${name}">${name}</span>
+            <span class="sv-adj-val">${info.count}×${info.total?' · '+fmt(info.total):''}</span>
+          </div>`).join('')
+        : '<div class="sv-empty">Se acumularán con cada actualización del fetcher.</div>'}
     </div>
   `;
 }
 
-// ── PANEL MANAGEMENT ───────────────────────────────────────────────────────
-const PANELS = {stats:'pnl-stats', about:'pnl-about', guide:'pnl-guide'};
-const BTNS   = {stats:'btn-stats', about:'btn-about', guide:'btn-guide'};
+// ── RENDER CONDITIONS ──────────────────────────────────────────────────────
+function renderConditions() {
+  const d = state.data;
+  if (!d.length) {
+    el('cond-bignums').innerHTML='';
+    el('cond-grid').innerHTML='<div class="sv-empty" style="padding:24px 0">Sin datos suficientes. Ejecuta el fetcher con <code>--pages 5</code> para cargar el histórico de 2026.</div>';
+    return;
+  }
+
+  // Plazo medio (días pub → limit)
+  const withPlazos = d.filter(r=>r.data_pub&&r.data_limit);
+  const plazos = withPlazos.map(r=>Math.ceil((new Date(r.data_limit)-new Date(r.data_pub))/86400000)).filter(p=>p>0&&p<365);
+  const avgPlazo = plazos.length ? Math.round(plazos.reduce((s,v)=>s+v,0)/plazos.length) : null;
+
+  // Presupuesto medio por disciplina
+  const discBudget={};
+  d.forEach(r=>{
+    (r.disciplines||[]).forEach(dd=>{
+      if(!discBudget[dd]) discBudget[dd]={sum:0,n:0,withBudget:0};
+      discBudget[dd].n++;
+      if(r.pressupost){ discBudget[dd].sum+=r.pressupost; discBudget[dd].withBudget++; }
+    });
+  });
+  const discBudgetE = Object.entries(discBudget)
+    .filter(([,v])=>v.withBudget>0)
+    .map(([k,v])=>([k,Math.round(v.sum/v.withBudget)]))
+    .sort((a,b)=>b[1]-a[1]);
+  const discBudgetMax = discBudgetE[0]?.[1]||1;
+
+  // Plazos por disciplina
+  const discPlazo={};
+  withPlazos.forEach(r=>{
+    const p = Math.ceil((new Date(r.data_limit)-new Date(r.data_pub))/86400000);
+    if(p<=0||p>=365) return;
+    (r.disciplines||[]).forEach(dd=>{
+      if(!discPlazo[dd]) discPlazo[dd]={sum:0,n:0};
+      discPlazo[dd].sum+=p; discPlazo[dd].n++;
+    });
+  });
+  const discPlazoE = Object.entries(discPlazo)
+    .filter(([,v])=>v.n>0)
+    .map(([k,v])=>([k,Math.round(v.sum/v.n)]))
+    .sort((a,b)=>b[1]-a[1]);
+  const discPlazoMax = discPlazoE[0]?.[1]||1;
+
+  // Top organismos
+  const orgMap={};
+  d.forEach(r=>{ if(r.organisme){ orgMap[r.organisme]=(orgMap[r.organisme]||0)+1; }});
+  const orgE = Object.entries(orgMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const orgMax = orgE[0]?.[1]||1;
+
+  // Estado breakdown
+  const estVig = d.filter(r=>r.estat==='Vigente').length;
+  const estAdj = d.filter(r=>r.estat==='Adjudicado').length;
+  const estDes = d.filter(r=>r.estat==='Desierta').length;
+  const estPct = (n) => d.length ? Math.round(n/d.length*100) : 0;
+
+  // Sin presupuesto %
+  const sinPpto = d.filter(r=>!r.pressupost).length;
+  const sinPptoPct = d.length ? Math.round(sinPpto/d.length*100) : 0;
+
+  el('cond-bignums').innerHTML = `
+    <div class="sv-bignum">
+      <div class="sv-bignum-val">${avgPlazo!==null?avgPlazo+'d':'—'}</div>
+      <div class="sv-bignum-lbl">Plazo medio de presentación</div>
+    </div>
+    <div class="sv-bignum">
+      <div class="sv-bignum-val${sinPptoPct>40?' ':''}">
+        ${sinPptoPct}%
+      </div>
+      <div class="sv-bignum-lbl">Sin presupuesto publicado</div>
+    </div>
+    <div class="sv-bignum">
+      <div class="sv-bignum-val" style="color:var(--c-ok)">${estPct(estAdj)}%</div>
+      <div class="sv-bignum-lbl">Adjudicadas (del total)</div>
+    </div>
+    <div class="sv-bignum">
+      <div class="sv-bignum-val" style="color:var(--c-warn)">${estPct(estDes)}%</div>
+      <div class="sv-bignum-lbl">Declaradas desiertas</div>
+    </div>
+  `;
+
+  const hbars = (entries, max, fmtFn) => entries.map(([lbl,val])=>`
+    <div class="sv-bar-row">
+      <span class="sv-bar-label" title="${lbl}">${DISC_LABELS[lbl]||lbl}</span>
+      <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(val/max*100)}%"></div></div>
+      <span class="sv-bar-val">${fmtFn?fmtFn(val):val}</span>
+    </div>`).join('');
+
+  // Plazo interpretation
+  const plazoNote = avgPlazo === null ? '' :
+    avgPlazo < 15 ? `<div class="guide-note" style="color:var(--c-warn)">⚠ Plazo medio inferior a 15 días. La ADG recomienda un mínimo de 20-30 días para licitaciones de diseño de complejidad media.</div>` :
+    avgPlazo < 21 ? `<div class="guide-note">ℹ Plazo medio ajustado. Considera si los plazos de cada licitación son suficientes para la complejidad del trabajo.</div>` :
+    `<div class="guide-note" style="color:var(--c-ok)">✓ Plazo medio razonable para el tipo de servicios.</div>`;
+
+  el('cond-grid').innerHTML = `
+    <div class="sv-card">
+      <div class="sv-card-title">Presupuesto medio por disciplina</div>
+      <div class="sv-bars">${hbars(discBudgetE, discBudgetMax, fmt)}</div>
+      ${discBudgetE.length===0?'<div class="sv-empty">Sin datos de presupuesto suficientes.</div>':''}
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Plazo medio de presentación por disciplina (días)</div>
+      <div class="sv-bars">${hbars(discPlazoE, discPlazoMax, v=>v+'d')}</div>
+      ${plazoNote}
+      ${discPlazoE.length===0?'<div class="sv-empty">Sin datos de fechas suficientes.</div>':''}
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Organismos que más contratan diseño</div>
+      <div class="sv-bars">${hbars(orgE, orgMax)}</div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Resultado de las licitaciones</div>
+      <div class="chart-wrap">
+        ${svgDonut([['Vigente',estVig],['Adjudicado',estAdj],['Desierta',estDes]].filter(([,v])=>v>0), d.length, 100)}
+        <div class="donut-legend">
+          ${[['Vigente',estVig,'var(--c-ok)'],['Adjudicado',estAdj,'var(--text)'],['Desierta',estDes,'var(--text3)']].filter(([,v])=>v>0).map(([lbl,val,col],i)=>`
+            <div class="donut-legend-item">
+              <span class="donut-dot" style="background:${col}"></span>
+              <span>${lbl}</span>
+              <span class="donut-pct">${d.length?Math.round(val/d.length*100):0}%</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="sv-card" style="grid-column:1/-1">
+      <div class="sv-card-title">¿Qué mide el Observatorio de Condiciones?</div>
+      <div class="about-body" style="font-size:11px">
+        <p>Este panel analiza las <strong>condiciones</strong> en las que la administración pública contrata servicios de diseño — no solo qué se licita, sino en qué términos. Los indicadores clave son:</p>
+        <p><strong>Plazo de presentación:</strong> Cuántos días tienen los diseñadores para preparar la oferta. Menos de 15 días es insuficiente para trabajos complejos. La LCSP no fija un mínimo para procedimientos simplificados.</p>
+        <p><strong>Presupuesto sin publicar:</strong> Muchos pliegos omiten el importe base. Sin ese dato, es imposible evaluar si la retribución es justa. Un porcentaje alto es una señal de falta de transparencia.</p>
+        <p><strong>Licitaciones desiertas:</strong> Cuando ningún licitador se presenta o todas las ofertas son rechazadas. Un porcentaje alto puede indicar condiciones poco atractivas (presupuesto bajo, plazo corto, requisitos excluyentes).</p>
+        <p>Los datos mejorarán con más licitaciones históricas. Usa <code>python fetch_licitaciones.py --pages 5</code> para cargar el histórico de 2026.</p>
+      </div>
+    </div>
+  `;
+}
+const PANELS = {stats:'pnl-stats', about:'pnl-about', guide:'pnl-guide', conditions:'pnl-conditions'};
+const BTNS   = {stats:'btn-stats', about:'btn-about', guide:'btn-guide', conditions:'btn-conditions'};
 
 function openPanel(name) {
   closeAllPanels();
@@ -1626,8 +1912,8 @@ function openPanel(name) {
   el(PANELS[name]).classList.add('open');
   el(BTNS[name]).classList.add('active-tab');
   if (name==='stats') renderStats();
-  // Close detail when panel opens
-  if (state.selectedId) { state.selectedId=null; clearURL(); renderDetail(); }
+  if (name==='conditions') renderConditions();
+  if (state.selectedId) { state.selectedId=null; clearURL(); renderDetail(); renderTable(); }
 }
 
 function closeAllPanels() {
@@ -1743,9 +2029,11 @@ el('dp-notify-submit').addEventListener('click',()=>{
 el('btn-stats').addEventListener('click',()=>{ state.activePanel==='stats'?closeAllPanels():openPanel('stats'); });
 el('btn-about').addEventListener('click',()=>{ state.activePanel==='about'?closeAllPanels():openPanel('about'); });
 el('btn-guide').addEventListener('click',()=>{ state.activePanel==='guide'?closeAllPanels():openPanel('guide'); });
-el('sv-close').addEventListener('click',  closeAllPanels);
-el('about-close').addEventListener('click',closeAllPanels);
-el('guide-close').addEventListener('click',closeAllPanels);
+el('btn-conditions').addEventListener('click',()=>{ state.activePanel==='conditions'?closeAllPanels():openPanel('conditions'); });
+el('sv-close').addEventListener('click',         closeAllPanels);
+el('about-close').addEventListener('click',      closeAllPanels);
+el('guide-close').addEventListener('click',      closeAllPanels);
+el('conditions-close').addEventListener('click', closeAllPanels);
 
 // ── EVENTS: MODAL ───────────────────────────────────────────────────────────
 el('btn-subscribe').addEventListener('click',()=>{ el('overlay').classList.add('open'); el('sub-email').focus(); });
