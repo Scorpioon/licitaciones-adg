@@ -1,31 +1,163 @@
 {
-  "generated_at": "2026-03-10T16:31:31Z",
-  "count": 5,
+  "generated_at": "2026-03-10T21:00:04Z",
+  "count": 9,
   "fetcher_version": "1.5",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18773",
-      "titol": "Servicios de diseño y maquetación de la Memoria Anual y Memoria de Sostenibilidad de la Autoridad Portuaria de Las Palmas.",
-      "organisme": "Presidencia de la Autoridad Portuaria de Las Palmas",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19017",
+      "titol": "Servicio de impartición de determinadas acciones formativas Lote 1: Cursos de edición de imagenes, diseño y maquetación y Lote 2: Cursos de diseño gráfico animado y de edición de video para el persona",
+      "organisme": "Madrid Destino Cultura Turismo y Negocio, S",
       "adjudicatari": "",
       "tipus": "Servicios",
       "pressupost": null,
       "disciplines": [
         "editorial"
       ],
-      "ccaa": "CN",
-      "lloc": "Canarias",
+      "ccaa": "MD",
+      "lloc": "Madrid",
+      "data_pub": "2026-03-10",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 50,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=n7drgoqipJkeIBJRHQiPkQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "diseño gráfico",
+        "CPV:79632000"
+      ],
+      "cpv": "79632000",
+      "historial": [
+        {
+          "data": "2026-03-10",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/1920",
+      "titol": "Sistema dinàmic d'adquisició per els serveis professionals vinculats al disseny gràfic, impressió, producció de material promocional i elaboració de continguts digitals, en format físic o electrònic, ",
+      "organisme": "Centre Internacional de Mètodes Numèrics a l'Enginyeria (CIMNE)",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
       "data_pub": "2026-03-09",
       "data_limit": "",
       "estat": "Vigente",
-      "rellevancia": 30,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
-      "font": "PLACSP",
+      "rellevancia": 40,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/ddd1597a-386d-42fa-8e7f-72a5c3a769ed/300716662",
+      "font": "PLACSP-1044",
       "kw": [
-        "diseño y maquetación"
+        "CPV:79823000",
+        "disseny gràfic",
+        "CPV:79970000"
       ],
-      "cpv": "",
-      "historial": []
+      "cpv": "79970000, 79823000, 79822500",
+      "historial": [
+        {
+          "data": "2026-03-09",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19207",
+      "titol": "Servicios de diseño, montaje y desmontaje de un stand para la participación de la Diputación provincial de A Coruña en el \"Salón Gourmets 2026\"",
+      "organisme": "Presidencia de la Diputación Provincial de A Coruña",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [
+        "branding"
+      ],
+      "ccaa": "GA",
+      "lloc": "Galicia",
+      "data_pub": "2026-03-10",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Snfog0TC%2FgM%2FbjW6njtWLw%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79930000",
+        "servicios de diseño"
+      ],
+      "cpv": "79930000, 39154100",
+      "historial": [
+        {
+          "data": "2026-03-10",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18671",
+      "titol": "Servicios de diseño, desarrollo, ejecución, puesta en marcha y entrega de la herramienta web y de la aplicación (APP) Red Carpetania para la visualización y gestión de rutas en el destino Sierra Norte",
+      "organisme": "Presidencia de la Mancomunidad de Servicios del Valle Norte del Lozoya",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [
+        "uxui"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-10",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TPcFuPltVK5q1DdmE7eaXg%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79822500",
+        "servicios de diseño"
+      ],
+      "cpv": "72000000, 72212326, 79822500",
+      "historial": [
+        {
+          "data": "2026-03-10",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/1822",
+      "titol": "Serveis de disseny, muntatge, manteniment i desmuntatge; i subministrament de materials i elements físics per a la producció de l'exposició sobre els parcs metropolitans.",
+      "organisme": "Àrea Metropolitana de Barcelona",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": null,
+      "disciplines": [
+        "branding"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-03-09",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/75ed6955-2694-4766-bd9b-b6f439bbf746/300698963",
+      "font": "PLACSP-1044",
+      "kw": [
+        "serveis de disseny",
+        "CPV:79956000"
+      ],
+      "cpv": "79956000, 39154000",
+      "historial": [
+        {
+          "data": "2026-03-09",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
     },
     {
       "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18943",
