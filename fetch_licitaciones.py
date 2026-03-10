@@ -44,14 +44,44 @@ HEADERS = {
 
 SOURCES = [
     {
-        "name": "PLACSP",
+        "name": "PLACSP-643",
         "ccaa": None,
+        # Feed de perfiles de contratante completo — licitaciones recientes de
+        # organismos con CPVs de diseño en su perfil. ~100 items/page.
         "url":  "https://contrataciondelestado.es/sindicacion/sindicacion_643/"
                 "licitacionesPerfilesContratanteCompleto3.atom",
-    }
+    },
+    {
+        "name": "PLACSP-1044",
+        "ccaa": None,
+        # Feed de plataformas agregadas sin contratos menores — incluye CODICE/UBL
+        # XML estructurado con WinningParty, importes y fechas como elementos XML.
+        # Recomendado para datos históricos y adjudicatarios.
+        "url":  "https://contrataciondelsectorpublico.gob.es/sindicacion/"
+                "sindicacion_1044/PlataformasAgregadasSinMenores.atom",
+    },
 ]
 
-NS_ATOM = "http://www.w3.org/2005/Atom"
+NS_ATOM  = "http://www.w3.org/2005/Atom"
+
+# UBL/CODICE namespaces used by PLACSP in structured XML entries (feed 1044)
+# cac: CommonAggregateComponents, cbc: CommonBasicComponents
+NS_UBL = {
+    "cac":  "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "cbc":  "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+    "can":  "urn:dgpe:names:draft:codice:schema:xsd:ContractAwardNotice-2",
+    "cn":   "urn:dgpe:names:draft:codice:schema:xsd:ContractNotice-2",
+    # Also seen without full URI — just local name matching
+}
+# All possible URIs for cac: and cbc: in PLACSP feeds
+NS_CAC_URIS = {
+    "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "urn:dgpe:names:draft:codice:schema:xsd:CommonAggregateComponents-2",
+}
+NS_CBC_URIS = {
+    "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+    "urn:dgpe:names:draft:codice:schema:xsd:CommonBasicComponents-2",
+}
 
 # ── KEYWORDS ──────────────────────────────────────────────────────────────
 # Palabras que EXCLUYEN un item del título — descarte inmediato sin importar nada más.
@@ -319,7 +349,133 @@ def score_item(titulo: str, desc: str, cpv_codes: list) -> tuple:
     return score, sorted(discs), list(kws)[:12]
 
 
-# ── XML PARSING ───────────────────────────────────────────────────────────
+# ── UBL/CODICE XML FIELD EXTRACTION ──────────────────────────────────────
+# Used by feed 1044 (PlataformasAgregadas) which embeds CODICE XML directly.
+# The user confirmed this structure:
+#   <cac:WinningParty>
+#     <cac:PartyName><cbc:Name>COMPANY NAME</cbc:Name></cac:PartyName>
+#   </cac:WinningParty>
+
+def _local(tag: str) -> str:
+    """Strip namespace URI, return local element name."""
+    return tag.split('}')[-1] if '}' in tag else tag
+
+def ubl_find_text(entry, *local_path: str) -> str:
+    """
+    Find a value in UBL XML by traversing local element names.
+    Example: ubl_find_text(entry, 'WinningParty', 'PartyName', 'Name')
+    Works regardless of namespace URI prefix differences.
+    """
+    def _walk(el, path, depth=0):
+        if depth >= len(path): return (el.text or "").strip()
+        target = path[depth].lower()
+        for child in el:
+            if _local(child.tag).lower() == target:
+                result = _walk(child, path, depth + 1)
+                if result: return result
+        return ""
+    return _walk(entry, [p.lower() for p in local_path])
+
+def ubl_find_all_text(entry, *local_path: str) -> list:
+    """Find ALL values for a given path (for multi-value fields like TenderResult)."""
+    results = []
+    def _walk(el, path, depth):
+        if depth >= len(path):
+            v = (el.text or "").strip()
+            if v: results.append(v)
+            return
+        target = path[depth].lower()
+        for child in el:
+            if _local(child.tag).lower() == target:
+                _walk(child, path, depth + 1)
+    _walk(entry, [p.lower() for p in local_path], 0)
+    return results
+
+def extract_winning_party_xml(entry) -> str:
+    """
+    Extract winning party from CODICE/UBL XML structure.
+    Handles both ContractAwardNotice and ContractNotice formats.
+
+    Primary path: WinningParty/PartyName/Name
+    Fallback path: TenderResult/WinningParty/PartyName/Name
+    """
+    # Try direct WinningParty
+    name = ubl_find_text(entry, "WinningParty", "PartyName", "Name")
+    if not name:
+        # Try nested in TenderResult
+        name = ubl_find_text(entry, "TenderResult", "WinningParty", "PartyName", "Name")
+    if not name:
+        # Try AwardedTenderedProject path
+        name = ubl_find_text(entry, "AwardedTenderedProject", "WinningParty", "PartyName", "Name")
+
+    if name and len(name) >= 3 and not _NUTS_RE.match(name):
+        return name[:120]
+    return ""
+
+def extract_budget_xml(entry) -> float | None:
+    """
+    Extract budget from UBL XML elements.
+    Priority: BudgetAmount/TaxExclusiveAmount > EstimatedOverallContractAmount > LineExtensionAmount
+    """
+    def parse_amount(text):
+        if not text: return None
+        try:
+            v = float(re.sub(r'[^\d.]', '', text.replace(',', '.')))
+            return v if 100 < v < 50_000_000 else None
+        except Exception: return None
+
+    for path in [
+        ("BudgetAmount", "TaxExclusiveAmount"),
+        ("BudgetAmount", "TaxInclusiveAmount"),
+        ("EstimatedOverallContractAmount",),
+        ("LineExtensionAmount",),
+        ("TaxableAmount",),
+    ]:
+        v = parse_amount(ubl_find_text(entry, *path))
+        if v: return v
+    return None
+
+def extract_deadline_xml(entry) -> str:
+    """Extract tender deadline from UBL XML date/time elements."""
+    def clean_date(s):
+        if not s: return ""
+        m = re.search(r'(\d{4}-\d{2}-\d{2})', s)
+        return m.group(1) if m else ""
+
+    for path in [
+        ("TenderSubmissionDeadlinePeriod", "EndDate"),
+        ("TenderingProcess", "TenderSubmissionDeadlinePeriod", "EndDate"),
+        ("ContractingParty", "Party", "EndDate"),
+        ("EndDate",),
+    ]:
+        d = clean_date(ubl_find_text(entry, *path))
+        if d: return d
+    return ""
+
+def extract_org_xml(entry) -> str:
+    """Extract contracting body name from UBL XML."""
+    for path in [
+        ("ContractingParty", "Party", "PartyName", "Name"),
+        ("ContractingParty", "PartyName", "Name"),
+        ("AccountingSupplierParty", "Party", "PartyName", "Name"),
+        ("BuyerCustomerParty", "Party", "PartyName", "Name"),
+    ]:
+        name = ubl_find_text(entry, *path)
+        if name and len(name) >= 4:
+            return name[:150]
+    return ""
+
+def extract_cpv_xml(entry) -> list:
+    """Extract CPV codes from UBL XML ItemClassificationCode elements."""
+    codes = []
+    for el in entry.iter():
+        local = _local(el.tag)
+        if local in ("ItemClassificationCode", "ClassificationCode", "CommodityCode"):
+            text = (el.text or "").strip()
+            if re.fullmatch(r"[1-9]\d{7}", text):
+                codes.append(text)
+    return list(dict.fromkeys(codes))
+
 def parse_atom_entries(root):
     entries = root.findall(f"{{{NS_ATOM}}}entry")
     if entries: return entries
@@ -606,19 +762,27 @@ def fetch_atom(session, source: dict, num_items: int = 100) -> list:
             if not title_passes_gate(titulo):
                 discarded["title_gate"] += 1; continue
 
-            content = get_entry_content(entry)
+            content  = get_entry_content(entry)
             url_item = extract_link(entry)
-            item_id = (get_entry_text(entry,"id") or url_item
-                       or hashlib.md5(titulo.encode()).hexdigest())
+            item_id  = (get_entry_text(entry,"id") or url_item
+                        or hashlib.md5(titulo.encode()).hexdigest())
             fecha_pub = (get_entry_text(entry,"published") or
                          get_entry_text(entry,"updated") or today)[:10]
 
-            cpv_codes = extract_cpv_from_categories(entry)
+            # ── CPV: try structured XML first, fallback to <category> ──────
+            cpv_codes = extract_cpv_xml(entry) or extract_cpv_from_categories(entry)
 
-            organisme   = extract_org(content, titulo)
-            pressupost  = extract_budget(content)
-            fecha_limit = extract_deadline(content)
+            # ── Fields: try UBL XML first, fallback to regex on text ────────
+            organisme   = extract_org_xml(entry)  or extract_org(content, titulo)
+            pressupost  = extract_budget_xml(entry) or extract_budget(content)
+            fecha_limit = extract_deadline_xml(entry) or extract_deadline(content)
             estat       = extract_estat(content)
+
+            # ── WinningParty: from UBL XML (the correct source!) ─────────────
+            # See BUGTRACKER BUG-003 + user-confirmed XML structure
+            adjudicatari = ""
+            if estat == "Adjudicado":
+                adjudicatari = extract_winning_party_xml(entry)
 
             score, discs, kws = score_item(titulo, content, cpv_codes)
             if score < MIN_SCORE:
@@ -632,7 +796,7 @@ def fetch_atom(session, source: dict, num_items: int = 100) -> list:
                 "id":           item_id[:80],
                 "titol":        titulo[:200],
                 "organisme":    organisme[:150],
-                "adjudicatari": "",
+                "adjudicatari": adjudicatari[:120],
                 "tipus":        tipus,
                 "pressupost":   pressupost,
                 "disciplines":  discs,
@@ -660,21 +824,22 @@ def fetch_atom(session, source: dict, num_items: int = 100) -> list:
 def main():
     global MIN_SCORE
 
-    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.5")
+    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.5.3")
     ap.add_argument("--output",    default=str(OUTPUT_FILE),
                     help=f"Archivo de salida (default: {OUTPUT_FILE})")
     ap.add_argument("--min-score", type=int, default=MIN_SCORE,
-                    help=f"Puntuación mínima para incluir un item (default: {MIN_SCORE})")
+                    help=f"Puntuación mínima (default: {MIN_SCORE})")
     ap.add_argument("--pages",     type=int, default=1,
-                    help="Número de páginas (~100 items cada una). --pages 5 pide 500 items. "
-                         "Útil para backfill histórico. Límite real de PLACSP: ~500 items.")
+                    help="Páginas a pedir por feed (~100 items/página, max 5 → 500 items). "
+                         "Usa --pages 5 para backfill histórico 2025–2026.")
+    ap.add_argument("--source",    choices=["all","643","1044"], default="all",
+                    help="Feed a usar: 643 (perfiles), 1044 (agregadas, incluye WinningParty XML), all (ambos). Default: all")
     ap.add_argument("--enrich",    action="store_true",
-                    help="Scrape páginas de detalle para obtener adjudicatarios. "
-                         "Lento (1 request/item). Solo usar en ejecución manual.")
+                    help="Scrape páginas de detalle para adjudicatarios sin WinningParty XML. Lento.")
     ap.add_argument("--stats",     action="store_true",
-                    help="Solo mostrar estadísticas del resultado, no guardar")
+                    help="Solo mostrar estadísticas, no guardar")
     ap.add_argument("--dry-run",   action="store_true",
-                    help="Mostrar items que pasarían el filtro sin guardar nada")
+                    help="Mostrar items relevantes sin guardar")
     args = ap.parse_args()
     MIN_SCORE = args.min_score
 
@@ -696,7 +861,11 @@ def main():
 
     session   = build_session()
     all_items = []
-    for src in SOURCES:
+    # Filter sources based on --source flag
+    active_sources = SOURCES if args.source == "all" else [
+        s for s in SOURCES if args.source in s["name"]
+    ]
+    for src in active_sources:
         all_items.extend(fetch_atom(session, src, num_items=num_items))
         print()
 
