@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T07:41:13Z",
+  "generated_at": "2026-03-10T11:56:44Z",
   "count": 9,
   "data": [
     {
@@ -21,8 +21,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=6Znzqr8UFoxrhBlEHQFSKA%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "CPV:diseño",
         "maquetación",
+        "CPV:diseño",
         "maquetació"
       ],
       "cpv": "79822500",
@@ -48,10 +48,10 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=oEUR5rpdDEHECtSnloz%2BZQ%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "aplicación",
         "marketing",
         "promoción",
         "digital",
+        "aplicación",
         "CPV:diseño"
       ],
       "cpv": "92521100, 92110000, 72212000",
@@ -74,8 +74,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=aESPZokRZ8R9Zh%2FyRJgM8w%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "CPV:diseño",
-        "imagen corporativa"
+        "imagen corporativa",
+        "CPV:diseño"
       ],
       "cpv": "79950000",
       "historial": [
@@ -107,8 +107,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kQum%2FVDH0J5LAIVZdUs8KA%3D%3D",
       "font": "PLACSP",
       "kw": [
-        "CPV:diseño",
         "publicidad",
+        "CPV:diseño",
         "digital"
       ],
       "cpv": "79822500",
@@ -141,9 +141,9 @@
       "font": "PLACSP",
       "kw": [
         "CPV:diseño",
-        "marca",
         "promoción",
-        "digital"
+        "digital",
+        "marca"
       ],
       "cpv": "79930000",
       "historial": [
