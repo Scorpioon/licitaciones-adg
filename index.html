@@ -117,21 +117,23 @@ button,select,input { font-family:var(--f); }
   display:flex; align-items:center;
   border-bottom:1px solid var(--border2);
   background:var(--bg2); overflow-x:auto; scrollbar-width:none;
+  height:34px;
 }
 .stats::-webkit-scrollbar { display:none; }
 .stat {
-  display:flex; align-items:baseline; gap:5px;
-  padding:9px 20px; border-right:1px solid var(--border2); flex-shrink:0;
+  display:flex; align-items:baseline; gap:4px;
+  padding:0 16px; border-right:1px solid var(--border2); flex-shrink:0; height:100%;
+  align-items:center;
 }
-.stat:last-child { border-right:none; margin-left:auto; }
-.stat-val { font-size:17px; font-weight:700; letter-spacing:-.02em; }
-.stat-lbl { font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); }
+.stat:last-child { border-right:none; margin-left:auto; padding-right:20px; }
+.stat-val { font-size:15px; font-weight:700; letter-spacing:-.02em; }
+.stat-lbl { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); }
 .live-dot {
-  display:inline-block; width:6px; height:6px; border-radius:50%;
-  background:var(--c-ok); margin-right:4px;
+  display:inline-block; width:5px; height:5px; border-radius:50%;
+  background:var(--c-ok); margin-right:4px; flex-shrink:0;
   animation:pulse 2.5s ease infinite;
 }
-@keyframes pulse { 50% { opacity:.25; } }
+@keyframes pulse { 50% { opacity:.2; } }
 .update-info { font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); }
 .update-info strong { color:var(--text); }
 
@@ -234,6 +236,7 @@ button,select,input { font-family:var(--f); }
   flex:1; min-width:0;
   overflow-y:auto; overflow-x:auto;
   border-right:1px solid var(--border2);
+  position:relative;
 }
 .detail-col {
   width:360px; flex-shrink:0; overflow-y:auto;
@@ -263,6 +266,18 @@ th.sorted .sort-arrow { opacity:1; }
 tbody tr { border-bottom:1px solid var(--border3); cursor:pointer; transition:background .07s; }
 tbody tr:hover { background:var(--hover); }
 tbody tr.sel   { background:var(--sel-bg); color:var(--sel-fg); }
+/* ── sel: force ALL child text to sel-fg ── */
+tbody tr.sel td,
+tbody tr.sel .tc-org-name,
+tbody tr.sel .tc-org-sub,
+tbody tr.sel .tc-amt,
+tbody tr.sel .tc-amt-sub,
+tbody tr.sel .tc-date,
+tbody tr.sel .date-warn,
+tbody tr.sel .date-ok,
+tbody tr.sel .rel-num { color:var(--sel-fg)!important; opacity:.9; }
+tbody tr.sel .tc-org-sub,
+tbody tr.sel .tc-amt-sub { opacity:.55; }
 
 td { padding:11px 12px; vertical-align:middle; font-size:12px; line-height:1.35; color:var(--text); }
 td:first-child { padding-left:24px; }
@@ -421,29 +436,39 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.1); }
 .dp-notify-ok { display:none; padding:10px; font-size:11px; color:var(--c-ok); text-align:center; }
 
 /* ─── STATS VIEW ─────────────────────────────────────────────────── */
-.stats-view {
-  display:none; flex:1; overflow-y:auto;
-  padding:32px; background:var(--bg);
+.stats-overlay {
+  display:none; position:absolute; inset:0; z-index:20;
+  overflow-y:auto; background:var(--bg);
+  padding:28px 32px; animation:fade-in .15s ease;
 }
-.stats-view.open { display:block; }
-.sv-title { font-size:11px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin-bottom:24px; }
-.sv-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:24px; }
-.sv-card  { border:1px solid var(--border2); border-radius:2px; padding:20px; }
-.sv-card-title { font-size:8.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:16px; }
+.stats-overlay.open { display:block; }
+@keyframes fade-in { from { opacity:0; } }
+.sv-title { font-size:11px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; }
+.sv-close-btn { font-size:10px; letter-spacing:.12em; text-transform:uppercase; padding:5px 12px; border:1px solid var(--border2); border-radius:var(--radius); background:none; color:var(--text2); cursor:pointer; transition:all .1s; }
+.sv-close-btn:hover { border-color:var(--border); color:var(--text); }
+.sv-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:18px; }
+.sv-card  { border:1px solid var(--border2); border-radius:2px; padding:16px; }
+.sv-card-title { font-size:8.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:13px; }
 
 /* Bar chart */
-.sv-bars { display:flex; flex-direction:column; gap:8px; }
+.sv-bars { display:flex; flex-direction:column; gap:7px; }
 .sv-bar-row { display:flex; align-items:center; gap:8px; }
-.sv-bar-label { font-size:10.5px; color:var(--text2); width:120px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sv-bar-track { flex:1; height:8px; background:var(--bg3); border-radius:2px; overflow:hidden; }
+.sv-bar-label { font-size:10.5px; color:var(--text2); width:110px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv-bar-track { flex:1; height:6px; background:var(--bg3); border-radius:2px; overflow:hidden; }
 .sv-bar-fill  { height:100%; background:var(--text); border-radius:2px; transition:width .4s ease; }
-.sv-bar-val   { font-size:10px; color:var(--text3); width:36px; text-align:right; flex-shrink:0; }
+.sv-bar-val   { font-size:10px; color:var(--text3); width:28px; text-align:right; flex-shrink:0; }
+
+/* Adjudicatario list */
+.sv-adj-item { display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:5px 0; border-bottom:1px solid var(--border3); font-size:11px; }
+.sv-adj-item:last-child { border-bottom:none; }
+.sv-adj-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+.sv-adj-val  { font-size:10px; color:var(--text3); flex-shrink:0; }
 
 /* Stat cards */
-.sv-bignums { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
-.sv-bignum  { border:1px solid var(--border2); border-radius:2px; padding:16px; }
-.sv-bignum-val { font-size:28px; font-weight:700; letter-spacing:-.03em; }
-.sv-bignum-lbl { font-size:8.5px; letter-spacing:.15em; text-transform:uppercase; color:var(--text3); margin-top:4px; }
+.sv-bignums { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+.sv-bignum  { border:1px solid var(--border2); border-radius:2px; padding:14px; }
+.sv-bignum-val { font-size:22px; font-weight:700; letter-spacing:-.03em; }
+.sv-bignum-lbl { font-size:8.5px; letter-spacing:.15em; text-transform:uppercase; color:var(--text3); margin-top:3px; }
 
 /* ─── NOTICE ─────────────────────────────────────────────────────── */
 .notice {
@@ -742,12 +767,15 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.1); }
   <!-- TABLE COLUMN -->
   <div class="list-col" id="list-col">
 
-    <!-- STATS VIEW (overlays table when open) -->
-    <div class="stats-view" id="stats-view" aria-label="Estadísticas">
-      <div class="sv-title">Estadísticas del observatorio</div>
-      <div class="sv-bignums" id="sv-bignums"></div>
-      <div class="sv-grid" id="sv-grid"></div>
+  <!-- STATS OVERLAY (absolute over list-col) -->
+  <div class="stats-overlay" id="stats-view" aria-label="Estadísticas" role="region">
+    <div class="sv-title">
+      <span>Estadísticas del observatorio</span>
+      <button class="sv-close-btn" id="sv-close">Cerrar ✕</button>
     </div>
+    <div class="sv-bignums" id="sv-bignums"></div>
+    <div class="sv-grid" id="sv-grid"></div>
+  </div>
 
     <table role="grid" aria-label="Licitaciones" id="main-table">
       <thead>
@@ -950,6 +978,66 @@ const TERRITORIES = {
 // NEW threshold: items published within last 3 days
 const NEW_DAYS = 3;
 
+// ── I18N ──────────────────────────────────────────────────────────────
+const I18N = {
+  es:{
+    hd_eyebrow:'Observatorio de Contratación Pública',
+    hd_name:'Licitaciones · Diseño y Comunicación Visual',
+    btn_alerts:'Alertas',
+    st_total:'licitaciones', st_vigent:'vigentes', st_vol:'volumen €',
+    st_warn:'vencen esta semana', st_new:'nuevas hoy',
+    search_ph:'Buscar por título, organismo, lugar…',
+    fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca',
+    fl_status:'Estado', fl_disc:'Disciplina',
+    all:'Todas', vigente:'Vigente', adjudicado:'Adjudicado', desierta:'Desierta',
+    empty_t:'Sin resultados',
+    dp_eyebrow:'Detalle de licitación',
+    no_budget:'Sin importe', days:'días', today:'Hoy', expired:'Vencida',
+  },
+  ca:{
+    hd_eyebrow:'Observatori de Contractació Pública',
+    hd_name:'Licitacions · Disseny i Comunicació Visual',
+    btn_alerts:'Alertes',
+    st_total:'licitacions', st_vigent:'vigents', st_vol:'volum €',
+    st_warn:'vencen aviat', st_new:'noves avui',
+    search_ph:'Cerca per títol, organisme, lloc…',
+    fl_ccaa:'CCAA', fl_comarca:'Província / Comarca',
+    fl_status:'Estat', fl_disc:'Disciplina',
+    all:'Totes', vigente:'Vigent', adjudicado:'Adjudicat', desierta:'Deserta',
+    empty_t:'Sense resultats',
+    dp_eyebrow:'Detall de licitació',
+    no_budget:'Sense import', days:'dies', today:'Avui', expired:'Vençuda',
+  },
+  eu:{
+    hd_eyebrow:'Kontratu Publikoen Behatokia',
+    hd_name:'Lizitazioak · Diseinu eta Ikusizko Komunikazioa',
+    btn_alerts:'Alertak',
+    st_total:'lizitazioak', st_vigent:'indarrean', st_vol:'bolumena €',
+    st_warn:'laster iraungitzen', st_new:'gaur berriak',
+    search_ph:'Bilatu titulua, erakundea, lekua…',
+    fl_ccaa:'AA EE', fl_comarca:'Probintzia / Eskualdea',
+    fl_status:'Egoera', fl_disc:'Diziplina',
+    all:'Denak', vigente:'Indarrean', adjudicado:'Esleituta', desierta:'Hutsik',
+    empty_t:'Emaitzarik ez',
+    dp_eyebrow:'Lizitazioaren xehetasunak',
+    no_budget:'Aurrekonturik ez', days:'egun', today:'Gaur', expired:'Iraungituta',
+  },
+  gl:{
+    hd_eyebrow:'Observatorio de Contratación Pública',
+    hd_name:'Licitacións · Deseño e Comunicación Visual',
+    btn_alerts:'Alertas',
+    st_total:'licitacións', st_vigent:'vixentes', st_vol:'volume €',
+    st_warn:'vencen axiña', st_new:'novas hoxe',
+    search_ph:'Buscar por título, organismo, lugar…',
+    fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca',
+    fl_status:'Estado', fl_disc:'Disciplina',
+    all:'Todas', vigente:'Vixente', adjudicado:'Adxudicado', desierta:'Deserta',
+    empty_t:'Sen resultados',
+    dp_eyebrow:'Detalle da licitación',
+    no_budget:'Sen orzamento', days:'días', today:'Hoxe', expired:'Vencida',
+  }
+};
+
 // ── SAMPLE DATA ────────────────────────────────────────────────────────
 const TODAY_ISO = new Date().toISOString().slice(0,10);
 const SAMPLE = [
@@ -1115,15 +1203,16 @@ function renderTable() {
   }
   el('empty').style.display = 'none';
   el('main-table').style.display = '';
-
   tbody.innerHTML = rows.map(r => {
     const sel  = r.id === state.selectedId;
     const b    = getBadge(r);
     const sub  = state.subscribed.has(r.id);
     const nuev = isNew(r);
-    const tags = (r.disciplines||[]).map(d =>
-      `<span class="tag"><iconify-icon icon="${DISC_ICONS[d]||'ph:circle'}"></iconify-icon>${DISC_LABELS[d]||d}</span>`
-    ).join('');
+    const tags = (r.disciplines||[])
+      .filter(d => DISC_LABELS[d])
+      .map(d =>
+        `<span class="tag"><iconify-icon icon="${DISC_ICONS[d]}"></iconify-icon>${DISC_LABELS[d]}</span>`
+      ).join('');
 
     return `<tr data-id="${r.id}" class="${sel?'sel':''}" tabindex="0" role="row">
       <td class="tc-title">
@@ -1225,7 +1314,12 @@ function renderDetail() {
     `<span class="dp-chip"><iconify-icon icon="${DISC_ICONS[d]||'ph:circle'}"></iconify-icon>${DISC_LABELS[d]||d}</span>`
   ).join('');
 
-  el('dp-kw').innerHTML = (r.kw||[]).map(k => `<span class="dp-chip">${k}</span>`).join('');
+  el('dp-kw').innerHTML = (r.kw||[])
+    .filter(k => k && k !== 'CPV:diseño')
+    .map(k => {
+      const clean = k.startsWith('CPV:') ? k.replace('CPV:','').trim()+' (CPV)' : k;
+      return `<span class="dp-chip">${clean}</span>`;
+    }).join('');
 
   // Historial
   const histWrap = el('dp-historial-wrap');
@@ -1277,32 +1371,43 @@ function renderDetail() {
 function renderStatsView() {
   const d = state.data;
 
-  // Big numbers
-  const totalVol   = d.reduce((s,r) => s+(r.pressupost||0), 0);
-  const avgVol     = d.filter(r => r.pressupost).length
-    ? Math.round(totalVol / d.filter(r => r.pressupost).length)
-    : 0;
-  const adjCount   = d.filter(r => r.estat === 'Adjudicado').length;
-  const newCount   = d.filter(isNew).length;
+  const totalVol = d.reduce((s,r) => s+(r.pressupost||0), 0);
+  const withPpto = d.filter(r => r.pressupost);
+  const avgVol   = withPpto.length ? Math.round(totalVol / withPpto.length) : 0;
+  const adjCount = d.filter(r => r.estat === 'Adjudicado').length;
 
   el('sv-bignums').innerHTML = `
-    <div class="sv-bignum"><div class="sv-bignum-val">${d.length}</div><div class="sv-bignum-lbl">Total licitaciones</div></div>
+    <div class="sv-bignum"><div class="sv-bignum-val">${d.length}</div><div class="sv-bignum-lbl">Total</div></div>
     <div class="sv-bignum"><div class="sv-bignum-val" style="color:var(--c-ok)">${d.filter(r=>r.estat==='Vigente').length}</div><div class="sv-bignum-lbl">Vigentes</div></div>
-    <div class="sv-bignum"><div class="sv-bignum-val">${fmt(totalVol)}</div><div class="sv-bignum-lbl">Volumen total</div></div>
-    <div class="sv-bignum"><div class="sv-bignum-val">${fmt(avgVol)}</div><div class="sv-bignum-lbl">Presupuesto medio</div></div>
+    <div class="sv-bignum"><div class="sv-bignum-val">${fmt(totalVol)||'—'}</div><div class="sv-bignum-lbl">Volumen total</div></div>
+    <div class="sv-bignum"><div class="sv-bignum-val">${fmt(avgVol)||'—'}</div><div class="sv-bignum-lbl">Ppto. medio</div></div>
   `;
-
-  // By CCAA
-  const byCCAA = {};
-  d.forEach(r => { byCCAA[r.lloc||r.ccaa] = (byCCAA[r.lloc||r.ccaa]||0)+1; });
-  const ccaaEntries = Object.entries(byCCAA).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const ccaaMax = ccaaEntries[0]?.[1] || 1;
 
   // By discipline
   const byDisc = {};
-  d.forEach(r => (r.disciplines||[]).forEach(d2 => { byDisc[d2] = (byDisc[d2]||0)+1; }));
+  d.forEach(r => (r.disciplines||[]).forEach(disc => { byDisc[disc] = (byDisc[disc]||0)+1; }));
   const discEntries = Object.entries(byDisc).sort((a,b)=>b[1]-a[1]);
   const discMax = discEntries[0]?.[1] || 1;
+
+  // By CCAA
+  const byCCAA = {};
+  d.forEach(r => {
+    const name = (r.ccaa && TERRITORIES[r.ccaa]) ? TERRITORIES[r.ccaa].name : (r.lloc||r.ccaa||'?');
+    byCCAA[name] = (byCCAA[name]||0)+1;
+  });
+  const ccaaEntries = Object.entries(byCCAA).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const ccaaMax = ccaaEntries[0]?.[1] || 1;
+
+  // By budget range
+  const ranges = {'< 10K':0,'10–50K':0,'50–200K':0,'> 200K':0,'Sin dato':0};
+  d.forEach(r => {
+    if (!r.pressupost) ranges['Sin dato']++;
+    else if (r.pressupost < 10000)  ranges['< 10K']++;
+    else if (r.pressupost < 50000)  ranges['10–50K']++;
+    else if (r.pressupost < 200000) ranges['50–200K']++;
+    else ranges['> 200K']++;
+  });
+  const rangeMax = Math.max(...Object.values(ranges)) || 1;
 
   // By source
   const byFont = {};
@@ -1310,16 +1415,15 @@ function renderStatsView() {
   const fontEntries = Object.entries(byFont).sort((a,b)=>b[1]-a[1]);
   const fontMax = fontEntries[0]?.[1] || 1;
 
-  // Budget ranges
-  const ranges = {'< 10K':0,'10–50K':0,'50–200K':0,'200K+':0,'Sin dato':0};
-  d.forEach(r => {
-    if (!r.pressupost) ranges['Sin dato']++;
-    else if (r.pressupost < 10000)  ranges['< 10K']++;
-    else if (r.pressupost < 50000)  ranges['10–50K']++;
-    else if (r.pressupost < 200000) ranges['50–200K']++;
-    else ranges['200K+']++;
+  // Top adjudicatarios
+  const adjMap = {};
+  d.filter(r => r.adjudicatari && r.adjudicatari.trim()).forEach(r => {
+    const key = r.adjudicatari.trim();
+    if (!adjMap[key]) adjMap[key] = {count:0, total:0};
+    adjMap[key].count++;
+    adjMap[key].total += r.pressupost || 0;
   });
-  const rangeMax = Math.max(...Object.values(ranges)) || 1;
+  const adjEntries = Object.entries(adjMap).sort((a,b)=>b[1].count-a[1].count).slice(0,8);
 
   const bars = (entries, max) => entries.map(([label, val]) => `
     <div class="sv-bar-row">
@@ -1327,6 +1431,14 @@ function renderStatsView() {
       <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(val/max*100)}%"></div></div>
       <span class="sv-bar-val">${val}</span>
     </div>`).join('');
+
+  const adjHTML = adjEntries.length
+    ? adjEntries.map(([name, info]) => `
+        <div class="sv-adj-item">
+          <span class="sv-adj-name" title="${name}">${name}</span>
+          <span class="sv-adj-val">${info.count} licit. ${info.total ? '· '+fmt(info.total) : ''}</span>
+        </div>`).join('')
+    : '<div style="font-size:11px;color:var(--text3);padding:8px 0">Sin datos de adjudicatarios todavía.</div>';
 
   el('sv-grid').innerHTML = `
     <div class="sv-card">
@@ -1344,6 +1456,10 @@ function renderStatsView() {
     <div class="sv-card">
       <div class="sv-card-title">Por fuente de datos</div>
       <div class="sv-bars">${bars(fontEntries, fontMax)}</div>
+    </div>
+    <div class="sv-card" style="grid-column:1/-1">
+      <div class="sv-card-title">Empresas adjudicatarias recientes</div>
+      ${adjHTML}
     </div>
   `;
 }
@@ -1485,19 +1601,23 @@ el('dp-notify-submit').addEventListener('click', () => {
 });
 
 // ── EVENTS: STATS VIEW ──────────────────────────────────────────────────
+function closeStats() {
+  state.statsOpen = false;
+  el('stats-view').classList.remove('open');
+  el('btn-stats').classList.remove('active-tab');
+}
+
 el('btn-stats').addEventListener('click', () => {
   state.statsOpen = !state.statsOpen;
   el('stats-view').classList.toggle('open', state.statsOpen);
-  el('main-table').style.display = state.statsOpen ? 'none' : '';
-  el('empty').style.display = 'none';
   el('btn-stats').classList.toggle('active-tab', state.statsOpen);
   if (state.statsOpen) {
     renderStatsView();
     if (state.selectedId) { state.selectedId = null; renderDetail(); }
-  } else {
-    renderTable();
   }
 });
+
+el('sv-close').addEventListener('click', closeStats);
 
 // ── EVENTS: CSV ─────────────────────────────────────────────────────────
 el('btn-csv').addEventListener('click', exportCSV);
@@ -1530,11 +1650,52 @@ el('btn-theme').addEventListener('click', () => {
 });
 
 // ── EVENTS: LANGUAGE ─────────────────────────────────────────────────────
+function applyI18n() {
+  const t = I18N[state.lang] || I18N.es;
+  // Header
+  const eyebrow = document.querySelector('.logo-eyebrow');
+  if (eyebrow) eyebrow.textContent = t.hd_eyebrow;
+  const name = document.querySelector('.logo-name');
+  if (name) name.textContent = t.hd_name;
+  // Stats strip labels
+  const lbls = document.querySelectorAll('.stat-lbl');
+  const lblKeys = ['st_total','st_vigent','st_vol','st_warn','st_new'];
+  lbls.forEach((el2, i) => { if (lblKeys[i]) el2.textContent = t[lblKeys[i]] || el2.textContent; });
+  // Buttons
+  const alertBtn = document.querySelector('#btn-subscribe span');
+  if (alertBtn) alertBtn.textContent = t.btn_alerts || 'Alertas';
+  // Filter labels
+  document.querySelectorAll('.filter-lbl').forEach(el2 => {
+    const key = el2.dataset.i18n;
+    if (key && t[key]) el2.textContent = t[key];
+  });
+  // Pillls
+  document.querySelectorAll('[data-estat]').forEach(btn => {
+    const v = btn.dataset.estat;
+    if (!v) btn.textContent = t.all || btn.textContent;
+    else if (v === 'Vigente')   btn.textContent = t.vigente   || btn.textContent;
+    else if (v === 'Adjudicado') btn.textContent = t.adjudicado || btn.textContent;
+    else if (v === 'Desierta')  btn.textContent = t.desierta  || btn.textContent;
+  });
+  // Search placeholder
+  const srch = el('search');
+  if (srch) srch.placeholder = t.search_ph || 'Buscar…';
+  // Empty state
+  const emptyTitle = document.querySelector('.empty-title');
+  if (emptyTitle) emptyTitle.textContent = t.empty_t || emptyTitle.textContent;
+  // Detail panel static labels
+  const dpEyebrow = document.querySelector('.dp-eyebrow');
+  if (dpEyebrow) dpEyebrow.textContent = t.dp_eyebrow || dpEyebrow.textContent;
+  // Re-render detail if open (to update translated labels)
+  if (state.selectedId) renderDetail();
+}
+
 document.querySelectorAll('.lang-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.lang = btn.dataset.lang;
+    applyI18n();
   });
 });
 
