@@ -328,67 +328,85 @@ def extract_deadline(blob):
             return normalize_date_token(m.group(1))
     return ""
 
-# ── NEW v1.4: extract adjudicatari ───────────────────────────────────────
-# NUTS/territory codes look like "ES 29016" or "ES612" — not company names
+# ── v1.4.2: extract adjudicatari (ultra-conservative) ────────────────────
+#
+# APPROACH: PLACSP Atom feeds are messy. False positives (NUTS codes,
+# contracting-body names, boilerplate text) are more harmful than missing data.
+# Strategy: ONLY extract if there is an EXPLICIT label ("Empresa adjudicataria:",
+# "Adjudicatario:", "Winning party:") immediately followed by a plausible name.
+# If no explicit label → return "" (no guessing from company suffixes alone,
+# since contracting bodies also end in S.L., S.A.U., etc.).
+#
 _NUTS_RE = re.compile(r'^ES[\s\-]?\d', re.I)
-# Common Spanish company suffixes
-_COMPANY_SUFFIX_RE = re.compile(
-    r'\b(?:S\.?\s?L\.?U?\.?|S\.?\s?A\.?U?\.?|S\.?\s?L\.?\s?P\.?|'
-    r'S\.?\s?C\.?\s?L?\.?|S\.?\s?COOP\.?|C\.?\s?B\.?|AIE\.?)\b',
+
+# Phrases that indicate we're reading about the contracting BODY, not the winner
+_CONTRACTING_BODY_RE = re.compile(
+    r'\b(?:órgano de contrataci[oó]n|entidad adjudicadora|poder adjudicador|'
+    r'administraci[oó]n|ayuntamiento|diputaci[oó]n|consell|generalitat|'
+    r'mancomunidad|ministerio|subsecretar[ií]a|direcci[oó]n general|'
+    r'autoridad portuaria|universidad|cabildo|consorcio)\b',
     re.I
 )
 
+# Boilerplate strings found in PLACSP that are NOT company names
+_BOILERPLATE_FRAGMENTS = [
+    "presentará una declaración",
+    "declaración responsable",
+    "volumen anual de negocios",
+    "importe de adjudicación",
+    "objeto del contrato",
+    "plazo de ejecución",
+    "criterios de adjudicación",
+    "tipo de procedimiento",
+]
+
+# Explicit winning-party labels ONLY (not "empresa" alone, which can be contracting body)
+_WINNER_LABEL_RE = re.compile(
+    r"(?:empresa adjudicataria|licitador adjudicatario|adjudicatario\s*[:\-]|"
+    r"adjudicado a\s*[:\-]|licitador seleccionado|licitador ganador|"
+    r"winning party|empresa contratista|contratista adjudicatario)"
+    r"\s*[:\-]?\s*"
+    r"([A-Za-záéíóúäëïöüàèìòùÁÉÍÓÚÜÑñçÇÀÈÌÒÙ][^\n\r|<>{}\[\]]{4,120}?)(?=\s*(?:\n|\r|$|NIF\b|CIF\b|\b\d{8}[A-Z]\b|\bES\s*\d))",
+    re.I
+)
+
+
 def extract_adjudicatari(blob: str) -> str:
     """
-    Extrae el nombre del adjudicatario del blob XML de PLACSP.
-    - Busca etiquetas explícitas ("empresa adjudicataria:", "adjudicado a:")
-    - Valida que no sea un código NUTS ni una cadena sin palabras reales
-    - Prioriza strings que terminan en sufijo de empresa española (S.L., S.A., etc.)
+    Extrae el nombre del adjudicatario SOLO cuando hay una etiqueta explícita.
+    Es conservador a propósito: mejor no extraer que extraer mal.
     """
-    # 1. Explicit label → capture until line break or known field boundary
-    for pat in [
-        r"(?:empresa adjudicataria|adjudicatario|adjudicado a|"
-        r"licitador seleccionado|licitador ganador|winning party)"
-        r"\s*[:\-]?\s*"
-        r"([A-Za-záéíóúüñÁÉÍÓÚÜÑ\"][^\n\r|<>]{5,130}?)(?=\s*(?:\n|\r|$|NIF\b|CIF\b|\b\d{8}[A-Z]\b))",
-    ]:
-        m = re.search(pat, blob, re.I)
-        if m:
-            raw = re.sub(r"\s+", " ", m.group(1)).strip(" -:;,.|\"'")
-            if _is_valid_company(raw):
-                return raw[:120]
+    m = _WINNER_LABEL_RE.search(blob)
+    if not m:
+        return ""
 
-    # 2. String ending in company suffix (high-precision signal)
-    for m in re.finditer(_COMPANY_SUFFIX_RE, blob):
-        # Back-track up to 80 chars to find start of company name
-        start = max(0, m.start() - 80)
-        segment = blob[start:m.end()]
-        # Take the last "word chunk" before the suffix
-        parts = re.split(r'[\n\r|<>]', segment)
-        candidate = parts[-1].strip() if parts else ""
-        candidate = re.sub(r"\s+", " ", candidate).strip(" -:;,.|\"'")
-        if _is_valid_company(candidate):
-            return candidate[:120]
+    raw = re.sub(r"\s+", " ", m.group(1)).strip(" -:;,.|\"'")
 
-    return ""
-
-def _is_valid_company(s: str) -> bool:
-    """Returns True if s looks like a real company name, not a code or location."""
-    if not s or len(s) < 5:
-        return False
-    if _NUTS_RE.match(s):
-        return False
-    if re.match(r"^\d", s):
-        return False
+    # Reject if too short
+    if len(raw) < 5:
+        return ""
+    # Reject NUTS codes
+    if _NUTS_RE.match(raw):
+        return ""
+    # Reject if starts with digit
+    if raw[0].isdigit():
+        return ""
+    # Reject if it's a contracting body, not a winning company
+    if _CONTRACTING_BODY_RE.search(raw):
+        return ""
+    # Reject known PLACSP boilerplate fragments
+    raw_low = raw.lower()
+    if any(frag in raw_low for frag in _BOILERPLATE_FRAGMENTS):
+        return ""
     # Must have at least 2 words
-    if len(s.split()) < 2:
-        return False
-    # Reject if it's mostly uppercase single tokens (likely codes)
-    tokens = s.split()
-    all_code_like = all(re.match(r'^[A-Z0-9\-]+$', t) for t in tokens)
-    if all_code_like and len(tokens) <= 3:
-        return False
-    return True
+    if len(raw.split()) < 2:
+        return ""
+    # Reject if all-caps-code-like tokens (e.g. "ES MALAGA 29016")
+    tokens = raw.split()
+    if all(re.match(r'^[A-Z0-9\-]{2,}$', tok) for tok in tokens[:3]):
+        return ""
+
+    return raw[:120]
 
 
 # ── NEW v1.4: detect estat ───────────────────────────────────────────────
@@ -550,10 +568,12 @@ def fetch_atom(session, source):
 def main():
     global MIN_SCORE
 
-    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.4")
+    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.4.2")
     ap.add_argument("--stats",     action="store_true", help="Solo mostrar stats, no guardar")
     ap.add_argument("--output",    default=str(OUTPUT_FILE))
     ap.add_argument("--min-score", type=int, default=MIN_SCORE)
+    ap.add_argument("--pages",     type=int, default=1,
+                    help="Número de páginas a fetchear (cada página ~100 items). Útil para backfill histórico.")
     args     = ap.parse_args()
     MIN_SCORE = args.min_score
 
@@ -562,9 +582,9 @@ def main():
     out_path = Path(args.output)
 
     print(f"\n{'═'*55}")
-    print(f"  ADG Licitaciones Fetcher v1.4")
+    print(f"  ADG Licitaciones Fetcher v1.4.2")
     print(f"  {datetime.now():%Y-%m-%d %H:%M}")
-    print(f"  Fuentes: solo Atom PLACSP")
+    print(f"  Fuentes: Atom PLACSP | páginas: {args.pages}")
     print(f"  Min score: {MIN_SCORE}")
     print(f"{'═'*55}\n")
 
@@ -572,10 +592,17 @@ def main():
     previous = load_previous(out_path)
     print(f"  Datos anteriores: {len(previous)} items\n")
 
+    # Expand SOURCES with pagination (numItems = pages * 100)
     session   = build_session()
     all_items = []
     for src in SOURCES:
-        all_items.extend(fetch_atom(session, src))
+        paginated_src = dict(src)
+        if args.pages > 1:
+            num_items = min(args.pages * 100, 500)  # PLACSP max ~500
+            sep = "&" if "?" in paginated_src["url"] else "?"
+            paginated_src["url"] = f"{paginated_src['url']}{sep}numItems={num_items}"
+            print(f"  📄 Modo histórico: solicitando {num_items} items")
+        all_items.extend(fetch_atom(session, paginated_src))
         print()
 
     # Dedup (keep highest score per id)
