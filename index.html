@@ -128,13 +128,13 @@ i.bi { font-style:normal; line-height:1; display:inline-flex; align-items:center
 }
 .stats-strip::-webkit-scrollbar { display:none; }
 .sstat {
-  display:flex; align-items:baseline; gap:4px; padding:0 14px;
-  border-right:1px solid var(--border2); flex-shrink:0; height:100%;
-  align-items:center;
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+  gap:0; padding:0 16px; border-right:1px solid var(--border2); flex-shrink:0; height:100%;
 }
 .sstat:last-child { border-right:none; margin-left:auto; padding-right:20px; }
-.sstat-val { font-size:14px; font-weight:700; letter-spacing:-.02em; }
-.sstat-lbl { font-size:8.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); }
+.sstat-val { font-size:17px; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
+.sstat-lbl { font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); margin-top:1px; }
+@media (max-width:700px) { .sstat { padding:0 10px; } .sstat-val { font-size:14px; } }
 .live-dot {
   display:inline-block; width:5px; height:5px; border-radius:50%;
   background:var(--c-ok); margin-right:4px; flex-shrink:0;
@@ -473,8 +473,6 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 .sv-card-title { font-size:8px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:11px; }
 .sv-bars { display:flex; flex-direction:column; gap:6px; }
 .sv-bar-row { display:flex; align-items:center; gap:7px; }
-.sv-bar-label { font-size:10px; color:var(--text2); width:100px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sv-bar-track { flex:1; height:5px; background:var(--bg3); border-radius:2px; overflow:hidden; }
 .sv-bar-fill  { height:100%; background:var(--text); border-radius:2px; transition:width .4s; }
 .sv-bar-val   { font-size:9.5px; color:var(--text3); width:26px; text-align:right; flex-shrink:0; }
 .sv-adj-item { display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:5px 0; border-bottom:1px solid var(--border3); font-size:10.5px; }
@@ -527,6 +525,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 .sem-row { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid var(--border3); }
 .sem-row:last-child { border-bottom:none; }
 .sem-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+.sem-inline { font-size:9px; margin-right:3px; vertical-align:2px; }
 .sem-green  { background:#22c55e; }
 .sem-yellow { background:#f59e0b; }
 .sem-red    { background:#ef4444; }
@@ -534,7 +533,8 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 .sem-text p { font-size:10px; color:var(--text3); margin-top:2px; line-height:1.55; }
 
 /* ─── ABOUT: strict single column ────────────────────────────────────── */
-.about-stack { display:flex; flex-direction:column; gap:14px; }
+.about-stack { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:760px) { .about-stack { grid-template-columns:1fr; } }
 .about-card { border:1px solid var(--border2); border-radius:2px; padding:16px; }
 .about-card-title { font-size:8px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:9px; }
 .about-body { font-size:11.5px; color:var(--text2); line-height:1.75; }
@@ -546,32 +546,58 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 .about-body code { font-size:10.5px; background:var(--bg2); padding:1px 4px; border-radius:2px; }
 
 /* ─── RESPONSIVE ──────────────────────────────────────────────────────── */
-/* Cards */
-.sv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+/* Stats cards grid */
+.sv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
 .sv-card { border:1px solid var(--border2); border-radius:2px; padding:14px; min-width:0; overflow:hidden; }
-.sv-bar-label { font-size:10px; color:var(--text2); width:88px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-/* Chart donut: constrain on small screens */
-.donut-wrap { flex-shrink:0; }
-/* Big nums: 2 cols on mobile */
+.sv-bar-row  { display:flex; align-items:center; gap:7px; }
+.sv-bar-label { font-size:10px; color:var(--text2); width:100px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv-bar-val   { font-size:10px; color:var(--text3); flex-shrink:0; text-align:right; min-width:36px; white-space:nowrap; }
+.sv-bar-track { flex:1; min-width:0; height:6px; background:var(--border2); border-radius:1px; overflow:hidden; }
+.sv-bar-fill  { height:100%; background:var(--text); border-radius:1px; min-width:2px; transition:width .3s; }
+.sv-bars      { display:flex; flex-direction:column; gap:2px; }
+.donut-wrap   { flex-shrink:0; }
 .sv-bignums { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+
+/* Laptop (≤1100px): compact slightly */
+@media (max-width:1100px) {
+  .sv-grid { grid-template-columns:1fr 1fr; }
+}
+
+/* Tablet (≤860px): 2-col bignums, single col cards */
 @media (max-width:860px) {
   .sv-bignums { grid-template-columns:1fr 1fr; }
   .sv-grid { grid-template-columns:1fr; }
+  .about-stack { grid-template-columns:1fr; }
+  .guide-grid  { grid-template-columns:1fr; }
+  .ov-body { padding:16px; }
 }
 
-/* Header: wrap on mobile */
-.header { flex-wrap:wrap; row-gap:6px; }
-.header-actions { flex-wrap:wrap; row-gap:4px; }
-@media (max-width:700px) {
+/* Header: collapse button labels on tablet */
+@media (max-width:900px) {
+  .header { flex-wrap:wrap; row-gap:6px; }
+  .header-actions { flex-wrap:wrap; row-gap:4px; }
   .htbtn span { display:none; }
-  .htbtn { padding:0 9px; }
+  .htbtn { padding:0 10px; min-width:32px; }
+  .lang-wrap { order:10; }
+}
+@media (max-width:700px) {
+  .logo-eyebrow { display:none; }
+  .sstat-val { font-size:14px; }
+  .sstat { padding:0 10px; }
 }
 
-/* Table: hide less important columns on mobile */
+/* Filters: wrap on tablet */
+@media (max-width:760px) {
+  .filter-group { flex-wrap:wrap; row-gap:4px; }
+  .adj-wrap { width:100%; }
+}
+
+/* Table: hide columns progressively */
+@media (max-width:800px) {
+  td:nth-child(4), th:nth-child(4) { display:none; } /* relevancia */
+}
 @media (max-width:640px) {
-  .adj-wrap { display:none; }
   td:nth-child(3), th:nth-child(3) { display:none; } /* pressupost */
-  td:nth-child(4), th:nth-child(4) { display:none; } /* rellevancia */
   td:nth-child(6), th:nth-child(6) { display:none; } /* termina */
 }
 @media (max-width:420px) {
@@ -580,15 +606,23 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
   .toolbar { padding:5px 12px; }
   .filter-group:first-child { padding-left:12px; }
   .filter-group.stretch { padding:5px 12px; }
+  .tc-name { font-size:11px; }
+  td:nth-child(5) .badge { font-size:8px; padding:2px 5px; }
 }
 
-/* Ov body scroll properly on mobile */
+/* Panels */
 .panel-overlay { display:none; position:absolute; inset:0; z-index:20; overflow-y:auto; background:var(--bg); animation:fade-in .15s ease; }
 .panel-overlay.open { display:block; }
 @keyframes fade-in { from { opacity:0; } }
-
-/* ─── OV HEAD layout update (support tabs) ───────────────────────────── */
 .ov-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 28px; border-bottom:1px solid var(--border2); position:sticky; top:0; background:var(--bg); z-index:2; flex-wrap:wrap; }
+@media (max-width:600px) { .ov-head { padding:10px 14px; } .ov-body { padding:14px; } }
+
+/* Pagination */
+@media (max-width:560px) {
+  .pagination-bar { padding:8px 12px; }
+  .pg-btn { min-width:24px; height:24px; font-size:9px; padding:0 5px; }
+  .pg-info { display:none; }
+}
 
 .chart-wrap { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
 .donut-wrap { position:relative; flex-shrink:0; }
@@ -631,7 +665,8 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 
 /* ─── GUIDE PANEL ────────────────────────────────────────────────────── */
 .guide-intro { font-size:12px; color:var(--text2); line-height:1.75; max-width:640px; margin-bottom:20px; }
-.guide-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+.guide-grid  { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:760px) { .guide-grid { grid-template-columns:1fr; } }
 .guide-card  { border:1px solid var(--border2); border-radius:2px; padding:16px; }
 .guide-card-title { font-size:8px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
 .guide-items { display:flex; flex-direction:column; gap:0; }
@@ -641,9 +676,9 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 }
 .guide-item:last-child { border-bottom:none; }
 .guide-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-top:4px; }
-.dot-red  { background:#d93025; }
-.dot-warn { background:#f29900; }
-.dot-ok   { background:#186818; }
+.dot-red  { background:#d93025; color:#d93025; }
+.dot-warn { background:#f29900; color:#f29900; }
+.dot-ok   { background:#186818; color:#186818; }
 .guide-item strong { color:var(--text); }
 .guide-note { font-size:10px; color:var(--text3); margin-top:10px; line-height:1.6; padding-top:10px; border-top:1px solid var(--border3); }
 .lcsp-ref { font-size:10px; letter-spacing:.06em; background:var(--bg2); padding:2px 6px; border-radius:2px; border:1px solid var(--border2); color:var(--text3); white-space:nowrap; }
@@ -967,7 +1002,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
           <div class="about-card">
             <div class="about-card-title">Changelog</div>
             <div>
-              <div class="changelog-item"><span class="cl-ver">v1.5.2</span><span class="cl-date">Mar 2026</span> — Bootstrap Icons, i18n completo, panel Guía de licitaciones, panel Acerca de, overlay de estadísticas, fix adjudicatarios, fix CPV falsos positivos, WIP footer, Señalética icon fix.</div>
+              <div class="changelog-item"><span class="cl-ver">v1.5.3</span><span class="cl-date">Mar 2026</span> — Bootstrap Icons, i18n completo, panel Guía de licitaciones, panel Acerca de, overlay de estadísticas, fix adjudicatarios, fix CPV falsos positivos, WIP footer, Señalética icon fix.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4.1</span><span class="cl-date">Mar 2026</span> — Fix fila seleccionada dark/light, fix overlay estadísticas, adjudicatarios en panel, fix CPV 34928470 mobiliario urbano.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4</span><span class="cl-date">Mar 2026</span> — Badge NUEVA, contador vencen esta semana, fecha de última actualización real, exportar CSV, compartir licitación por URL, vista estadísticas, campo adjudicatario, buscador adjudicatarios, historial de estados.</div>
               <div class="changelog-item"><span class="cl-ver">v1.3</span><span class="cl-date">Feb 2026</span> — Fix CPV match por familia de 5 dígitos, filtro CPV_VALID_STARTS, reducción de falsos positivos.</div>
@@ -1195,7 +1230,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span>v1.5.2</span>
+      <i class="bi bi-code-slash"></i><span>v1.5.3</span>
     </span>
   </div>
 </footer>
@@ -1875,11 +1910,11 @@ function renderStats() {
   });
   const adjE = Object.entries(adjMap).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
 
-  const hbars = (entries, max) => entries.map(([lbl,val])=>`
-    <div class="sv-bar-row">
-      <span class="sv-bar-label" title="${lbl}">${DISC_LABELS[lbl]||lbl}</span>
+  const hbars = (entries, max, fmtFn) => entries.map(([lbl,val])=>`
+    <div class="sv-bar-row" title="${lbl}">
+      <span class="sv-bar-label">${DISC_LABELS[lbl]||lbl}</span>
       <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(val/max*100)}%"></div></div>
-      <span class="sv-bar-val">${val}</span>
+      <span class="sv-bar-val">${fmtFn?fmtFn(val):val}</span>
     </div>`).join('');
 
   // Donut legend
@@ -1990,30 +2025,35 @@ function renderConditions() {
   const sinPpto = d.filter(r=>!r.pressupost).length;
   const sinPptoPct = d.length ? Math.round(sinPpto/d.length*100) : 0;
 
+  // Semaphore helpers
+  const sem = (v, goodFn, warnFn) => {
+    if (v===null||v===undefined) return '';
+    if (goodFn(v)) return '<span class="dot-ok sem-inline">●</span>';
+    if (warnFn(v)) return '<span class="dot-warn sem-inline">●</span>';
+    return '<span class="dot-red sem-inline">●</span>';
+  };
   el('cond-bignums').innerHTML = `
     <div class="sv-bignum">
-      <div class="sv-bignum-val">${avgPlazo!==null?avgPlazo+'d':'—'}</div>
-      <div class="sv-bignum-lbl">Plazo medio de presentación</div>
+      <div class="sv-bignum-val">${avgPlazo!==null?`${sem(avgPlazo,v=>v>=20,v=>v>=15)}${avgPlazo}d`:'—'}</div>
+      <div class="sv-bignum-lbl">Plazo medio presentación</div>
     </div>
     <div class="sv-bignum">
-      <div class="sv-bignum-val${sinPptoPct>40?' ':''}">
-        ${sinPptoPct}%
-      </div>
+      <div class="sv-bignum-val">${sem(sinPptoPct,v=>v<=30,v=>v<=60)}${sinPptoPct}%</div>
       <div class="sv-bignum-lbl">Sin presupuesto publicado</div>
     </div>
     <div class="sv-bignum">
-      <div class="sv-bignum-val" style="color:var(--c-ok)">${estPct(estAdj)}%</div>
-      <div class="sv-bignum-lbl">Adjudicadas (del total)</div>
+      <div class="sv-bignum-val">${sem(estPct(estAdj),v=>v>=0,v=>v>=0)}${estPct(estAdj)}%</div>
+      <div class="sv-bignum-lbl">Adjudicadas del total</div>
     </div>
     <div class="sv-bignum">
-      <div class="sv-bignum-val" style="color:var(--c-warn)">${estPct(estDes)}%</div>
+      <div class="sv-bignum-val">${sem(estPct(estDes),v=>v<=10,v=>v<=25)}${estPct(estDes)}%</div>
       <div class="sv-bignum-lbl">Declaradas desiertas</div>
     </div>
   `;
 
   const hbars = (entries, max, fmtFn) => entries.map(([lbl,val])=>`
-    <div class="sv-bar-row">
-      <span class="sv-bar-label" title="${lbl}">${DISC_LABELS[lbl]||lbl}</span>
+    <div class="sv-bar-row" title="${lbl}">
+      <span class="sv-bar-label">${DISC_LABELS[lbl]||lbl}</span>
       <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(val/max*100)}%"></div></div>
       <span class="sv-bar-val">${fmtFn?fmtFn(val):val}</span>
     </div>`).join('');
