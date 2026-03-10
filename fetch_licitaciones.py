@@ -1,27 +1,25 @@
 #!/usr/bin/env python3
 """
-fetch_licitaciones.py — ADG Licitaciones v1.4
-Solo Atom de PLACSP. Mantiene intacto el esquema de salida que consume index.html.
+fetch_licitaciones.py — ADG Licitaciones v1.5
+Fetcher para licitaciones públicas relevantes al diseño gráfico y comunicación visual.
 
-Novedades v1.4:
-- Salida en formato envelope: {"data": [...], "generated_at": "ISO 8601"}
-  → index.html v1.4 muestra la fecha real de la última actualización.
-- Campo `adjudicatari`: extrae el adjudicatario del blob XML cuando aparece.
-- Campo `historial`: array de {data, estat, nota} que crece en cada ejecución.
-  → Cuando una licitación cambia de Vigente → Adjudicado/Desierta, se registra.
-- Detección de estado: intenta extraer "Adjudicado"/"Desierta" del contenido del entry.
-- Merge con data.json existente: preserva historial y adjudicatari conocidos.
-- Resto de lógica idéntica a v1.3 (CPV prefix, CPV_VALID_STARTS, scoring).
+ARQUITECTURA (leer antes de modificar):
+  El feed PLACSP sindicacion_643 es el feed de "perfiles de contratante completo".
+  Devuelve licitaciones de organismos que tienen CPVs de diseño en su PERFIL,
+  no necesariamente de contratos de diseño. Por eso hay falsos positivos.
+
+  Solución implementada:
+  1. Hard gate: el TÍTULO debe contener al menos 1 keyword de diseño.
+     Sin eso, el item se descarta sin importar CPV ni descripción.
+  2. CPV como bonus (+20), no como requisito autónomo.
+  3. Lista de exclusión agresiva aplicada sobre el título.
+  4. Scoring separado: título pesa 2x más que descripción.
+  5. --enrich: para adjudicatarios, scraping del HTML de detalle (lento, manual).
+
+Dependencias: pip install requests
 """
 
-import argparse
-import hashlib
-import html
-import json
-import re
-import sys
-import xml.etree.ElementTree as ET
-from collections import Counter
+import argparse, hashlib, html as html_mod, json, re, sys, time, xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,12 +30,15 @@ try:
 except ImportError:
     sys.exit("Instala requests:  python -m pip install requests")
 
+# ── CONFIGURACIÓN ─────────────────────────────────────────────────────────
 OUTPUT_FILE = Path("data.json")
-MIN_SCORE   = 15
+MIN_SCORE   = 20          # Mínimo para incluir un item. Ver DD-001 en BUGTRACKER.
 MAX_ITEMS   = 500
 TIMEOUT     = 45
-HEADERS     = {
-    "User-Agent": "ADG-Licitaciones/1.4 (+https://adg-fad.org)",
+ENRICH_DELAY = 0.8        # segundos entre requests al scraping de detalle
+
+HEADERS = {
+    "User-Agent": "ADG-Licitaciones/1.5 (+https://adg-fad.org)",
     "Accept":     "application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
 }
 
@@ -45,107 +46,172 @@ SOURCES = [
     {
         "name": "PLACSP",
         "ccaa": None,
-        "kind": "atom",
         "url":  "https://contrataciondelestado.es/sindicacion/sindicacion_643/"
                 "licitacionesPerfilesContratanteCompleto3.atom",
     }
 ]
 
-CPV = {
-    "79930000","79931000","79932000","79933000","79935000",
-    "79340000","79341000","79341100","79341200","79341400","79342000","79342200",
-    "79416000","79416100","79416200",
-    "79800000","79810000","79811000","79812000","79820000","79821000","79822000","79823000",
-    "22000000","22100000","22140000","22150000","22160000","22462000","22900000",
-    "79961000","79961100","79961200","79961300",
-    "92111000","92111200","92111210","92111300",
-    "72413000","72415000","72420000",
-    "79950000","79952000","79956000",
-}
+NS_ATOM = "http://www.w3.org/2005/Atom"
 
-KW_EXCLUDE = [
-    "obra civil","construcción de edificio","suministro de energía","limpieza de edificios",
-    "seguridad privada","catering","residuos","transporte de viajeros","asistencia sanitaria",
+# ── KEYWORDS ──────────────────────────────────────────────────────────────
+# Palabras que EXCLUYEN un item del título — descarte inmediato sin importar nada más.
+# IMPORTANTE: estas palabras deben ser muy específicas para no descartar diseño+X.
+TITLE_EXCLUDE = [
+    # Construcción e infraestructura
+    "obra civil", "obras de", "reforma de", "instalación de", "instalaciones de",
+    "suministro de energía", "suministro e instalación", "suministro y montaje",
+    "suministro de módulos", "módulos sanitarios", "módulos prefabricados",
+    "suministro de agua", "suministro de gas", "suministro de combustible",
+    "mantenimiento de edificio", "mantenimiento del edificio", "mantenimiento y reparación",
+    "mantenimiento preventivo", "mantenimiento correctivo",
+    "limpieza de", "servicio de limpieza", "servicios de limpieza",
+    "seguridad privada", "vigilancia", "control de accesos",
+    # Residuos y medio ambiente
+    "recogida de residuos", "gestión de residuos", "tratamiento de residuos",
+    "basuras", "reciclaje", "compostaje", "planta de tratamiento",
+    # Transporte y logística
+    "transporte de viajeros", "transporte escolar", "servicio de transporte",
+    "contratación de vuelos", "arrendamiento de vehículos",
+    # Sanitario (no relacionado con diseño)
+    "asistencia sanitaria", "atención sanitaria", "servicio médico",
+    "material sanitario", "material clínico", "equipamiento médico",
+    "bombas de agua", "grupo de bombeo", "sistema de bombeo",
+    # Alimentación y catering
+    "catering", "servicio de comedor", "servicio de cafetería", "suministro de alimentos",
+    # Otros no relacionados
+    "seguridad informática", "ciberseguridad", "consultoría jurídica",
+    "asesoría fiscal", "auditoría de cuentas", "préstamo", "arrendamiento financiero",
+    "póliza de seguros", "seguro de", "suministro de uniformes",
+    "mantenimiento de parques", "mantenimiento de jardines", "mantenimiento de carreteras",
+    "señalización vial", "señalización horizontal", "señalización vertical",
+    "pintura de", "pintura vial",
+    "alquiler de", "arrendamiento de",
+    "suministro de mobiliario", "suministro de material de oficina",
+    "suministro de equipamiento", "adquisición de equipamiento",
+    "adquisición de vehículos", "adquisición de maquinaria",
 ]
 
-STRONG_KW = [
-    "diseño gráfico","disseny gràfic","identidad corporativa","identitat corporativa",
-    "imagen corporativa","imatge corporativa","manual de identidad","manual de marca",
-    "comunicación visual","comunicació visual","diseño editorial","disseny editorial",
-    "maquetación","maquetació","infografía","infografia","campaña publicitaria",
-    "campanya publicitària","material promocional","material divulgativo","material divulgatiu",
-    "cartelería","cartelleria","dípticos","trípticos","diseño web","disseny web",
-    "página web","pàgina web","artes gráficas","arts gràfiques","producción gráfica",
-    "rotulación","retolació","señalética","senyalètica","producción audiovisual",
-    "producció audiovisual","motion graphics","comunicación institucional",
-    "comunicación corporativa","relaciones públicas","museografía","museografia",
-    "dirección de arte","direcció d'art","ilustración","il·lustració","tipografía",
-    "logotipo","logotip",
+# Keywords que acreditan que es diseño/comunicación — SOLO en título (hard gate).
+TITLE_DESIGN_KW = [
+    # Diseño gráfico
+    "diseño gráfico", "disseny gràfic", "diseño y maquetación",
+    "identidad corporativa", "identitat corporativa", "imagen corporativa", "imatge corporativa",
+    "manual de identidad", "manual de marca", "manual corporativo",
+    "comunicación visual", "comunicació visual", "comunicación gráfica",
+    "diseño editorial", "disseny editorial",
+    "maquetación", "maquetació", "autoedición",
+    "infografía", "infografia",
+    "cartelería", "cartelleria", "diseño de cartel", "diseño de carteles",
+    "ilustración", "il·lustració",
+    "tipografía",
+    "logotipo", "logotip", "logomarca",
+    "branding",
+    # Publicidad y comunicación
+    "campaña publicitaria", "campanya publicitària", "campaña de comunicación",
+    "campaña de publicidad", "spot publicitario",
+    "material promocional", "material divulgativo", "material divulgatiu",
+    "material de comunicación", "material comunicatiu",
+    "folletos", "fullets", "dípticos", "trípticos",
+    "producción gráfica",
+    "artes gráficas", "arts gràfiques",
+    "rotulación", "retolació",
+    # Web y digital
+    "diseño web", "disseny web",
+    "diseño de página web", "diseño de portal",
+    "diseño ux", "diseño ui", "ux/ui", "experiencia de usuario",
+    # Señalética y exposición
+    "señalética", "senyalètica", "señalización corporativa", "sistema de señalización",
+    "museografía", "museografia", "diseño de exposición", "diseño museográfico",
+    # Audiovisual
+    "producción audiovisual", "producció audiovisual",
+    "motion graphics", "animación gráfica",
+    "vídeo corporativo", "video corporativo",
+    # Fotografía profesional
+    "fotografía corporativa", "fotografía de producto", "reportaje fotográfico",
+    # Impresión editorial
+    "artes finales", "impresión de", "servicios de impresión",
+    # Multiservicio comunicación
+    "servicios de comunicación", "serveis de comunicació",
+    "servicios de diseño", "serveis de disseny",
+    "relaciones públicas", "relacions públiques",
+    "estrategia de comunicación", "pla de comunicació",
+    "plan de comunicación",
 ]
 
-MEDIUM_KW = [
-    "branding","marca","editorial","carteles","folletos","fullets","publicidad","publicitat",
-    "marketing","impresión","impressió","vídeo","video","fotografía","fotografia",
-    "animación","animació","multimedia","exposición","exposició","stand",
+# Keywords fuertes en descripción (tienen que ver con diseño pero no como título)
+STRONG_DESC_KW = [
+    "diseño gráfico", "disseny gràfic", "identidad corporativa", "imagen corporativa",
+    "manual de marca", "comunicación visual", "maquetación", "infografía",
+    "cartelería", "producción gráfica", "artes gráficas", "branding",
+    "campaña publicitaria", "material promocional", "señalética", "museografía",
+    "producción audiovisual", "motion graphics",
 ]
 
-GENERIC_KW = [
-    "web","portal web","sitio web","contenidos digitales","redes sociales","xarxes socials",
-    "digital","interfaz","app","aplicación","promoción",
+# Keywords medias en descripción
+MEDIUM_DESC_KW = [
+    "diseño", "disseny", "comunicación", "comunicació", "publicidad", "publicitat",
+    "marca", "marketing", "edición", "editorial", "fotografía", "fotografia",
+    "ilustración", "impresión", "audiovisual", "animación", "exposición",
 ]
 
+# Keywords de disciplina para clasificar
 DISC_KW = {
-    "branding":    ["branding","identidad corporativa","identitat corporativa","logotipo","logotip","logo","manual de marca","manual de identidad"],
-    "editorial":   ["editorial","maquetación","maquetació","revista","catálogo","catàleg","folleto","fullet","cartel","cartell","infografía"],
-    "web":         ["web","página web","pàgina web","sitio web","portal web","diseño web","disseny web","wordpress"],
-    "uxui":        ["ux","ui","experiencia de usuario","usabilidad","interfaz","app","aplicación"],
-    "publicitat":  ["publicidad","publicitat","campaña","campanya","marketing","màrqueting","promoción"],
-    "senyaletica": ["señalética","senyalètica","rotulación","retolació","señalización","stand","expositor","museografía"],
-    "fotografia":  ["fotografía","fotografia","fotográfico","reportaje"],
-    "audiovisual": ["audiovisual","vídeo","video","motion","animación","animació","multimedia"],
-    "illustracio": ["ilustración","il·lustració","dibujo"],
+    "branding":    ["branding","identidad corporativa","identitat corporativa","logotipo","logotip",
+                    "logo","manual de marca","manual de identidad","imagen corporativa"],
+    "editorial":   ["editorial","maquetación","maquetació","revista","catálogo","catàleg",
+                    "folleto","fullet","cartel","cartell","infografía","memoria anual",
+                    "publicación","publicació","díptico","tríptico"],
+    "web":         ["diseño web","disseny web","página web","pàgina web","sitio web","portal web",
+                    "wordpress","diseño digital"],
+    "uxui":        ["ux","ui","experiencia de usuario","usabilidad","interfaz","app","aplicación",
+                    "ux/ui","experiència d'usuari"],
+    "publicitat":  ["publicidad","publicitat","campaña publicitaria","campanya publicitària",
+                    "marketing","màrqueting","promoción","spot publicitario"],
+    "senyaletica": ["señalética","senyalètica","rotulación","retolació","señalización corporativa",
+                    "museografía","diseño de exposición","expositores","señales"],
+    "fotografia":  ["fotografía corporativa","fotografía de producto","reportaje fotográfico",
+                    "fotografía profesional"],
+    "audiovisual": ["producción audiovisual","producció audiovisual","vídeo corporativo",
+                    "motion graphics","animación gráfica","spot","multimedia"],
+    "illustracio": ["ilustración","il·lustració","ilustración editorial"],
     "impressio":   ["impresión","impressió","artes gráficas","arts gràfiques","offset","serigrafía"],
 }
 
 CCAA_KW = {
-    "CT":["cataluña","catalunya","barcelona","girona","lleida","tarragona","generalitat de catalunya"],
-    "MD":["madrid","comunidad de madrid","ayuntamiento de madrid"],
+    "CT":["cataluña","catalunya","barcelona","girona","lleida","tarragona","generalitat de catalunya",
+          "diputació de barcelona","ajuntament de"],
+    "MD":["madrid","comunidad de madrid","ayuntamiento de madrid","comunitat de madrid"],
     "AN":["andalucía","andalucia","sevilla","málaga","granada","córdoba","junta de andalucía"],
-    "PV":["país vasco","pais vasco","euskadi","bilbao","donostia","vitoria","gobierno vasco"],
-    "VC":["comunitat valenciana","comunidad valenciana","valencia","alicante","generalitat valenciana"],
-    "GA":["galicia","xunta de galicia","vigo","a coruña","santiago"],
-    "AR":["aragón","aragon","zaragoza"],"CM":["castilla-la mancha","toledo","albacete"],
-    "CL":["castilla y león","valladolid","burgos","salamanca"],"MU":["murcia"],
-    "NA":["navarra","pamplona"],"IB":["baleares","illes balears","mallorca"],
-    "CN":["canarias","tenerife","las palmas"],"EX":["extremadura","badajoz"],
-    "AS":["asturias","oviedo"],"CB":["cantabria","santander"],"RI":["la rioja"],
-    "ES":["ministerio","gobierno de españa","estado"],
+    "PV":["país vasco","pais vasco","euskadi","bilbao","donostia","vitoria","gobierno vasco",
+          "diputación foral"],
+    "VC":["comunitat valenciana","comunidad valenciana","valencia","alicante","castellón",
+          "generalitat valenciana"],
+    "GA":["galicia","xunta de galicia","vigo","a coruña","santiago","pontevedra"],
+    "AR":["aragón","aragon","zaragoza","gobierno de aragón"],
+    "CM":["castilla-la mancha","toledo","albacete","ciudad real"],
+    "CL":["castilla y león","valladolid","burgos","salamanca","junta de castilla y león"],
+    "MU":["región de murcia","murcia"],"NA":["navarra","pamplona","gobierno de navarra"],
+    "IB":["baleares","illes balears","mallorca","ibiza"],
+    "CN":["canarias","tenerife","las palmas","gobierno de canarias"],
+    "EX":["extremadura","badajoz","cáceres"],"AS":["asturias","oviedo","principado de asturias"],
+    "CB":["cantabria","santander"],"RI":["la rioja","gobierno de la rioja"],
+    "ES":["ministerio","gobierno de españa","administración general del estado",
+          "agencia estatal","organismo autónomo"],
 }
 
 TERR = {
     "AN":"Andalucía","AR":"Aragón","AS":"Asturias","IB":"Baleares","CN":"Canarias",
     "CB":"Cantabria","CM":"Castilla-La Mancha","CL":"Castilla y León","CT":"Catalunya",
     "EX":"Extremadura","GA":"Galicia","RI":"La Rioja","MD":"Madrid","MU":"Murcia",
-    "NA":"Navarra","PV":"País Vasco","VC":"C. Valenciana","CE":"Ceuta","ML":"Melilla",
-    "ES":"Estatal",
+    "NA":"Navarra","PV":"País Vasco","VC":"C. Valenciana","ES":"Estatal",
 }
-
-CPV_PREFIXES    = {c[:5] for c in CPV}
-# Only accept 8-digit numbers from categories genuinely related to design/communication.
-# 79=business/advertising/design services, 22=printed matter, 72=IT/web, 92=AV/recreation
-# Removed broad categories (34,55,71,73,75,85,90,98,39,32,48) that caused false positives.
-CPV_VALID_STARTS = {"79","22","72","92"}
-NS_ATOM = "http://www.w3.org/2005/Atom"
 
 
 # ── SESSION ───────────────────────────────────────────────────────────────
 def build_session():
-    retry = Retry(
-        total=3, connect=3, read=3, status=3,
-        backoff_factor=1.0,
-        status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=("HEAD", "GET", "OPTIONS"),
-    )
+    retry = Retry(total=3, connect=3, read=3, backoff_factor=1.0,
+                  status_forcelist=(429,500,502,503,504),
+                  allowed_methods=("HEAD","GET","OPTIONS"))
     s = requests.Session()
     s.headers.update(HEADERS)
     s.mount("https://", HTTPAdapter(max_retries=retry))
@@ -155,468 +221,418 @@ def build_session():
 
 # ── TEXT UTILS ────────────────────────────────────────────────────────────
 def strip_html(raw):
-    text = html.unescape(raw or "")
-    text = re.sub(r"<[^>]+>", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
+    t = html_mod.unescape(raw or "")
+    t = re.sub(r"<[^>]+>", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 def norm(text):
     return re.sub(r"\s+", " ", (text or "")).strip().lower()
 
-def kw_match(text, kw):
-    text, kw = norm(text), norm(kw)
-    if not text or not kw:
-        return False
-    if kw in {"ux", "ui"}:
-        return bool(re.search(rf"(?<![a-záéíóúüñ]){re.escape(kw)}(?![a-záéíóúüñ])", text))
-    if len(kw) <= 3 and " " not in kw:
-        return bool(re.search(rf"\b{re.escape(kw)}\b", text))
-    return kw in text
+def kw_in(text, kw):
+    """Check if keyword appears as whole-word in normalized text."""
+    t, k = norm(text), norm(kw)
+    if not t or not k: return False
+    if len(k) <= 3 and " " not in k:
+        return bool(re.search(rf"\b{re.escape(k)}\b", t))
+    return k in t
+
+
+# ── HARD GATE: TITLE FILTER ───────────────────────────────────────────────
+def title_passes_gate(titulo: str) -> bool:
+    """
+    Returns True only if:
+    1. Title does NOT contain any exclusion keyword
+    2. Title DOES contain at least one design keyword
+
+    This is the primary false-positive defense. (See BUG-001, DD-001)
+    """
+    t = norm(titulo)
+    # Exclusion: discard if title contains any exclusion phrase
+    for ex in TITLE_EXCLUDE:
+        if ex in t:
+            return False
+    # Inclusion: must have at least one design keyword
+    for kw in TITLE_DESIGN_KW:
+        if kw in t:
+            return True
+    return False
 
 
 # ── SCORING ───────────────────────────────────────────────────────────────
-def score_item(titulo, desc, cpv_codes):
-    title_text = norm(titulo)
-    desc_text  = norm(desc)
-    full_text  = f"{title_text} {desc_text}".strip()
+def score_item(titulo: str, desc: str, cpv_codes: list) -> tuple:
+    """
+    Returns (score 0-100, disciplines list, keywords list).
+    Title is the primary signal. Description adds bonus.
+    CPV is a bonus ONLY when title already passes gate.
+    """
+    title_norm = norm(titulo)
+    desc_norm  = norm(desc)
+    score      = 0
+    discs      = set()
+    kws        = set()
 
-    score = 0; discs = set(); kws = set()
-    strong_hits = medium_hits = generic_hits = 0
+    # ── Title keywords (2x weight) ──────────────────────────────────────
+    for kw in TITLE_DESIGN_KW:
+        if kw in title_norm:
+            score += 15
+            kws.add(kw)
+            break  # one strong title match is enough, don't stack
 
-    if any(c[:5] in CPV_PREFIXES for c in cpv_codes):
-        score += 35; kws.add("CPV:diseño"); strong_hits += 1
+    # Multiple title design keywords get diminishing bonus
+    extra_title_matches = sum(1 for kw in TITLE_DESIGN_KW if kw in title_norm) - 1
+    score += min(extra_title_matches * 5, 15)
 
-    if any(kw_match(full_text, kw) for kw in KW_EXCLUDE):
-        score -= 25
+    # ── Description keywords ────────────────────────────────────────────
+    desc_strong_hits = 0
+    for kw in STRONG_DESC_KW:
+        if kw in desc_norm:
+            score += 6
+            kws.add(kw)
+            desc_strong_hits += 1
 
-    for kw in STRONG_KW:
-        if kw_match(title_text, kw):
-            score += 12; kws.add(kw); strong_hits += 1
-        elif kw_match(desc_text, kw):
-            score += 7;  kws.add(kw); strong_hits += 1
+    desc_medium_hits = 0
+    for kw in MEDIUM_DESC_KW:
+        if kw in desc_norm and kw not in kws:
+            score += 2
+            kws.add(kw)
+            desc_medium_hits += 1
 
-    for kw in MEDIUM_KW:
-        if kw_match(title_text, kw):
-            score += 6; kws.add(kw); medium_hits += 1
-        elif kw_match(desc_text, kw):
-            score += 3; kws.add(kw); medium_hits += 1
+    # ── CPV bonus (only if title already proved design-relevance) ───────
+    # See DD-002: CPV alone cannot qualify an item
+    CPV_VALID_STARTS = {"79", "22", "92"}  # design/print/AV — removed "72" (too broad)
+    design_cpvs = [c for c in cpv_codes if c[:2] in CPV_VALID_STARTS]
+    if design_cpvs and score > 0:
+        score += 20
+        kws.update(f"CPV:{c}" for c in design_cpvs[:2])
 
-    for kw in GENERIC_KW:
-        if kw_match(title_text, kw):
-            score += 2; kws.add(kw); generic_hits += 1
-        elif kw_match(desc_text, kw):
-            score += 1; kws.add(kw); generic_hits += 1
-
+    # ── Discipline classification ────────────────────────────────────────
+    full = f"{title_norm} {desc_norm}"
     for disc, keys in DISC_KW.items():
-        if any(kw_match(full_text, k) for k in keys):
+        if any(kw_in(full, k) for k in keys):
             discs.add(disc)
 
-    evidence = strong_hits + medium_hits
-    if evidence == 0 and generic_hits > 0 and not cpv_codes:
-        score -= 10
-    if evidence == 1 and generic_hits > 1 and not cpv_codes:
-        score -= 5
+    # Default discipline if none matched but title clearly is design
+    if not discs and score >= MIN_SCORE:
+        discs.add("branding")  # fallback
 
-    return max(0, min(100, score)), sorted(discs), list(kws)[:12]
+    score = max(0, min(100, score))
+    return score, sorted(discs), list(kws)[:12]
 
 
-# ── FIELD EXTRACTION ──────────────────────────────────────────────────────
-def detect_ccaa(src_ccaa, organisme, lloc):
-    if src_ccaa:
-        return src_ccaa
-    text = norm(f"{organisme} {lloc}")
-    for code, kws in CCAA_KW.items():
-        if any(kw_match(text, k) for k in kws):
-            return code
-    return "ES"
-
-def parse_budget(text):
-    if not text:
-        return None
-    clean = re.sub(r"[^\d,.-]", "", str(text)).replace(".", "").replace(",", ".")
-    try:
-        v = float(clean)
-        return v if v > 100 else None
-    except Exception:
-        return None
-
-def ensure_feed_content(content):
-    head = content[:3000].lower()
-    return (b"<feed" in head) or (b"<entry" in head)
+# ── XML PARSING ───────────────────────────────────────────────────────────
+def parse_atom_entries(root):
+    entries = root.findall(f"{{{NS_ATOM}}}entry")
+    if entries: return entries
+    return [e for e in root.iter() if str(e.tag).endswith("entry")]
 
 def get_entry_text(entry, tag):
     el = entry.find(f"{{{NS_ATOM}}}{tag}")
-    if el is None:
-        return ""
+    if el is None: return ""
     return " ".join(p.strip() for p in el.itertext() if p and p.strip()).strip()
 
-def parse_atom_entries(root):
-    entries = root.findall(f"{{{NS_ATOM}}}entry")
-    if entries:
-        return entries
-    return [e for e in root.iter() if str(e.tag).endswith("entry")]
+def get_entry_content(entry) -> str:
+    """Get the main text content of an entry, stripped of HTML."""
+    raw = get_entry_text(entry, "content") or get_entry_text(entry, "summary")
+    return strip_html(raw)
 
-def extract_link(entry):
+def extract_link(entry) -> str:
     for child in entry.iter():
         if str(child.tag).endswith("link") and child.get("href") and child.get("rel") == "alternate":
-            return child.get("href", "").strip()
+            return child.get("href","").strip()
     for child in entry.iter():
         if str(child.tag).endswith("link") and child.get("href"):
-            return child.get("href", "").strip()
+            return child.get("href","").strip()
     return ""
 
-def gather_entry_blob(entry):
-    parts = []
-    for el in entry.iter():
-        if el.text  and el.text.strip():  parts.append(el.text.strip())
-        if el.tail  and el.tail.strip():  parts.append(el.tail.strip())
-        for attr in ("term","label","title","href"):
-            val = el.get(attr)
-            if val: parts.append(val.strip())
-    return strip_html(" ".join(parts))
+def extract_cpv_from_categories(entry) -> list:
+    """
+    Extract CPV codes ONLY from <category> elements (not from all text).
+    See BUG-001: category elements in PLACSP Atom are the contratante's profile CPVs.
+    We still collect them but only use as bonus when title already passes.
+    """
+    codes = []
+    for child in entry.iter():
+        if str(child.tag).endswith("category"):
+            term = child.get("term", "")
+            if re.fullmatch(r"[1-9]\d{7}", term):
+                codes.append(term)
+    return list(dict.fromkeys(codes))
 
-def extract_org(blob, desc, title):
-    text = f"{blob} || {desc} || {title}"
+
+# ── FIELD EXTRACTION ──────────────────────────────────────────────────────
+def extract_org(content: str, titulo: str) -> str:
+    """Extract contracting body from content field."""
+    text = f"{content} {titulo}"
     patterns = [
-        r"(?:órgano de contratación|organo de contratacion)\s*[:\-]\s*([^|.;]{4,140})",
-        r"(?:entidad adjudicadora|poder adjudicador)\s*[:\-]\s*([^|.;]{4,140})",
-        r"(?:autoridad portuaria de [^|.;]{2,80})",
-        r"(?:ayuntamiento de [^|.;]{2,80})",
-        r"(?:diputación de [^|.;]{2,80})",
-        r"(?:diputacio[nó] de [^|.;]{2,80})",
-        r"(?:cabildo de [^|.;]{2,80})",
-        r"(?:universidad de [^|.;]{2,80})",
-        r"(?:ministerio de [^|.;]{2,80})",
-        r"(?:consorcio de [^|.;]{2,80})",
+        r"(?:órgano de contratación|organo de contratacion)\s*[:\-]\s*([^|\n.;]{4,140})",
+        r"(?:entidad adjudicadora|poder adjudicador)\s*[:\-]\s*([^|\n.;]{4,140})",
+        r"(?:autoridad portuaria de [^|\n.;]{2,80})",
+        r"(?:ayuntamiento de [^|\n.;]{2,80})",
+        r"(?:ajuntament de [^|\n.;]{2,80})",
+        r"(?:diputaci[oó]n de [^|\n.;]{2,80})",
+        r"(?:diputaci[oó] de [^|\n.;]{2,80})",
+        r"(?:cabildo (?:insular )?de [^|\n.;]{2,80})",
+        r"(?:universidad de [^|\n.;]{2,80})",
+        r"(?:universitat de [^|\n.;]{2,80})",
+        r"(?:ministerio de [^|\n.;]{2,80})",
+        r"(?:conseller[ií]a de [^|\n.;]{2,80})",
+        r"(?:consejería de [^|\n.;]{2,80})",
+        r"(?:mancomunidad de [^|\n.;]{2,80})",
+        r"(?:consorcio de [^|\n.;]{2,80})",
+        r"(?:patronato de [^|\n.;]{2,80})",
     ]
     for pat in patterns:
         m = re.search(pat, text, re.I)
         if m:
-            candidate = m.group(1) if m.groups() else m.group(0)
-            candidate = re.sub(r"\s+", " ", candidate).strip(" -:;,.|")
-            if len(candidate) >= 4:
-                return candidate[:150]
+            cand = m.group(1) if m.groups() else m.group(0)
+            cand = re.sub(r"\s+", " ", cand).strip(" -:;,.|")
+            if len(cand) >= 4:
+                return cand[:150]
     return ""
 
-def extract_budget(blob):
-    for pat in [
-        r"(?:presupuesto base de licitaci[oó]n)[^\d]{0,50}(\d[\d\.,]+)\s*€?",
-        r"(?:importe de licitaci[oó]n|importe total|valor estimado)[^\d]{0,50}(\d[\d\.,]+)\s*€?",
-        r"(?:presupuesto|importe)[^\d]{0,40}(\d[\d\.,]+)\s*€",
-        r"(\d[\d\.,]+)\s*€",
-    ]:
-        m = re.search(pat, blob, re.I)
+
+def extract_budget(content: str):
+    """
+    Extract budget from content field.
+    PLACSP format: "Presupuesto base de licitación sin impuestos: 25.000,00"
+    See BUG-002: must handle Spanish number format (. thousands, , decimal).
+    """
+    def parse_es_number(s: str):
+        """Parse Spanish number format: 1.234.567,89 → 1234567.89"""
+        s = s.strip()
+        # Remove thousand separators (dots when followed by 3 digits)
+        s = re.sub(r'\.(?=\d{3})', '', s)
+        # Replace decimal comma with dot
+        s = s.replace(',', '.')
+        try:
+            v = float(re.sub(r'[^\d.]', '', s))
+            return v if v > 100 else None
+        except Exception:
+            return None
+
+    patterns = [
+        # Most specific first — labeled amounts
+        r"presupuesto base de licitaci[oó]n[^:]*:\s*([\d\.,]+)",
+        r"valor estimado del contrato[^:]*:\s*([\d\.,]+)",
+        r"importe de licitaci[oó]n[^:]*:\s*([\d\.,]+)",
+        r"importe total[^:]*:\s*([\d\.,]+)",
+        r"presupuesto[^:]*:\s*([\d\.,]+)\s*(?:€|euros|eur)",
+        r"([\d\.,]+)\s*(?:€|euros)\b",
+    ]
+    for pat in patterns:
+        m = re.search(pat, content, re.I)
         if m:
-            v = parse_budget(m.group(1))
-            if v: return v
+            v = parse_es_number(m.group(1))
+            if v and 100 < v < 50_000_000:  # sanity range
+                return v
     return None
 
-def normalize_date_token(token):
-    token = token.strip()
-    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", token):
-        return token
-    if re.fullmatch(r"\d{2}/\d{2}/\d{4}", token):
-        return f"{token[6:]}-{token[3:5]}-{token[:2]}"
-    return ""
 
-def extract_deadline(blob):
-    for pat in [
-        r"(?:fecha l[íi]mite|plazo de presentaci[oó]n|plazo presentaci[oó]n|presentaci[oó]n de ofertas|termini)[^\d]{0,40}(\d{4}-\d{2}-\d{2})",
-        r"(?:fecha l[íi]mite|plazo de presentaci[oó]n|plazo presentaci[oó]n|presentaci[oó]n de ofertas|termini)[^\d]{0,40}(\d{2}/\d{2}/\d{4})",
-    ]:
-        m = re.search(pat, blob, re.I)
+def extract_deadline(content: str) -> str:
+    """Extract tender submission deadline date."""
+    def norm_date(s):
+        s = s.strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s): return s
+        if re.fullmatch(r"\d{2}/\d{2}/\d{4}", s):
+            return f"{s[6:]}-{s[3:5]}-{s[:2]}"
+        return ""
+
+    patterns = [
+        r"fecha l[íi]mite de presentaci[oó]n[^:]*:\s*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})",
+        r"plazo de presentaci[oó]n[^:]*:\s*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})",
+        r"presentaci[oó]n de ofertas[^:]*:\s*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})",
+        r"termini[^:]*:\s*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})",
+    ]
+    for pat in patterns:
+        m = re.search(pat, content, re.I)
         if m:
-            return normalize_date_token(m.group(1))
+            d = norm_date(m.group(1))
+            if d: return d
     return ""
 
-# ── v1.4.2: extract adjudicatari (ultra-conservative) ────────────────────
-#
-# APPROACH: PLACSP Atom feeds are messy. False positives (NUTS codes,
-# contracting-body names, boilerplate text) are more harmful than missing data.
-# Strategy: ONLY extract if there is an EXPLICIT label ("Empresa adjudicataria:",
-# "Adjudicatario:", "Winning party:") immediately followed by a plausible name.
-# If no explicit label → return "" (no guessing from company suffixes alone,
-# since contracting bodies also end in S.L., S.A.U., etc.).
-#
-_NUTS_RE = re.compile(r'^ES[\s\-]?\d', re.I)
 
-# Phrases that indicate we're reading about the contracting BODY, not the winner
-_CONTRACTING_BODY_RE = re.compile(
-    r'\b(?:órgano de contrataci[oó]n|entidad adjudicadora|poder adjudicador|'
-    r'administraci[oó]n|ayuntamiento|diputaci[oó]n|consell|generalitat|'
-    r'mancomunidad|ministerio|subsecretar[ií]a|direcci[oó]n general|'
-    r'autoridad portuaria|universidad|cabildo|consorcio)\b',
-    re.I
-)
+def extract_estat(content: str) -> str:
+    """Detect tender status from content."""
+    b = norm(content)
+    if re.search(r"\b(?:adjudica(?:do|da|t|da)|resuelt[ao]|formalizado)\b", b):
+        return "Adjudicado"
+    if any(w in b for w in ["desierta","deserta","sin adjudicar","sense adjudicació",
+                              "declarada desierta","sin licitadores"]):
+        return "Desierta"
+    return "Vigente"
 
-# Boilerplate strings found in PLACSP that are NOT company names
-_BOILERPLATE_FRAGMENTS = [
-    "presentará una declaración",
-    "declaración responsable",
-    "volumen anual de negocios",
-    "importe de adjudicación",
-    "objeto del contrato",
-    "plazo de ejecución",
-    "criterios de adjudicación",
-    "tipo de procedimiento",
+
+def detect_ccaa(src_ccaa, organisme: str, content: str) -> str:
+    if src_ccaa: return src_ccaa
+    text = norm(f"{organisme} {content[:500]}")
+    for code, kws in CCAA_KW.items():
+        if any(kw_in(text, k) for k in kws):
+            return code
+    return "ES"
+
+
+# ── ADJUDICATARI — DETAIL PAGE SCRAPING ──────────────────────────────────
+# See BUG-003: adjudicatari is NOT in the Atom feed.
+# Only available in the HTML detail page. Only used with --enrich flag.
+
+_NUTS_RE         = re.compile(r'^ES[\s\-]?\d', re.I)
+_BOILERPLATE_FRAGS = [
+    "presentará una declaración","declaración responsable","volumen anual de negocios",
+    "objeto del contrato","plazo de ejecución","criterios de adjudicación",
 ]
 
-# Explicit winning-party labels ONLY (not "empresa" alone, which can be contracting body)
-_WINNER_LABEL_RE = re.compile(
-    r"(?:empresa adjudicataria|licitador adjudicatario|adjudicatario\s*[:\-]|"
-    r"adjudicado a\s*[:\-]|licitador seleccionado|licitador ganador|"
-    r"winning party|empresa contratista|contratista adjudicatario)"
-    r"\s*[:\-]?\s*"
-    r"([A-Za-záéíóúäëïöüàèìòùÁÉÍÓÚÜÑñçÇÀÈÌÒÙ][^\n\r|<>{}\[\]]{4,120}?)(?=\s*(?:\n|\r|$|NIF\b|CIF\b|\b\d{8}[A-Z]\b|\bES\s*\d))",
-    re.I
-)
-
-
-def extract_adjudicatari(blob: str) -> str:
-    """
-    Extrae el nombre del adjudicatario SOLO cuando hay una etiqueta explícita.
-    Es conservador a propósito: mejor no extraer que extraer mal.
-    """
-    m = _WINNER_LABEL_RE.search(blob)
-    if not m:
-        return ""
-
-    raw = re.sub(r"\s+", " ", m.group(1)).strip(" -:;,.|\"'")
-
-    # Reject if too short
-    if len(raw) < 5:
-        return ""
-    # Reject NUTS codes
-    if _NUTS_RE.match(raw):
-        return ""
-    # Reject if starts with digit
-    if raw[0].isdigit():
-        return ""
-    # Reject if it's a contracting body, not a winning company
-    if _CONTRACTING_BODY_RE.search(raw):
-        return ""
-    # Reject known PLACSP boilerplate fragments
-    raw_low = raw.lower()
-    if any(frag in raw_low for frag in _BOILERPLATE_FRAGMENTS):
-        return ""
-    # Must have at least 2 words
-    if len(raw.split()) < 2:
-        return ""
-    # Reject if all-caps-code-like tokens (e.g. "ES MALAGA 29016")
-    tokens = raw.split()
-    if all(re.match(r'^[A-Z0-9\-]{2,}$', tok) for tok in tokens[:3]):
-        return ""
-
-    return raw[:120]
-
-
-# ── v1.5: adjudicatari enrichment via detail page ─────────────────────────
 def scrape_adj_from_detail_page(session, url: str) -> str:
-    """
-    Fetches the PLACSP detail HTML page and extracts the winning party.
-    Parses the pattern:
-      <span title="Winning party" ...>Winning party</span>
-      <span title="COMPANY NAME" ...>COMPANY NAME</span>
-    Returns the company name or "".
-    """
-    if not url or '/plataforma' in url:
-        return ""
+    if not url or '/plataforma' in url: return ""
     try:
         r = session.get(url, timeout=12)
-        if not r.ok:
-            return ""
-        html = r.text
-        # Pattern 1: title="Winning party" followed shortly by title="VALUE"
+        if not r.ok: return ""
+        html_text = r.text
+        # Pattern from actual PLACSP HTML:
+        # <span title="Winning party" ...>Winning party</span>
+        # <span title="COMPANY NAME" ...>COMPANY NAME</span>
         m = re.search(
-            r'title=["\']Winning party["\'][^>]*>.*?'
-            r'title=["\']([^"\'<>]{4,130})["\']',
-            html, re.I | re.S
+            r'title=["\']Winning party["\'][^>]*>[^<]*</span>\s*'
+            r'<span[^>]+title=["\']([^"\'<>]{4,130})["\']',
+            html_text, re.I | re.S
         )
         if m:
-            candidate = m.group(1).strip()
-            if (candidate and candidate.lower() != 'winning party'
-                    and not _NUTS_RE.match(candidate)
-                    and len(candidate.split()) >= 2):
-                return candidate[:120]
-
-        # Pattern 2: look for the label as text then find next meaningful span text
-        m2 = re.search(
-            r'Winning party\s*</span>\s*<span[^>]+>\s*([^<]{4,130}?)\s*</span>',
-            html, re.I | re.S
-        )
-        if m2:
-            candidate = re.sub(r'\s+', ' ', m2.group(1)).strip()
-            if (candidate and len(candidate.split()) >= 2
-                    and not _NUTS_RE.match(candidate)
-                    and not any(f in candidate.lower() for f in _BOILERPLATE_FRAGMENTS)):
-                return candidate[:120]
-
+            cand = m.group(1).strip()
+            if (cand and cand.lower() not in ('winning party','—','-','')
+                    and not _NUTS_RE.match(cand) and len(cand.split()) >= 2
+                    and not any(f in cand.lower() for f in _BOILERPLATE_FRAGS)):
+                return cand[:120]
     except Exception as e:
         print(f"      [!] detail fetch: {e}")
     return ""
 
 
-def enrich_adjudicataris(items: list, session, verbose=True) -> list:
-    """
-    For items where estat=Adjudicado and adjudicatari is empty,
-    attempts to fetch the detail page and extract the winning party.
-    """
-    to_enrich = [i for i in items if i.get('estat') == 'Adjudicado' and not i.get('adjudicatari')]
+def enrich_adjudicataris(items: list, session) -> list:
+    to_enrich = [i for i in items if i.get("estat")=="Adjudicado" and not i.get("adjudicatari")]
     if not to_enrich:
-        if verbose: print("  ℹ No hay items adjudicados sin adjudicatario que enriquecer.")
-        return items
-
-    if verbose: print(f"  🔍 Enriqueciendo adjudicatarios: {len(to_enrich)} items…")
+        print("  ℹ No hay adjudicados sin adjudicatario para enriquecer."); return items
+    print(f"  🔍 Enriqueciendo {len(to_enrich)} adjudicatarios…")
     enriched = 0
     for item in to_enrich:
-        url = item.get('url', '')
-        adj = scrape_adj_from_detail_page(session, url)
+        adj = scrape_adj_from_detail_page(session, item.get("url",""))
         if adj:
-            item['adjudicatari'] = adj
-            # Update historial if it has an Adjudicado entry without adj name
-            for h in (item.get('historial') or []):
-                if h.get('estat') == 'Adjudicado' and 'Adjudicado a' not in h.get('nota', ''):
-                    h['nota'] = f'Adjudicado a {adj}'
+            item["adjudicatari"] = adj
+            for h in (item.get("historial") or []):
+                if h.get("estat")=="Adjudicado" and "Adjudicado a" not in h.get("nota",""):
+                    h["nota"] = f"Adjudicado a {adj}"
             enriched += 1
-            if verbose: print(f"      ✓ {item['titol'][:50]}… → {adj[:40]}")
+            print(f"      ✓ {item['titol'][:50]}… → {adj[:40]}")
         else:
-            if verbose: print(f"      – {item['titol'][:50]}… (no encontrado)")
-
-    if verbose: print(f"  → {enriched}/{len(to_enrich)} enriquecidos")
+            print(f"      – {item['titol'][:50]}…")
+        time.sleep(ENRICH_DELAY)
+    print(f"  → {enriched}/{len(to_enrich)} enriquecidos")
     return items
 
 
-def extract_estat(blob):
-    """
-    Detecta si el entry indica que la licitación está Adjudicada o Desierta.
-    Por defecto devuelve Vigente.
-    """
-    b = norm(blob)
-    if re.search(r"\badjudica(?:do|da|t|ción)\b", b):
-        return "Adjudicado"
-    if any(w in b for w in ["desierta","deserta","sin adjudicar","sense adjudicació"]):
-        return "Desierta"
-    return "Vigente"
-
-# ── NEW v1.4: load previous data for merge ───────────────────────────────
+# ── STATE MERGE ───────────────────────────────────────────────────────────
 def load_previous(path: Path) -> dict:
-    """
-    Carga data.json existente y devuelve un dict {item_id: item}.
-    Soporta tanto el formato antiguo (array) como el nuevo envelope.
-    """
-    if not path.exists():
-        return {}
+    if not path.exists(): return {}
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        items = raw.get("data", raw) if isinstance(raw, dict) else raw
-        if not isinstance(items, list):
-            return {}
+        with open(path, encoding="utf-8") as f: raw = json.load(f)
+        items = raw if isinstance(raw, list) else raw.get("data", [])
         return {item["id"]: item for item in items if "id" in item}
-    except Exception as e:
-        print(f"  [!] No se pudo leer data.json anterior: {e}")
-        return {}
+    except Exception: return {}
 
-# ── NEW v1.4: merge historial + adjudicatari ──────────────────────────────
+
 def merge_with_previous(new_items: list, previous: dict, today: str) -> list:
-    """
-    Para cada item nuevo:
-    - Si ya existía: preserva historial, detecta cambios de estado, actualiza adjudicatari.
-    - Si es nuevo: añade entrada inicial al historial.
-    """
     result = []
     for item in new_items:
-        prev = previous.get(item["id"])
+        iid  = item["id"]
+        prev = previous.get(iid)
+        item["historial"] = []
         if prev:
-            # Preserve historial from previous run
             item["historial"] = prev.get("historial", [])
-            # Preserve adjudicatari if we found a better one now
             if not item.get("adjudicatari") and prev.get("adjudicatari"):
                 item["adjudicatari"] = prev["adjudicatari"]
-            # Detect state change
-            prev_estat = prev.get("estat", "Vigente")
-            new_estat  = item.get("estat", "Vigente")
+            prev_estat = prev.get("estat","Vigente")
+            new_estat  = item.get("estat","Vigente")
             if new_estat != prev_estat:
-                entry = {
-                    "data":  today,
-                    "estat": new_estat,
-                    "nota":  f"Cambio de estado: {prev_estat} → {new_estat}",
-                }
-                if item.get("adjudicatari") and new_estat == "Adjudicado":
-                    entry["nota"] = f"Adjudicado a {item['adjudicatari']}"
-                item["historial"].append(entry)
+                nota = f"Adjudicado a {item['adjudicatari']}" if (new_estat=="Adjudicado" and item.get("adjudicatari")) else f"Cambio: {prev_estat} → {new_estat}"
+                item["historial"].append({"data":today,"estat":new_estat,"nota":nota})
         else:
-            # Brand new item — create initial historial entry
             item["historial"] = [{
                 "data":  item.get("data_pub", today),
-                "estat": item.get("estat", "Vigente"),
+                "estat": item.get("estat","Vigente"),
                 "nota":  "Publicación",
             }]
         result.append(item)
     return result
 
 
-# ── ATOM FETCHER ─────────────────────────────────────────────────────────
-def fetch_atom(session, source):
-    name, ccaa, url = source["name"], source.get("ccaa"), source["url"]
-    print(f"  ↓ {name}: {url[:72]}…")
+# ── ATOM FETCHER ──────────────────────────────────────────────────────────
+def fetch_atom(session, source: dict, num_items: int = 100) -> list:
+    name = source["name"]
+    src_ccaa = source.get("ccaa")
+    url = source["url"]
+    if num_items > 100:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}numItems={num_items}"
+
+    print(f"  ↓ {name}  [{num_items} items max]")
+    print(f"    {url[:90]}…")
     try:
         r = session.get(url, timeout=TIMEOUT)
         r.raise_for_status()
     except Exception as e:
         print(f"    [!] {e}"); return []
 
-    if not ensure_feed_content(r.content):
-        print(f"    [!] respuesta no parece Atom/XML ({r.headers.get('content-type','?')})"); return []
+    head = r.content[:3000].lower()
+    if b"<feed" not in head and b"<entry" not in head:
+        print(f"    [!] Respuesta no parece Atom (content-type: {r.headers.get('content-type','?')})"); return []
 
     try:
         root = ET.fromstring(r.content)
     except ET.ParseError as e:
-        print(f"    [!] XML: {e}"); return []
+        print(f"    [!] XML parse error: {e}"); return []
 
-    entries  = parse_atom_entries(root)
-    print(f"    → {len(entries)} entries")
-    results  = []
-    today    = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    entries = parse_atom_entries(root)
+    print(f"    → {len(entries)} entries en el feed")
+
+    results   = []
+    discarded = {"no_title":0,"title_gate":0,"low_score":0}
+    today     = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     for entry in entries:
         try:
             titulo = get_entry_text(entry, "title")
             if not titulo:
-                continue
+                discarded["no_title"] += 1; continue
 
-            url_item  = extract_link(entry)
-            item_id   = (get_entry_text(entry, "id") or url_item
-                         or hashlib.md5(titulo.encode("utf-8")).hexdigest())
-            fecha_pub = (get_entry_text(entry, "published") or get_entry_text(entry, "updated") or today)[:10]
-            raw       = get_entry_text(entry, "content") or get_entry_text(entry, "summary")
-            desc      = strip_html(raw)[:1000]
-            blob      = gather_entry_blob(entry)
+            # ── HARD GATE: title must contain design keyword (BUG-001 fix) ──
+            if not title_passes_gate(titulo):
+                discarded["title_gate"] += 1; continue
 
-            # CPV: only real codes (8 digits, valid category prefix)
-            cpv_raw   = re.findall(r"\b([1-9]\d{7})\b", f"{blob} {titulo}")
-            cpv_codes = list(dict.fromkeys(c for c in cpv_raw if c[:2] in CPV_VALID_STARTS))
+            content = get_entry_content(entry)
+            url_item = extract_link(entry)
+            item_id = (get_entry_text(entry,"id") or url_item
+                       or hashlib.md5(titulo.encode()).hexdigest())
+            fecha_pub = (get_entry_text(entry,"published") or
+                         get_entry_text(entry,"updated") or today)[:10]
 
-            organisme   = extract_org(blob, desc, titulo)
-            pressupost  = extract_budget(blob)
-            fecha_limit = extract_deadline(blob)
-            estat       = extract_estat(blob)
-            adjudicatari = extract_adjudicatari(blob) if estat == "Adjudicado" else ""
+            cpv_codes = extract_cpv_from_categories(entry)
 
-            score, discs, kws = score_item(titulo, blob or desc, cpv_codes)
+            organisme   = extract_org(content, titulo)
+            pressupost  = extract_budget(content)
+            fecha_limit = extract_deadline(content)
+            estat       = extract_estat(content)
+
+            score, discs, kws = score_item(titulo, content, cpv_codes)
             if score < MIN_SCORE:
-                continue
+                discarded["low_score"] += 1; continue
 
-            item_ccaa = detect_ccaa(ccaa, organisme, blob)
+            item_ccaa = detect_ccaa(src_ccaa, organisme, content)
             lloc  = TERR.get(item_ccaa, "")
-            tipus = "Servicios"
-            low   = norm(f"{titulo} {blob}")
-            if "suministro" in low or "subministrament" in low:
-                tipus = "Suministros"
+            tipus = "Suministros" if re.search(r"\bsuministro\b|\bsubministrament\b", norm(titulo)) else "Servicios"
 
             results.append({
                 "id":           item_id[:80],
                 "titol":        titulo[:200],
                 "organisme":    organisme[:150],
-                "adjudicatari": adjudicatari[:120],
+                "adjudicatari": "",
                 "tipus":        tipus,
                 "pressupost":   pressupost,
                 "disciplines":  discs,
@@ -630,125 +646,127 @@ def fetch_atom(session, source):
                 "font":         name,
                 "kw":           kws,
                 "cpv":          ", ".join(cpv_codes[:3]),
-                "historial":    [],   # filled by merge_with_previous
+                "historial":    [],
             })
         except Exception as e:
-            print(f"    [!] entry: {e}")
+            print(f"    [!] entry error: {e}")
 
-    print(f"    → {len(results)} relevantes")
+    print(f"    → {len(results)} relevantes | descartados: "
+          f"gate={discarded['title_gate']} score={discarded['low_score']} notitle={discarded['no_title']}")
     return results
 
 
-# ── MAIN ─────────────────────────────────────────────────────────────────
+# ── MAIN ──────────────────────────────────────────────────────────────────
 def main():
     global MIN_SCORE
 
-    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.4.2")
-    ap.add_argument("--stats",     action="store_true", help="Solo mostrar stats, no guardar")
-    ap.add_argument("--output",    default=str(OUTPUT_FILE))
-    ap.add_argument("--min-score", type=int, default=MIN_SCORE)
-    ap.add_argument("--enrich",    action="store_true",
-                    help="Enriquecer adjudicatarios via página de detalle de PLACSP (más lento, más preciso)")
+    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.5")
+    ap.add_argument("--output",    default=str(OUTPUT_FILE),
+                    help=f"Archivo de salida (default: {OUTPUT_FILE})")
+    ap.add_argument("--min-score", type=int, default=MIN_SCORE,
+                    help=f"Puntuación mínima para incluir un item (default: {MIN_SCORE})")
     ap.add_argument("--pages",     type=int, default=1,
-                    help="Número de páginas a fetchear (cada página ~100 items). Útil para backfill histórico.")
-    args     = ap.parse_args()
+                    help="Número de páginas (~100 items cada una). --pages 5 pide 500 items. "
+                         "Útil para backfill histórico. Límite real de PLACSP: ~500 items.")
+    ap.add_argument("--enrich",    action="store_true",
+                    help="Scrape páginas de detalle para obtener adjudicatarios. "
+                         "Lento (1 request/item). Solo usar en ejecución manual.")
+    ap.add_argument("--stats",     action="store_true",
+                    help="Solo mostrar estadísticas del resultado, no guardar")
+    ap.add_argument("--dry-run",   action="store_true",
+                    help="Mostrar items que pasarían el filtro sin guardar nada")
+    args = ap.parse_args()
     MIN_SCORE = args.min_score
 
-    today    = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    now_iso  = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    today   = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     out_path = Path(args.output)
+    num_items = min(args.pages * 100, 500)
 
-    print(f"\n{'═'*55}")
-    print(f"  ADG Licitaciones Fetcher v1.4.2")
-    print(f"  {datetime.now():%Y-%m-%d %H:%M}")
-    print(f"  Fuentes: Atom PLACSP | páginas: {args.pages}")
-    print(f"  Min score: {MIN_SCORE}")
-    print(f"{'═'*55}\n")
+    print(f"\n{'═'*60}")
+    print(f"  ADG Licitaciones Fetcher v1.5")
+    print(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
+    print(f"  Min score:  {MIN_SCORE}  |  Items pedidos: {num_items}")
+    print(f"  Enrich:     {'SÍ (lento)' if args.enrich else 'NO'}")
+    print(f"  Output:     {out_path}")
+    print(f"{'═'*60}\n")
 
-    # Load previous data for merge
     previous = load_previous(out_path)
-    print(f"  Datos anteriores: {len(previous)} items\n")
+    print(f"  Datos anteriores cargados: {len(previous)} items\n")
 
-    # Expand SOURCES with pagination (numItems = pages * 100)
     session   = build_session()
     all_items = []
     for src in SOURCES:
-        paginated_src = dict(src)
-        if args.pages > 1:
-            num_items = min(args.pages * 100, 500)  # PLACSP max ~500
-            sep = "&" if "?" in paginated_src["url"] else "?"
-            paginated_src["url"] = f"{paginated_src['url']}{sep}numItems={num_items}"
-            print(f"  📄 Modo histórico: solicitando {num_items} items")
-        all_items.extend(fetch_atom(session, paginated_src))
+        all_items.extend(fetch_atom(session, src, num_items=num_items))
         print()
 
     # Dedup (keep highest score per id)
     seen = {}
     for item in all_items:
-        key = item["id"] or item["url"] or hashlib.md5(item["titol"].encode()).hexdigest()
+        key = item["id"]
         if key not in seen or item["rellevancia"] > seen[key]["rellevancia"]:
             seen[key] = item
 
-    unique = sorted(
-        seen.values(),
-        key=lambda x: (-x["rellevancia"], -(x["pressupost"] or 0), x.get("data_limit") or "9999-99-99"),
-    )[:MAX_ITEMS]
+    unique = sorted(seen.values(),
+                    key=lambda x: (-x["rellevancia"], -(x["pressupost"] or 0)))[:MAX_ITEMS]
 
-    # Merge historial + adjudicatari with previous run
+    # Merge with previous run
     unique = merge_with_previous(unique, previous, today)
 
-    # Also carry forward items from previous run that weren't in this fetch
-    prev_ids      = {item["id"] for item in unique}
-    carried_over  = []
-    for pid, pitem in previous.items():
-        if pid not in prev_ids:
-            carried_over.append(pitem)
-    combined = unique + sorted(
-        carried_over,
-        key=lambda x: (-x.get("rellevancia",0), x.get("data_limit") or "9999")
-    )
-    combined = combined[:MAX_ITEMS]
+    # Carry forward adjudicados/desiertas from previous runs (they may fall off the feed)
+    prev_ids = {item["id"] for item in unique}
+    carried  = [p for pid,p in previous.items()
+                if pid not in prev_ids and p.get("estat") in ("Adjudicado","Desierta")]
+    combined = (unique + sorted(carried, key=lambda x:(-x.get("rellevancia",0))))[:MAX_ITEMS]
 
-    # Enrich adjudicatarios from detail pages (if --enrich flag set)
+    # Optional: enrich adjudicatarios via detail page scraping
     if args.enrich:
-        print("\n  ── Enriquecimiento de adjudicatarios ──")
+        print("\n  ── Enriqueciendo adjudicatarios (--enrich) ──")
         combined = enrich_adjudicataris(combined, session)
-        print()
 
-    # ── Stats ────────────────────────────────────────────────────────────
-    adj_count   = sum(1 for x in combined if x.get("estat") == "Adjudicado")
-    new_today   = sum(1 for x in combined if x.get("data_pub","") == today)
+    # ── Stats summary ──────────────────────────────────────────────────
+    vigentes = sum(1 for x in combined if x.get("estat")=="Vigente")
+    adjudicados = sum(1 for x in combined if x.get("estat")=="Adjudicado")
+    con_ppto = sum(1 for x in combined if x.get("pressupost"))
+    vol_total = sum(x.get("pressupost",0) or 0 for x in combined)
+    vol_medio = vol_total/con_ppto if con_ppto else 0
 
-    print(f"{'─'*40}")
-    print(f"  Total único:       {len(combined)}")
-    print(f"  Con ppto:          {sum(1 for x in combined if x.get('pressupost'))}")
-    print(f"  Alta rel (≥70):    {sum(1 for x in combined if x.get('rellevancia',0) >= 70)}")
-    print(f"  Adjudicados:       {adj_count}")
-    print(f"  Nuevos hoy:        {new_today}")
-    print(f"  Carried-over:      {len(carried_over)}")
-    print("  Fuentes:")
-    for s, n in Counter(x["font"] for x in combined).most_common():
-        print(f"    {s:<20} {n}")
-    print("  CCAA:")
-    for c, n in Counter(x["ccaa"] for x in combined).most_common(8):
-        print(f"    {TERR.get(c, c):<25} {n}")
+    print(f"\n{'─'*50}")
+    print(f"  Items finales:      {len(combined)}")
+    print(f"  Vigentes:           {vigentes}")
+    print(f"  Adjudicados:        {adjudicados}")
+    print(f"  Con presupuesto:    {con_ppto} ({100*con_ppto//max(len(combined),1)}%)")
+    print(f"  Volumen total:      {vol_total:,.0f} €")
+    print(f"  Presupuesto medio:  {vol_medio:,.0f} €")
+    print(f"  Con adjudicatario:  {sum(1 for x in combined if x.get('adjudicatari'))}")
 
-    if args.stats:
-        print("\n  (--stats: no guardado)")
+    # Discipline breakdown
+    from collections import Counter
+    disc_counter = Counter()
+    for x in combined:
+        for d in x.get("disciplines",[]):
+            disc_counter[d] += 1
+    if disc_counter:
+        print(f"  Disciplinas: " + " | ".join(f"{k}:{v}" for k,v in disc_counter.most_common(6)))
+    print(f"{'─'*50}\n")
+
+    if args.stats or args.dry_run:
+        if args.dry_run:
+            for x in combined[:20]:
+                print(f"  [{x['rellevancia']:3d}] {x['titol'][:75]}")
+        print("  (--stats/--dry-run: no se guarda)")
         return
 
-    # ── Write envelope ───────────────────────────────────────────────────
+    # ── Save ──────────────────────────────────────────────────────────
     envelope = {
         "generated_at": now_iso,
         "count":        len(combined),
-        "data":         combined,
+        "fetcher_version": "1.5",
+        "data": combined,
     }
-    out_path.write_text(
-        json.dumps(envelope, ensure_ascii=False, indent=2),
-        encoding="utf-8"
-    )
-    print(f"\n✅ {out_path.resolve()} ({out_path.stat().st_size // 1024}KB)")
-    print(f"   {len(combined)} licitaciones · generated_at: {now_iso}\n")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(envelope, f, ensure_ascii=False, indent=2)
+    print(f"  ✅ Guardado en {out_path} ({out_path.stat().st_size//1024} KB)")
 
 
 if __name__ == "__main__":
