@@ -409,7 +409,82 @@ def extract_adjudicatari(blob: str) -> str:
     return raw[:120]
 
 
-# ── NEW v1.4: detect estat ───────────────────────────────────────────────
+# ── v1.5: adjudicatari enrichment via detail page ─────────────────────────
+def scrape_adj_from_detail_page(session, url: str) -> str:
+    """
+    Fetches the PLACSP detail HTML page and extracts the winning party.
+    Parses the pattern:
+      <span title="Winning party" ...>Winning party</span>
+      <span title="COMPANY NAME" ...>COMPANY NAME</span>
+    Returns the company name or "".
+    """
+    if not url or '/plataforma' in url:
+        return ""
+    try:
+        r = session.get(url, timeout=12)
+        if not r.ok:
+            return ""
+        html = r.text
+        # Pattern 1: title="Winning party" followed shortly by title="VALUE"
+        m = re.search(
+            r'title=["\']Winning party["\'][^>]*>.*?'
+            r'title=["\']([^"\'<>]{4,130})["\']',
+            html, re.I | re.S
+        )
+        if m:
+            candidate = m.group(1).strip()
+            if (candidate and candidate.lower() != 'winning party'
+                    and not _NUTS_RE.match(candidate)
+                    and len(candidate.split()) >= 2):
+                return candidate[:120]
+
+        # Pattern 2: look for the label as text then find next meaningful span text
+        m2 = re.search(
+            r'Winning party\s*</span>\s*<span[^>]+>\s*([^<]{4,130}?)\s*</span>',
+            html, re.I | re.S
+        )
+        if m2:
+            candidate = re.sub(r'\s+', ' ', m2.group(1)).strip()
+            if (candidate and len(candidate.split()) >= 2
+                    and not _NUTS_RE.match(candidate)
+                    and not any(f in candidate.lower() for f in _BOILERPLATE_FRAGMENTS)):
+                return candidate[:120]
+
+    except Exception as e:
+        print(f"      [!] detail fetch: {e}")
+    return ""
+
+
+def enrich_adjudicataris(items: list, session, verbose=True) -> list:
+    """
+    For items where estat=Adjudicado and adjudicatari is empty,
+    attempts to fetch the detail page and extract the winning party.
+    """
+    to_enrich = [i for i in items if i.get('estat') == 'Adjudicado' and not i.get('adjudicatari')]
+    if not to_enrich:
+        if verbose: print("  ℹ No hay items adjudicados sin adjudicatario que enriquecer.")
+        return items
+
+    if verbose: print(f"  🔍 Enriqueciendo adjudicatarios: {len(to_enrich)} items…")
+    enriched = 0
+    for item in to_enrich:
+        url = item.get('url', '')
+        adj = scrape_adj_from_detail_page(session, url)
+        if adj:
+            item['adjudicatari'] = adj
+            # Update historial if it has an Adjudicado entry without adj name
+            for h in (item.get('historial') or []):
+                if h.get('estat') == 'Adjudicado' and 'Adjudicado a' not in h.get('nota', ''):
+                    h['nota'] = f'Adjudicado a {adj}'
+            enriched += 1
+            if verbose: print(f"      ✓ {item['titol'][:50]}… → {adj[:40]}")
+        else:
+            if verbose: print(f"      – {item['titol'][:50]}… (no encontrado)")
+
+    if verbose: print(f"  → {enriched}/{len(to_enrich)} enriquecidos")
+    return items
+
+
 def extract_estat(blob):
     """
     Detecta si el entry indica que la licitación está Adjudicada o Desierta.
@@ -572,6 +647,8 @@ def main():
     ap.add_argument("--stats",     action="store_true", help="Solo mostrar stats, no guardar")
     ap.add_argument("--output",    default=str(OUTPUT_FILE))
     ap.add_argument("--min-score", type=int, default=MIN_SCORE)
+    ap.add_argument("--enrich",    action="store_true",
+                    help="Enriquecer adjudicatarios via página de detalle de PLACSP (más lento, más preciso)")
     ap.add_argument("--pages",     type=int, default=1,
                     help="Número de páginas a fetchear (cada página ~100 items). Útil para backfill histórico.")
     args     = ap.parse_args()
@@ -621,18 +698,22 @@ def main():
     unique = merge_with_previous(unique, previous, today)
 
     # Also carry forward items from previous run that weren't in this fetch
-    # (e.g. Adjudicados that fall off the feed but we want to keep in history)
     prev_ids      = {item["id"] for item in unique}
     carried_over  = []
     for pid, pitem in previous.items():
         if pid not in prev_ids:
             carried_over.append(pitem)
-    # Keep carried-over items sorted after fresh ones, up to MAX_ITEMS total
     combined = unique + sorted(
         carried_over,
         key=lambda x: (-x.get("rellevancia",0), x.get("data_limit") or "9999")
     )
     combined = combined[:MAX_ITEMS]
+
+    # Enrich adjudicatarios from detail pages (if --enrich flag set)
+    if args.enrich:
+        print("\n  ── Enriquecimiento de adjudicatarios ──")
+        combined = enrich_adjudicataris(combined, session)
+        print()
 
     # ── Stats ────────────────────────────────────────────────────────────
     adj_count   = sum(1 for x in combined if x.get("estat") == "Adjudicado")
