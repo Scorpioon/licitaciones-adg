@@ -483,7 +483,113 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 .sv-adj-val  { font-size:9.5px; color:var(--text3); flex-shrink:0; }
 .sv-empty { font-size:10.5px; color:var(--text3); padding:8px 0; }
 
-/* ─── CHARTS ──────────────────────────────────────────────────────────── */
+/* ─── OV TAB STRIP ────────────────────────────────────────────────────── */
+.ov-tabs { display:flex; gap:2px; }
+.ov-tab {
+  font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  padding:5px 12px; border:1px solid var(--border2); border-radius:var(--radius);
+  background:none; color:var(--text3); cursor:pointer; transition:all .1s;
+}
+.ov-tab:hover { color:var(--text); border-color:var(--border); }
+.ov-tab.active { background:var(--text); color:var(--bg); border-color:var(--text); }
+
+/* ─── PAGINATION ──────────────────────────────────────────────────────── */
+.pagination-bar {
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  padding:10px 24px; border-top:1px solid var(--border2);
+  background:var(--bg2); position:sticky; bottom:0; z-index:4;
+}
+.pg-left { display:flex; align-items:center; gap:7px; }
+.pg-label { font-size:9.5px; letter-spacing:.08em; color:var(--text3); white-space:nowrap; }
+.pg-perpage {
+  font-size:11px; padding:4px 22px 4px 7px; height:26px;
+  border:1px solid var(--border2); border-radius:var(--radius);
+  background:var(--bg); color:var(--text); cursor:pointer; appearance:none; outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath d='M0 0l4 4 4-4z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 5px center;
+}
+[data-theme="dark"] .pg-perpage {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath d='M0 0l4 4 4-4z' fill='%23efefef'/%3E%3C/svg%3E");
+}
+.pg-pages { display:flex; align-items:center; gap:3px; flex-wrap:wrap; }
+.pg-btn {
+  min-width:28px; height:26px; padding:0 7px;
+  font-size:10px; display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--border2); border-radius:var(--radius);
+  background:none; color:var(--text2); cursor:pointer; transition:all .1s;
+}
+.pg-btn:hover { border-color:var(--border); color:var(--text); background:var(--bg); }
+.pg-btn.pg-active { background:var(--text); color:var(--bg); border-color:var(--text); font-weight:700; }
+.pg-btn:disabled { opacity:.3; cursor:default; }
+.pg-ellipsis { font-size:10px; color:var(--text3); padding:0 4px; }
+
+/* ─── SEMAPHORE ───────────────────────────────────────────────────────── */
+.sem-row { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid var(--border3); }
+.sem-row:last-child { border-bottom:none; }
+.sem-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+.sem-green  { background:#22c55e; }
+.sem-yellow { background:#f59e0b; }
+.sem-red    { background:#ef4444; }
+.sem-text strong { font-size:11px; color:var(--text); }
+.sem-text p { font-size:10px; color:var(--text3); margin-top:2px; line-height:1.55; }
+
+/* ─── ABOUT: strict single column ────────────────────────────────────── */
+.about-stack { display:flex; flex-direction:column; gap:14px; }
+.about-card { border:1px solid var(--border2); border-radius:2px; padding:16px; }
+.about-card-title { font-size:8px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:9px; }
+.about-body { font-size:11.5px; color:var(--text2); line-height:1.75; }
+.about-body p { margin-bottom:8px; }
+.about-body p:last-child { margin-bottom:0; }
+.about-body a { border-bottom:1px solid var(--border2); transition:border-color .1s; }
+.about-body a:hover { border-color:var(--text); }
+.about-body strong { color:var(--text); }
+.about-body code { font-size:10.5px; background:var(--bg2); padding:1px 4px; border-radius:2px; }
+
+/* ─── RESPONSIVE ──────────────────────────────────────────────────────── */
+/* Cards */
+.sv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+.sv-card { border:1px solid var(--border2); border-radius:2px; padding:14px; min-width:0; overflow:hidden; }
+.sv-bar-label { font-size:10px; color:var(--text2); width:88px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Chart donut: constrain on small screens */
+.donut-wrap { flex-shrink:0; }
+/* Big nums: 2 cols on mobile */
+.sv-bignums { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+@media (max-width:860px) {
+  .sv-bignums { grid-template-columns:1fr 1fr; }
+  .sv-grid { grid-template-columns:1fr; }
+}
+
+/* Header: wrap on mobile */
+.header { flex-wrap:wrap; row-gap:6px; }
+.header-actions { flex-wrap:wrap; row-gap:4px; }
+@media (max-width:700px) {
+  .htbtn span { display:none; }
+  .htbtn { padding:0 9px; }
+}
+
+/* Table: hide less important columns on mobile */
+@media (max-width:640px) {
+  .adj-wrap { display:none; }
+  td:nth-child(3), th:nth-child(3) { display:none; } /* pressupost */
+  td:nth-child(4), th:nth-child(4) { display:none; } /* rellevancia */
+  td:nth-child(6), th:nth-child(6) { display:none; } /* termina */
+}
+@media (max-width:420px) {
+  td:first-child, th:first-child { padding-left:12px; }
+  td:last-child,  th:last-child  { padding-right:12px; }
+  .toolbar { padding:5px 12px; }
+  .filter-group:first-child { padding-left:12px; }
+  .filter-group.stretch { padding:5px 12px; }
+}
+
+/* Ov body scroll properly on mobile */
+.panel-overlay { display:none; position:absolute; inset:0; z-index:20; overflow-y:auto; background:var(--bg); animation:fade-in .15s ease; }
+.panel-overlay.open { display:block; }
+@keyframes fade-in { from { opacity:0; } }
+
+/* ─── OV HEAD layout update (support tabs) ───────────────────────────── */
+.ov-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 28px; border-bottom:1px solid var(--border2); position:sticky; top:0; background:var(--bg); z-index:2; flex-wrap:wrap; }
+
 .chart-wrap { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
 .donut-wrap { position:relative; flex-shrink:0; }
 .donut-svg  { display:block; }
@@ -682,6 +788,18 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     </div>
   </div>
   <div class="header-actions">
+    <button class="htbtn" id="btn-about" aria-label="Acerca de">
+      <i class="bi bi-info-circle"></i><span data-i18n="btn_about">Acerca de</span>
+    </button>
+    <button class="htbtn" id="btn-guide" aria-label="Guía de licitaciones">
+      <i class="bi bi-shield-check"></i><span data-i18n="btn_guide">Guía</span>
+    </button>
+    <button class="htbtn" id="btn-stats" aria-label="Estadísticas">
+      <i class="bi bi-bar-chart"></i><span data-i18n="btn_stats">Estadísticas</span>
+    </button>
+    <button class="htbtn filled" id="btn-subscribe" aria-label="Alertas">
+      <i class="bi bi-bell"></i><span data-i18n="btn_alerts">Alertas</span>
+    </button>
     <div class="lang-wrap" role="group" aria-label="Idioma">
       <button class="lang-btn active" data-lang="es">ES</button>
       <button class="lang-btn" data-lang="ca">CA</button>
@@ -690,21 +808,6 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     </div>
     <button class="hbtn" id="btn-theme" title="Cambiar tema" aria-label="Modo oscuro">
       <i class="bi bi-moon-stars" id="theme-icon"></i>
-    </button>
-    <button class="htbtn" id="btn-stats" aria-label="Estadísticas">
-      <i class="bi bi-bar-chart"></i><span data-i18n="btn_stats">Estadísticas</span>
-    </button>
-    <button class="htbtn" id="btn-guide" aria-label="Guía de licitaciones">
-      <i class="bi bi-shield-check"></i><span data-i18n="btn_guide">Guía</span>
-    </button>
-    <button class="htbtn" id="btn-conditions" aria-label="Observatorio de condiciones">
-      <i class="bi bi-graph-up-arrow"></i><span data-i18n="btn_conditions">Condiciones</span>
-    </button>
-    <button class="htbtn" id="btn-about" aria-label="Acerca de">
-      <i class="bi bi-info-circle"></i><span data-i18n="btn_about">Acerca de</span>
-    </button>
-    <button class="htbtn filled" id="btn-subscribe" aria-label="Alertas">
-      <i class="bi bi-bell"></i><span data-i18n="btn_alerts">Alertas</span>
     </button>
   </div>
 </header>
@@ -804,15 +907,26 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
   <!-- LIST COLUMN -->
   <div class="list-col" id="list-col">
 
-    <!-- STATS OVERLAY -->
+    <!-- STATS + CONDITIONS OVERLAY (tabbed) -->
     <div class="panel-overlay" id="pnl-stats" aria-label="Estadísticas">
       <div class="ov-head">
-        <span class="ov-title" data-i18n="stats_title">Estadísticas del observatorio</span>
+        <div class="ov-tabs">
+          <button class="ov-tab active" data-tab="stats" data-i18n="btn_stats">Estadísticas</button>
+          <button class="ov-tab" data-tab="conditions" data-i18n="btn_conditions">Condiciones</button>
+        </div>
         <button class="ov-close" id="sv-close" data-i18n="btn_close">Cerrar ✕</button>
       </div>
-      <div class="ov-body">
+      <!-- Tab: Estadísticas -->
+      <div class="ov-body ov-tab-body" id="tab-stats">
         <div class="sv-bignums" id="sv-bignums"></div>
         <div class="sv-grid" id="sv-grid"></div>
+      </div>
+      <!-- Tab: Condiciones -->
+      <div class="ov-body ov-tab-body" id="tab-conditions" style="display:none">
+        <p class="guide-intro">Análisis de las condiciones en las que la administración contrata servicios de diseño. Los semáforos indican si la situación es buena 🟢, mejorable 🟡 o preocupante 🔴 según las recomendaciones de la ADG.</p>
+        <div id="cond-bignums" class="sv-bignums" style="margin-bottom:20px"></div>
+        <div id="cond-grid" class="sv-grid"></div>
+        <p style="font-size:10px;color:var(--text3);margin-top:18px;line-height:1.65"><strong>Nota metodológica:</strong> Presupuestos sin IVA. Plazos = días entre publicación y límite de presentación. Los datos mejorarán con más histórico. Usa <code>python fetch_licitaciones.py --pages 5</code> para cargar 2025–2026.</p>
       </div>
     </div>
 
@@ -827,8 +941,8 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
           <i class="bi bi-cone-striped"></i>
           <span><strong>Herramienta en desarrollo (WIP) —</strong> Este observatorio está en fase beta. Los datos pueden ser incompletos, inexactos o contener errores. Los resultados no constituyen asesoramiento legal ni garantía de exhaustividad. Usa siempre la plataforma oficial de contratación para verificar cualquier licitación antes de actuar.</span>
         </div>
-        <div class="about-grid">
-          <div class="about-card" style="grid-column:1/-1">
+        <div class="about-stack">
+          <div class="about-card">
             <div class="about-card-title">Qué es esto</div>
             <div class="about-body">
               <p>El <strong>Observatorio de Licitaciones ADG</strong> es una herramienta de monitorización de la contratación pública española filtrada para el sector del diseño gráfico y la comunicación visual. Agrega automáticamente licitaciones de la <strong>Plataforma de Contratos del Sector Público (PLACSP)</strong>, las puntúa por relevancia mediante palabras clave y códigos CPV, y las presenta de forma accesible para diseñadores, estudios y autónomos.</p>
@@ -850,10 +964,10 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
               <p>No se procesan datos personales. El sistema solo analiza información pública de organismos públicos.</p>
             </div>
           </div>
-          <div class="about-card" style="grid-column:1/-1">
+          <div class="about-card">
             <div class="about-card-title">Changelog</div>
             <div>
-              <div class="changelog-item"><span class="cl-ver">v1.5</span><span class="cl-date">Mar 2026</span> — Bootstrap Icons, i18n completo, panel Guía de licitaciones, panel Acerca de, overlay de estadísticas, fix adjudicatarios, fix CPV falsos positivos, WIP footer, Señalética icon fix.</div>
+              <div class="changelog-item"><span class="cl-ver">v1.5.2</span><span class="cl-date">Mar 2026</span> — Bootstrap Icons, i18n completo, panel Guía de licitaciones, panel Acerca de, overlay de estadísticas, fix adjudicatarios, fix CPV falsos positivos, WIP footer, Señalética icon fix.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4.1</span><span class="cl-date">Mar 2026</span> — Fix fila seleccionada dark/light, fix overlay estadísticas, adjudicatarios en panel, fix CPV 34928470 mobiliario urbano.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4</span><span class="cl-date">Mar 2026</span> — Badge NUEVA, contador vencen esta semana, fecha de última actualización real, exportar CSV, compartir licitación por URL, vista estadísticas, campo adjudicatario, buscador adjudicatarios, historial de estados.</div>
               <div class="changelog-item"><span class="cl-ver">v1.3</span><span class="cl-date">Feb 2026</span> — Fix CPV match por familia de 5 dígitos, filtro CPV_VALID_STARTS, reducción de falsos positivos.</div>
@@ -929,22 +1043,6 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       </div>
     </div>
 
-    <!-- CONDITIONS OVERLAY -->
-    <div class="panel-overlay" id="pnl-conditions" aria-label="Observatorio de condiciones">
-      <div class="ov-head">
-        <span class="ov-title">Observatorio de condiciones · Diseño en la contratación pública</span>
-        <button class="ov-close" id="conditions-close">Cerrar ✕</button>
-      </div>
-      <div class="ov-body">
-        <p class="guide-intro">Análisis de las condiciones en las que la administración pública contrata servicios de diseño y comunicación visual. Datos extraídos directamente de las licitaciones monitorizadas.</p>
-        <div id="cond-bignums" class="sv-bignums" style="margin-bottom:20px"></div>
-        <div id="cond-grid" class="sv-grid"></div>
-        <p style="font-size:10px;color:var(--text3);margin-top:18px;line-height:1.65">
-          <strong>Nota metodológica:</strong> Los presupuestos base de licitación no incluyen IVA. Los plazos se calculan entre la fecha de publicación y la fecha límite de presentación de ofertas. Las disciplinas se asignan por palabras clave y CPV — pueden existir solapamientos. El volumen aumentará con más datos históricos.
-        </p>
-      </div>
-    </div>
-
     <table role="grid" aria-label="Licitaciones" id="main-table">
       <thead>
         <tr>
@@ -963,6 +1061,20 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       <i class="bi bi-files"></i>
       <div class="empty-title" data-i18n="empty_t">Sin resultados</div>
       <div style="font-size:11px;color:var(--text3)" data-i18n="empty_s">Prueba con otros filtros o términos de búsqueda.</div>
+    </div>
+    <!-- PAGINATION -->
+    <div class="pagination-bar" id="pagination-bar" style="display:none">
+      <div class="pg-left">
+        <span class="pg-label" data-i18n="pg_show">Mostrar</span>
+        <select class="pg-perpage" id="pg-perpage" aria-label="Resultados por página">
+          <option value="15">15</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span class="pg-label" id="pg-info"></span>
+      </div>
+      <div class="pg-pages" id="pg-pages" role="navigation" aria-label="Páginas"></div>
     </div>
   </div>
 
@@ -1083,7 +1195,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span>v1.5</span>
+      <i class="bi bi-code-slash"></i><span>v1.5.2</span>
     </span>
   </div>
 </footer>
@@ -1272,7 +1384,9 @@ const state = {
   query:'', adjQuery:'',
   sortCol:'rellevancia', sortDir:-1,
   selectedId:null,
-  activePanel:null,  // 'stats' | 'about' | 'guide' | null
+  activePanel:null,   // 'stats' | 'about' | 'guide' | null
+  activeStatsTab:'stats', // 'stats' | 'conditions' — tab inside stats panel
+  page:1, perPage:20, // pagination
   subscribed: new Set(JSON.parse(localStorage.getItem('adg-bells')||'[]'))
 };
 
@@ -1435,19 +1549,66 @@ function renderCount() {
   el('count').innerHTML = `<strong>${n}</strong> resultado${n!==1?'s':''}`;
 }
 
+// ── PAGINATION ─────────────────────────────────────────────────────────────
+function renderPagination(total) {
+  const bar   = el('pagination-bar');
+  const pages = Math.ceil(total / state.perPage);
+  if (pages <= 1) { bar.style.display='none'; return; }
+  bar.style.display='flex';
+
+  const from = (state.page-1)*state.perPage + 1;
+  const to   = Math.min(state.page*state.perPage, total);
+  el('pg-info').textContent = `${from}–${to} de ${total}`;
+
+  // Build page buttons with ellipsis
+  const btns = [];
+  const cur  = state.page;
+  const add  = (n, label, disabled=false, active=false) => {
+    btns.push(`<button class="pg-btn${active?' pg-active':''}${disabled?' disabled':''}"
+      data-pg="${n}" ${disabled?'disabled':''} aria-label="Página ${n}" ${active?'aria-current="page"':''}>
+      ${label}
+    </button>`);
+  };
+  const ellipsis = () => btns.push(`<span class="pg-ellipsis">…</span>`);
+
+  add(cur-1, '‹', cur<=1);
+  add(1, '1', false, cur===1);
+  if (cur > 4) ellipsis();
+  for (let p=Math.max(2,cur-2); p<=Math.min(pages-1,cur+2); p++) add(p,p,false,p===cur);
+  if (cur < pages-3) ellipsis();
+  if (pages>1) add(pages, pages, false, cur===pages);
+  add(cur+1, '›', cur>=pages);
+
+  el('pg-pages').innerHTML = btns.join('');
+  el('pg-pages').querySelectorAll('.pg-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.page = +btn.dataset.pg;
+      renderTable();
+      document.getElementById('main-table')?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
+}
+
 // ── RENDER TABLE ───────────────────────────────────────────────────────────
 function renderTable() {
-  const rows = getRows();
-  el('count').innerHTML = `<strong>${rows.length}</strong> resultado${rows.length!==1?'s':''}`;
+  const allRows = getRows();
+  const total   = allRows.length;
+  el('count').innerHTML = `<strong>${total}</strong> resultado${total!==1?'s':''}`;
 
-  if (!rows.length) {
+  if (!total) {
     el('tbody').innerHTML='';
     el('empty').style.display='block';
     el('main-table').style.display='none';
+    el('pagination-bar').style.display='none';
     return;
   }
   el('empty').style.display='none';
   el('main-table').style.display='';
+
+  // Paginate
+  const pages = Math.ceil(total / state.perPage);
+  if (state.page > pages) state.page = pages;
+  const rows = allRows.slice((state.page-1)*state.perPage, state.page*state.perPage);
 
   el('tbody').innerHTML = rows.map(r => {
     const sel  = r.id===state.selectedId;
@@ -1510,6 +1671,9 @@ function renderTable() {
       renderTable();
     });
   });
+
+  renderPagination(total);
+  renderSortArrows();
 }
 
 // ── RENDER DETAIL ──────────────────────────────────────────────────────────
@@ -1902,8 +2066,17 @@ function renderConditions() {
     </div>
   `;
 }
-const PANELS = {stats:'pnl-stats', about:'pnl-about', guide:'pnl-guide', conditions:'pnl-conditions'};
-const BTNS   = {stats:'btn-stats', about:'btn-about', guide:'btn-guide', conditions:'btn-conditions'};
+const PANELS = {stats:'pnl-stats', about:'pnl-about', guide:'pnl-guide'};
+const BTNS   = {stats:'btn-stats', about:'btn-about', guide:'btn-guide'};
+
+function switchStatsTab(tab) {
+  state.activeStatsTab = tab;
+  el('tab-stats').style.display      = tab==='stats'      ? '' : 'none';
+  el('tab-conditions').style.display = tab==='conditions' ? '' : 'none';
+  document.querySelectorAll('.ov-tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+  if (tab==='stats')      renderStats();
+  if (tab==='conditions') renderConditions();
+}
 
 function openPanel(name) {
   closeAllPanels();
@@ -1911,8 +2084,7 @@ function openPanel(name) {
   state.activePanel = name;
   el(PANELS[name]).classList.add('open');
   el(BTNS[name]).classList.add('active-tab');
-  if (name==='stats') renderStats();
-  if (name==='conditions') renderConditions();
+  if (name==='stats') { switchStatsTab(state.activeStatsTab); }
   if (state.selectedId) { state.selectedId=null; clearURL(); renderDetail(); renderTable(); }
 }
 
@@ -1966,7 +2138,7 @@ async function loadData() {
 
 // ── EVENTS: FILTER ─────────────────────────────────────────────────────────
 function onFilterChange() {
-  closeAllPanels();  // close stats/about/guide when filter changes
+  state.page = 1; // reset to first page on any filter change
   renderTable();
 }
 
@@ -1993,17 +2165,20 @@ el('sel-comarca').addEventListener('change', e=>{ state.comarca=e.target.value; 
 el('search').addEventListener('input',     e=>{ state.query=e.target.value;    onFilterChange(); });
 el('adj-search').addEventListener('input', e=>{ state.adjQuery=e.target.value; onFilterChange(); });
 
+// ── EVENTS: PER PAGE ───────────────────────────────────────────────────────
+el('pg-perpage').addEventListener('change', e=>{ state.perPage=+e.target.value; state.page=1; renderTable(); });
+
 // ── EVENTS: SORT ───────────────────────────────────────────────────────────
 document.querySelectorAll('thead th.sortable').forEach(th=>th.addEventListener('click',()=>{
   const col=th.dataset.col;
   if (state.sortCol===col) state.sortDir*=-1;
   else { state.sortCol=col; state.sortDir=['rellevancia','pressupost','data_pub'].includes(col)?-1:1; }
-  renderSortArrows(); renderTable();
+  state.page=1; renderTable();
 }));
 el('sort-sel').addEventListener('change',e=>{
   const [col,dir]=e.target.value.split(',');
   state.sortCol=col; state.sortDir=dir==='desc'?-1:1;
-  renderSortArrows(); renderTable();
+  state.page=1; renderTable();
 });
 
 // ── EVENTS: DETAIL ─────────────────────────────────────────────────────────
@@ -2029,11 +2204,14 @@ el('dp-notify-submit').addEventListener('click',()=>{
 el('btn-stats').addEventListener('click',()=>{ state.activePanel==='stats'?closeAllPanels():openPanel('stats'); });
 el('btn-about').addEventListener('click',()=>{ state.activePanel==='about'?closeAllPanels():openPanel('about'); });
 el('btn-guide').addEventListener('click',()=>{ state.activePanel==='guide'?closeAllPanels():openPanel('guide'); });
-el('btn-conditions').addEventListener('click',()=>{ state.activePanel==='conditions'?closeAllPanels():openPanel('conditions'); });
-el('sv-close').addEventListener('click',         closeAllPanels);
-el('about-close').addEventListener('click',      closeAllPanels);
-el('guide-close').addEventListener('click',      closeAllPanels);
-el('conditions-close').addEventListener('click', closeAllPanels);
+el('sv-close').addEventListener('click', closeAllPanels);
+el('about-close').addEventListener('click', closeAllPanels);
+el('guide-close').addEventListener('click', closeAllPanels);
+
+// Stats tab buttons
+document.querySelectorAll('.ov-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchStatsTab(btn.dataset.tab));
+});
 
 // ── EVENTS: MODAL ───────────────────────────────────────────────────────────
 el('btn-subscribe').addEventListener('click',()=>{ el('overlay').classList.add('open'); el('sub-email').focus(); });
