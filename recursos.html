@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Recursos y Calculadora · ADG Plataforma</title>
+<meta name="description" content="Calculadora de honorarios y recursos profesionales para diseñadores — ADG-FAD">
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+<div class="shell-top">
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span class="ticker-item" id="tk-a"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Plataforma Digital · Recursos para Diseñadores</span><span class="ticker-sep">·</span>
+      <span class="ticker-item" id="tk-b"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Plataforma Digital · Recursos para Diseñadores</span><span class="ticker-sep">·</span>
+    </div>
+  </div>
+  <header class="header" role="banner">
+    <div class="logo-wrap">
+      <img class="logo-img" src="./img/img_2.png" alt="ADG FAD" height="30">
+      <div class="logo-sep"></div>
+      <div>
+        <div class="logo-eyebrow" data-i18n="hd_eyebrow">Observatorio de Contratación Pública</div>
+        <div class="logo-name" data-i18n="hd_name">Licitaciones · Diseño y Comunicación Visual</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <nav class="nav-tabs">
+        <a class="nav-tab" href="./index.html"><i class="bi bi-house"></i><span data-i18n="nav_home">Inicio</span></a>
+        <a class="nav-tab" href="./licitaciones.html"><i class="bi bi-table"></i><span data-i18n="nav_list">Licitaciones</span></a>
+        <a class="nav-tab" href="./estadisticas.html"><i class="bi bi-bar-chart-fill"></i><span data-i18n="nav_stats">Estadísticas</span></a>
+        <a class="nav-tab current" href="./recursos.html"><i class="bi bi-calculator"></i><span data-i18n="nav_recursos">Recursos</span></a>
+        <a class="nav-tab" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
+      </nav>
+      <div class="lang-wrap">
+        <button class="lang-btn active" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="ca">CA</button>
+        <button class="lang-btn" data-lang="eu">EU</button>
+        <button class="lang-btn" data-lang="gl">GL</button>
+      </div>
+      <button class="hbtn" id="btn-theme"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
+    </div>
+  </header>
+</div>
+
+<div class="page-body">
+<div class="rc-page">
+
+  <!-- HEADER + TABS -->
+  <div class="rc-header">
+    <div>
+      <div style="font-size:7.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">F3 · Herramientas profesionales</div>
+      <div style="font-size:15px;font-weight:700;letter-spacing:-.01em" data-i18n="nav_recursos">Recursos y Calculadora</div>
+    </div>
+    <div class="rc-tab-bar" id="rc-tabs"></div>
+  </div>
+
+  <!-- PANELS -->
+  <div class="rc-panels">
+    <div id="rc-panel-calc"></div>
+    <div id="rc-panel-rec" style="display:none"></div>
+  </div>
+
+</div>
+</div>
+
+<footer class="footer shell-foot" role="contentinfo">
+  <div class="footer-left">
+    <img class="footer-logo" src="./img/img_2.png" alt="ADG" height="16">
+    <div class="footer-text">
+      <strong>ADG · Associació de Disseny Gràfic i Comunicació Visual</strong><br>
+      <span>Open Source · </span><span class="footer-wip">⚠ WIP — plataforma en desarrollo</span>
+    </div>
+  </div>
+  <div class="footer-links">
+    <a href="https://www.instagram.com/adgfad/" target="_blank" rel="noopener" class="footer-link" aria-label="Instagram">
+      <i class="bi bi-instagram"></i><span>@adgfad</span>
+    </a>
+    <div class="footer-sep"></div>
+    <a href="https://adg-fad.org" target="_blank" rel="noopener" class="footer-link">
+      <i class="bi bi-globe2"></i><span>adg-fad.org</span>
+    </a>
+    <div class="footer-sep"></div>
+    <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank" rel="noopener" class="footer-link">
+      <i class="bi bi-github"></i><span>GitHub</span>
+    </a>
+    <div class="footer-sep"></div>
+    <span class="footer-link" style="cursor:default">
+      <i class="bi bi-code-slash"></i><span>β3.1</span>
+    </span>
+    <div class="footer-sep"></div>
+    <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
+      made with <span style="color:#e44;margin:0 1px">♥</span> by&nbsp;<a href="https://collapsecreative.com" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid var(--border3)">collapsecreative</a>
+    </span>
+  </div>
+</footer>
+
+<script src="./app.js"></script>
+<script src="./recursos.js"></script>
+</body>
+</html>
