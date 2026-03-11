@@ -1,4 +1,18 @@
-/* ── index.js v2.0 — tabla, filtros multi-disc, panel detalle ───────────── */
+/*
+ * ADG Licitaciones — index.js
+ * v2.0 — Mar 2026
+ * Página: index.html (tabla principal)
+ * Contiene: state S, getFiltered, getSorted, render, rowHTML,
+ *           openDetail, closeDetail, renderPagination,
+ *           renderFilterChips, clearAll, syncDiscPills,
+ *           exportCSV, bell subscriptions, URL state
+ *
+ * CHANGELOG
+ * v2.0  Mar 2026  Multi-disciplina OR logic con Set(). Active
+ *                 filter chips removibles individualmente.
+ *                 syncDiscPills con colores por disc. clearAll.
+ * v1.x  Ene–Feb   Embebido en index.html
+ */
 "use strict";
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge,

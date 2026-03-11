@@ -1,4 +1,18 @@
-/* ── ADG Licitaciones — app.js v2.0 ─────────────────────────────────────── */
+/*
+ * ADG Licitaciones — app.js
+ * v2.0 — Mar 2026
+ * Compartido: index.html · estadisticas.html · about.html
+ * Contiene: DISC colors, TERR map, I18N (ES/CA/EU/GL),
+ *           SAMPLE data, ADG state, utils (fmt, daysTo, discTag,
+ *           stateBadge, applyI18n, updateStrip, initShared,
+ *           initModal, loadData)
+ *
+ * CHANGELOG
+ * v2.0  Mar 2026  DISC palette light+dark. I18N stats keys.
+ *                 ADG_Utils export. loadData normalizeItem.
+ *                 initShared/initModal extraídos para reuso.
+ * v1.x  Ene–Feb   Embebido en index.html
+ */
 "use strict";
 
 // ── DISCIPLINE METADATA (colors, icons, labels) ──────────────────────────
@@ -284,19 +298,29 @@ function stateBadge(estat) {
 // ── APPLY I18N to data-i18n nodes ──────────────────────────────────────
 function applyI18n() {
   document.documentElement.lang = ADG.lang;
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.dataset.i18n;
-    const val = t(key);
-    if (val && val !== key) el.textContent = val;
+  // Simple text nodes (no children)
+  document.querySelectorAll("[data-i18n]").forEach(node => {
+    const val = t(node.dataset.i18n);
+    if (!val || val === node.dataset.i18n) return;
+    if (node.children.length === 0) node.textContent = val;
   });
-  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
-    const key = el.dataset.i18nPh;
-    const val = t(key);
-    if (val && val !== key) el.placeholder = val;
+  // Select options
+  document.querySelectorAll("select option[data-i18n]").forEach(opt => {
+    const val = t(opt.dataset.i18n);
+    if (val) opt.textContent = val;
   });
-  // Update lang buttons
-  document.querySelectorAll('.lang-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.lang === ADG.lang);
+  // Estat pills — update span inside or text node
+  document.querySelectorAll("[data-estat]").forEach(btn => {
+    const map = {"":"fl_all","Vigente":"s_vigente","Adjudicado":"s_adjudicado","Desierta":"s_desierta"};
+    const key = map[btn.dataset.estat];
+    if (!key) return;
+    const val = t(key);
+    const span = btn.querySelector("span[data-i18n]");
+    if (span) span.textContent = val;
+  });
+  // Lang button active state
+  document.querySelectorAll(".lang-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.lang === ADG.lang);
   });
 }
 

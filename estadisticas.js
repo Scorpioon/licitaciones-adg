@@ -1,4 +1,17 @@
-/* ── estadisticas.js v2.0 — panel forense con filtros locales ───────────── */
+/*
+ * ADG Licitaciones — estadisticas.js
+ * v2.0 — Mar 2026
+ * Página: estadisticas.html
+ * Contiene: SV state (filtros locales independientes),
+ *           getRows, render con bignums / donut / trend bars /
+ *           barCards / top5 / adjudicatarios / condiciones
+ *
+ * CHANGELOG
+ * v2.0  Mar 2026  Página independiente. Filtros locales propios
+ *                 (año/CCAA/estat/disc) desacoplados de index.
+ *                 Donut SVG, trend bars, insights automáticos.
+ * v1.x  Ene–Feb   Panel overlay dentro de index.html
+ */
 "use strict";
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag,

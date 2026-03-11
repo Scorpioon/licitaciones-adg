@@ -1,4 +1,14 @@
-/* ── ADG Licitaciones — style.css v2.0 ─────────────────────────────────── */
+/*
+ * ADG Licitaciones — style.css
+ * v2.0 — Mar 2026
+ * Compartido: index.html · estadisticas.html · about.html
+ *
+ * CHANGELOG
+ * v2.0  Mar 2026  Multi-página. Nav-tabs. Scrollbars ocultos global.
+ *                 Semáforo estados (ok/warn/adj/des). Disc color palette.
+ *                 About 2-col. Stats page. Active filter chips.
+ * v1.x  Ene–Feb   Monolítico embebido en index.html
+ */
 
 /* ─── TOKENS ──────────────────────────────────────────────────────────────── */
 :root {
