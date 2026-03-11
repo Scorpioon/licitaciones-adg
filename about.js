@@ -1,22 +1,14 @@
 /*
  * ADG Licitaciones — about.js
- * β3.0 — Mar 2026
- * Página: about.html
- * Contiene: CHANGELOG hardcodeado, renderCredit
- *
- * CHANGELOG
- * v2.1  Mar 2026  IIFE wrap — fix 'el' already declared.
- *                 Changelog hardcodeado como fuente de verdad.
- * v2.0  Mar 2026  Página independiente.
- * v1.x  Ene–Feb   No existía como página independiente
+ * β3.1 — Mar 2026
  */
 ;(function() {
 "use strict";
 
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
-// ── CHANGELOG (hardcoded — fuente de verdad del proyecto) ───────────────────
 const CHANGELOG = [
+  { ver:'β3.1',     date:'11 Mar 2026', text:'Fases 3, 4 y 6. Calculadora de Honorarios interactiva (proyecto, experiencia, complejidad, urgencia). Recursos profesionales: plantillas legales + referencias. Mapa Leaflet con licitaciones por CCAA. Barómetro del Sector: informe automático imprimible. Header genérico "ADG-FAD · Plataforma Digital". Navegación ampliada a 6 tabs. i18n nav_recursos + nav_mapa.' },
   { ver:'β3.0',     date:'11 Mar 2026', text:'Fase 0 · Fundación del ecosistema. Nueva home como hub central con cards a cada herramienta y roadmap visual. Renombrado index.html → licitaciones.html. Datos movidos a carpeta data/. Navegación ampliada con tab Inicio. loadJSON genérico en app.js. Preparada la estructura para Laus Tracker, Directorio de Socios, Recursos, Calculadora, Mapa, Bolsa de Prácticas, Barómetro y Alertas.' },
   { ver:'v2.1',     date:'11 Mar 2026', text:'Fix crítico: error "Identifier el already declared" impedía cargar datos en todas las páginas desde la separación multi-página. Todos los JS de página ahora usan IIFE. Changelog hardcodeado. loadData con timeout de seguridad.' },
   { ver:'v2.0',     date:'Mar 2026', text:'Arquitectura multi-página: index (tabla) · estadísticas · about. CSS y JS compartidos via app.js y style.css. Multi-disciplina OR con chips removibles. Panel estadísticas con filtros locales independientes (año/CCAA/estado/disciplina). Paleta de colores por disciplina (light+dark). Semáforo de estados: verde vigente, gris adjudicado, rojo desierta. Fetcher v2.0 con progress bar, sin límite de items, y enriquecimiento. Navegación por tabs entre páginas.' },
@@ -30,7 +22,6 @@ const CHANGELOG = [
   { ver:'v1.0',     date:'Ene 2026', text:'Versión inicial. Fetch de licitaciones desde ATOM de PLACSP. Tabla con filtros por estado y disciplina. Panel de detalle lateral. Scoring por relevancia. GitHub Actions para actualización automática. Datos de muestra como fallback.' },
 ];
 
-// ── RENDER ────────────────────────────────────────────────────────────────
 function renderChangelog() {
   const list = el('changelog-list');
   if (!list) return;
@@ -47,7 +38,6 @@ function renderCredit() {
   if (c) c.innerHTML = `Hecho con ♥ por <a href="https://www.collapsecreative.com" target="_blank" rel="noopener">Collapse Creative</a> para la <a href="https://adg-fad.org" target="_blank" rel="noopener">ADG-FAD</a> · <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank" rel="noopener">GitHub</a>`;
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   initShared();
   renderChangelog();

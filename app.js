@@ -1,16 +1,14 @@
 /*
  * ADG Licitaciones — app.js
- * β3.0 — Mar 2026
- * Compartido: index.html · estadisticas.html · about.html
+ * β3.1 — Mar 2026
+ * Compartido: todas las páginas del ecosistema
  * Contiene: DISC colors, TERR map, I18N (ES/CA/EU/GL),
- *           SAMPLE data, ADG state, utils (fmt, daysTo, discTag,
- *           stateBadge, applyI18n, updateStrip, initShared,
- *           initModal, loadData)
+ *           SAMPLE data, ADG state, utils
  *
  * CHANGELOG
+ * v2.1  Mar 2026  Added nav_recursos, nav_mapa i18n keys.
  * v2.0  Mar 2026  DISC palette light+dark. I18N stats keys.
  *                 ADG_Utils export. loadData normalizeItem.
- *                 initShared/initModal extraídos para reuso.
  * v1.x  Ene–Feb   Embebido en index.html
  */
 "use strict";
@@ -56,10 +54,11 @@ const NEW_DAYS = 3;
 const I18N = {
   es:{
     lang:'es',dir:'ltr',
-    hd_eyebrow:'Observatorio de Contratación Pública', hd_name:'Licitaciones · Diseño y Comunicación Visual',
+    hd_eyebrow:'ADG-FAD · Plataforma Digital', hd_name:'Diseño y Comunicación Visual',
     btn_about:'Acerca de', btn_guide:'Guía', btn_stats:'Estadísticas',
     btn_alerts:'Alertas', btn_csv:'CSV', btn_close:'Cerrar ✕',
     nav_list:'Licitaciones', nav_stats:'Estadísticas', nav_about:'Acerca de', nav_home:'Inicio',
+    nav_recursos:'Recursos', nav_mapa:'Mapa',
     st_total:'licitaciones', st_vigent:'vigentes', st_vol:'volumen €',
     st_week:'vencen esta semana', st_new:'nuevas hoy', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de muestra',
@@ -84,7 +83,6 @@ const I18N = {
     about_title:'Acerca del observatorio',
     nueva:'NUEVA', adjudicado_a:'Adjudicado a', pg_show:'Mostrar',
     guide_title:'Guía de licitaciones para diseñadores',
-    // Stats page
     sv_overview:'Visión general', sv_by_disc:'Por disciplina',
     sv_by_terr:'Por territorio', sv_by_range:'Rango de presupuesto',
     sv_by_month:'Evolución mensual', sv_adj:'Empresas adjudicatarias',
@@ -98,10 +96,11 @@ const I18N = {
   },
   ca:{
     lang:'ca',dir:'ltr',
-    hd_eyebrow:'Observatori de Contractació Pública', hd_name:'Licitacions · Disseny i Comunicació Visual',
+    hd_eyebrow:'ADG-FAD · Plataforma Digital', hd_name:'Disseny i Comunicació Visual',
     btn_about:"Sobre l'obs.", btn_guide:'Guia', btn_stats:'Estadístiques',
     btn_alerts:'Alertes', btn_csv:'CSV', btn_close:'Tancar ✕',
     nav_list:'Licitacions', nav_stats:'Estadístiques', nav_about:'Sobre nosaltres', nav_home:'Inici',
+    nav_recursos:'Recursos', nav_mapa:'Mapa',
     st_total:'licitacions', st_vigent:'vigents', st_vol:'volum €',
     st_week:'vencen aviat', st_new:'noves avui', st_loading:'Carregant…',
     st_updated:'Actualitzat', st_sample:'Dades de mostra',
@@ -139,10 +138,11 @@ const I18N = {
   },
   eu:{
     lang:'eu',dir:'ltr',
-    hd_eyebrow:'Kontratu Publikoen Behatokia', hd_name:'Lizitazioak · Diseinu eta Ikusizko Komunikazioa',
+    hd_eyebrow:'ADG-FAD · Plataforma Digitala', hd_name:'Diseinu eta Ikusizko Komunikazioa',
     btn_about:'Informazioa', btn_guide:'Gida', btn_stats:'Estatistikak',
     btn_alerts:'Alertak', btn_csv:'CSV', btn_close:'Itxi ✕',
     nav_list:'Lizitazioak', nav_stats:'Estatistikak', nav_about:'Informazioa', nav_home:'Hasiera',
+    nav_recursos:'Baliabideak', nav_mapa:'Mapa',
     st_total:'lizitazioak', st_vigent:'indarrean', st_vol:'bolumena €',
     st_week:'laster iraungitzen', st_new:'gaur berriak', st_loading:'Kargatzen…',
     st_updated:'Eguneratua', st_sample:'Lagin datuak',
@@ -179,10 +179,11 @@ const I18N = {
   },
   gl:{
     lang:'gl',dir:'ltr',
-    hd_eyebrow:'Observatorio de Contratación Pública', hd_name:'Licitacións · Deseño e Comunicación Visual',
+    hd_eyebrow:'ADG-FAD · Plataforma Dixital', hd_name:'Deseño e Comunicación Visual',
     btn_about:'Sobre nós', btn_guide:'Guía', btn_stats:'Estatísticas',
     btn_alerts:'Alertas', btn_csv:'CSV', btn_close:'Pechar ✕',
     nav_list:'Licitacións', nav_stats:'Estatísticas', nav_about:'Sobre nós', nav_home:'Inicio',
+    nav_recursos:'Recursos', nav_mapa:'Mapa',
     st_total:'licitacións', st_vigent:'vixentes', st_vol:'volume €',
     st_week:'vencen axiña', st_new:'novas hoxe', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de mostra',
@@ -295,21 +296,17 @@ function stateBadge(estat) {
   return `<span class="badge">${estat}</span>`;
 }
 
-// ── APPLY I18N to data-i18n nodes ──────────────────────────────────────
 function applyI18n() {
   document.documentElement.lang = ADG.lang;
-  // Simple text nodes (no children)
   document.querySelectorAll("[data-i18n]").forEach(node => {
     const val = t(node.dataset.i18n);
     if (!val || val === node.dataset.i18n) return;
     if (node.children.length === 0) node.textContent = val;
   });
-  // Select options
   document.querySelectorAll("select option[data-i18n]").forEach(opt => {
     const val = t(opt.dataset.i18n);
     if (val) opt.textContent = val;
   });
-  // Estat pills — update span inside or text node
   document.querySelectorAll("[data-estat]").forEach(btn => {
     const map = {"":"fl_all","Vigente":"s_vigente","Adjudicado":"s_adjudicado","Desierta":"s_desierta"};
     const key = map[btn.dataset.estat];
@@ -318,13 +315,11 @@ function applyI18n() {
     const span = btn.querySelector("span[data-i18n]");
     if (span) span.textContent = val;
   });
-  // Lang button active state
   document.querySelectorAll(".lang-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.lang === ADG.lang);
   });
 }
 
-// ── THEME ────────────────────────────────────────────────────────────────
 function applyTheme(theme) {
   ADG.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
@@ -333,9 +328,7 @@ function applyTheme(theme) {
   localStorage.setItem('adg-theme', theme);
 }
 
-// ── DATA LOADING ─────────────────────────────────────────────────────────
 async function loadData() {
-  // Pre-load SAMPLE so table is never empty while fetching
   ADG.data = SAMPLE;
   ADG.isSample = true;
   try {
@@ -381,17 +374,13 @@ function normalizeItem(r) {
   return r;
 }
 
-// ── HEADER SHARED SETUP ──────────────────────────────────────────────────
 function initShared() {
-  // Theme
   applyTheme(ADG.theme);
   const themeBtn = el('btn-theme');
   if (themeBtn) themeBtn.addEventListener('click', () => {
     applyTheme(ADG.theme === 'light' ? 'dark' : 'light');
     document.dispatchEvent(new Event('adg:themechange'));
   });
-
-  // Lang
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       ADG.lang = btn.dataset.lang;
@@ -400,11 +389,7 @@ function initShared() {
       document.dispatchEvent(new Event('adg:langchange'));
     });
   });
-
-  // Apply i18n on load
   applyI18n();
-
-  // Ticker
   updateTicker();
 }
 
@@ -423,7 +408,6 @@ function updateStrip() {
   setEl('s-vol',    fmt(d.reduce((s,r) => s + (r.pressupost||0), 0)));
   setEl('s-warn',   d.filter(r => { const n = daysTo(r.data_limit); return r.estat === 'Vigente' && n !== null && n >= 0 && n <= 7; }).length);
   setEl('s-new',    d.filter(isNew).length);
-
   const uEl = el('s-update');
   if (!uEl) return;
   if (ADG.generatedAt) {
@@ -437,38 +421,29 @@ function updateStrip() {
   updateTicker();
 }
 
-// ── ALERT MODAL ──────────────────────────────────────────────────────────
 function initModal() {
   const overlay = el('overlay');
   if (!overlay) return;
   const open = () => overlay.classList.add('open');
   const close = () => overlay.classList.remove('open');
-
   const subBtn = el('btn-subscribe');
   const mc = el('modal-close');
   const form = el('sub-form');
-
   if (subBtn) subBtn.addEventListener('click', open);
   if (mc) mc.addEventListener('click', close);
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-
   if (form) form.addEventListener('submit', async e => {
     e.preventDefault();
     try {
       const res = await fetch(e.target.action, { method:'POST', body:new FormData(e.target), headers:{Accept:'application/json'} });
-      if (res.ok) {
-        el('modal-form-wrap').style.display = 'none';
-        el('modal-success').style.display = 'block';
-      }
+      if (res.ok) { el('modal-form-wrap').style.display = 'none'; el('modal-success').style.display = 'block'; }
     } catch { alert('Configura el FORM_ID de Formspree.'); }
   });
 }
 
-// Export for page scripts
 window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON };
 
-// ── GENERIC JSON LOADER ──────────────────────────────────────────────────
 async function loadJSON(path, timeoutMs) {
   try {
     const controller = new AbortController();

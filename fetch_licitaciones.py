@@ -343,6 +343,7 @@ def extract_budget_xml(entry):
         except Exception:
             return None
 
+    amounts = []
     for path in [
         ("BudgetAmount", "TaxExclusiveAmount"),
         ("BudgetAmount", "TaxInclusiveAmount"),
@@ -352,8 +353,8 @@ def extract_budget_xml(entry):
     ]:
         v = parse_amount(ubl_find_text(entry, *path))
         if v:
-            return v
-    return None
+            amounts.append(v)
+    return max(amounts) if amounts else None
 
 
 def extract_deadline_xml(entry) -> str:
@@ -414,6 +415,12 @@ def extract_estat_xml(entry) -> str:
             code = (el.text or "").strip().upper()
             if code in _STATUS_CODES:
                 return _STATUS_CODES[code]
+    # Fallback: check for TenderResult/WinningParty presence
+    for child in entry.iter():
+        if _local(child.tag) == 'TenderResult':
+            for sub in child.iter():
+                if _local(sub.tag) in ('WinningParty', 'AwardedTenderedProject'):
+                    return 'Adjudicado'
     return ""
 
 
@@ -730,7 +737,7 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
 
             page_results.append({
                 "id": item_id[:120],
-                "titol": titulo[:220],
+                "titol": titulo[:400],
                 "organisme": organisme[:150],
                 "adjudicatari": adjudicatari[:120],
                 "tipus": tipus,
