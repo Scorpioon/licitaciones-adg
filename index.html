@@ -558,8 +558,8 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 .sv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
 .sv-card { border:1px solid var(--border2); border-radius:2px; padding:14px; min-width:0; overflow:hidden; }
 .sv-bar-row  { display:flex; align-items:center; gap:7px; }
-.sv-bar-label { font-size:10px; color:var(--text2); width:100px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sv-bar-val   { font-size:10px; color:var(--text3); flex-shrink:0; text-align:right; min-width:36px; white-space:nowrap; }
+.sv-bar-label { font-size:10px; color:var(--text2); width:130px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv-bar-val   { font-size:10px; color:var(--text3); flex-shrink:0; text-align:right; min-width:48px; white-space:nowrap; }
 .sv-bar-track { flex:1; min-width:0; height:6px; background:var(--border2); border-radius:1px; overflow:hidden; }
 .sv-bar-fill  { height:100%; background:var(--text); border-radius:1px; min-width:2px; transition:width .3s; }
 .sv-bars      { display:flex; flex-direction:column; gap:2px; }
@@ -569,15 +569,14 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
 /* Laptop (≤1100px): compact slightly */
 @media (max-width:1100px) {
   .sv-grid { grid-template-columns:1fr 1fr; }
-  .sv-grid > [style*="grid-column:span 3"] { grid-column:span 2 !important; }
+  .sv-grid > [style*="grid-column:1/-1"] { grid-column:1/-1 !important; }
 }
 
 /* Tablet (≤860px): 2-col bignums, single col cards */
 @media (max-width:860px) {
   .sv-bignums { grid-template-columns:1fr 1fr; }
   .sv-grid { grid-template-columns:1fr; }
-  .sv-grid > [style*="grid-column:span 3"],
-  .sv-grid > [style*="grid-column:span 2"] { grid-column:span 1 !important; }
+  .sv-grid > [style*="grid-column:1/-1"] { grid-column:span 1 !important; }
   .about-stack { grid-template-columns:1fr; }
   .guide-grid  { grid-template-columns:1fr; }
   .ov-body { padding:16px; }
@@ -967,7 +966,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       <div class="ov-head">
         <div class="ov-tabs">
           <button class="ov-tab active" data-tab="stats" data-i18n="btn_stats">Estadísticas</button>
-          <button class="ov-tab" data-tab="tops">Tops</button>
+          <button class="ov-tab" data-tab="tops" data-i18n="btn_tops">Tops</button>
           <button class="ov-tab" data-tab="conditions" data-i18n="btn_conditions">Condiciones</button>
         </div>
         <button class="ov-close" id="sv-close" data-i18n="btn_close">Cerrar ✕</button>
@@ -1318,10 +1317,12 @@ const I18N = {
     lang:'es',
     hd_eyebrow:'Observatorio de Contratación Pública',
     hd_name:'Licitaciones · Diseño y Comunicación Visual',
-    btn_stats:'Estadísticas', btn_guide:'Guía', btn_conditions:'Condiciones', btn_about:'Acerca de', btn_alerts:'Alertas',
+    btn_stats:'Estadísticas', btn_guide:'Guía', btn_conditions:'Condiciones', btn_tops:'Tops', btn_about:'Acerca de', btn_alerts:'Alertas',
     btn_csv:'CSV', btn_close:'Cerrar ✕',
     st_total:'licitaciones', st_vigent:'vigentes', st_vol:'volumen €',
     st_week:'vencen esta semana', st_new:'nuevas hoy', st_loading:'Cargando…',
+    st_updated:'Actualizado', st_sample:'Datos de muestra',
+    tk_warn_pre:'licitación', tk_warn_suf:'vence esta semana',
     fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca', fl_all_terr:'Todo el territorio',
     fl_status:'Estado', fl_disc:'Disciplina', fl_all:'Todas',
     s_vigente:'Vigente', s_adjudicado:'Adjudicado', s_desierta:'Desierta',
@@ -1342,15 +1343,25 @@ const I18N = {
     stats_title:'Estadísticas del observatorio', about_title:'Acerca del observatorio',
     search_ph:'Buscar por título, organismo, lugar…', adj_ph:'Filtrar adjudicatario…',
     nueva:'NUEVA', adjudicado_a:'Adjudicado a',
+    sv_by_disc:'Por disciplina', sv_by_terr:'Por territorio', sv_by_range:'Por rango de presupuesto',
+    sv_by_month:'Publicaciones por mes', sv_by_adj:'Empresas adjudicatarias',
+    sv_plazo_disc:'Plazo medio por disciplina (días)', sv_budget_disc:'Presupuesto medio por disciplina',
+    sv_top_orgs:'Organismos que más contratan', sv_result:'Resultado de las licitaciones',
+    sv_top_ppto:'Licitaciones de mayor presupuesto', sv_top_orgs_vol:'Organismos por volumen licitado',
+    sv_top_disc_vol:'Disciplinas por volumen', sv_top_terr_vol:'Territorios por volumen licitado',
+    sv_no_data:'Sin datos', sv_more_time:'Más datos con el tiempo',
+    sv_no_adj:'Sin adjudicatarios identificados',
   },
   ca:{
     lang:'ca',
     hd_eyebrow:'Observatori de Contractació Pública',
     hd_name:'Licitacions · Disseny i Comunicació Visual',
-    btn_stats:'Estadístiques', btn_guide:'Guia', btn_conditions:'Condicions', btn_about:'Sobre nosaltres', btn_alerts:'Alertes',
+    btn_stats:'Estadístiques', btn_guide:'Guia', btn_conditions:'Condicions', btn_tops:'Tops', btn_about:'Sobre nosaltres', btn_alerts:'Alertes',
     btn_csv:'CSV', btn_close:'Tancar ✕',
     st_total:'licitacions', st_vigent:'vigents', st_vol:'volum €',
     st_week:'vencen aviat', st_new:'noves avui', st_loading:'Carregant…',
+    st_updated:'Actualitzat', st_sample:'Dades de mostra',
+    tk_warn_pre:'licitació', tk_warn_suf:'venç aviat',
     fl_ccaa:'CCAA', fl_comarca:'Província / Comarca', fl_all_terr:'Tot el territori',
     fl_status:'Estat', fl_disc:'Disciplina', fl_all:'Totes',
     s_vigente:'Vigent', s_adjudicado:'Adjudicat', s_desierta:'Deserta',
@@ -1371,15 +1382,25 @@ const I18N = {
     stats_title:'Estadístiques de l\'observatori', about_title:'Sobre l\'observatori',
     search_ph:'Cerca per títol, organisme, lloc…', adj_ph:'Filtrar adjudicatari…',
     nueva:'NOVA', adjudicado_a:'Adjudicat a',
+    sv_by_disc:'Per disciplina', sv_by_terr:'Per territori', sv_by_range:'Per rang de pressupost',
+    sv_by_month:'Publicacions per mes', sv_by_adj:'Empreses adjudicatàries',
+    sv_plazo_disc:'Termini mitjà per disciplina (dies)', sv_budget_disc:'Pressupost mitjà per disciplina',
+    sv_top_orgs:'Organismes que més contracten', sv_result:'Resultat de les licitacions',
+    sv_top_ppto:'Licitacions de major pressupost', sv_top_orgs_vol:'Organismes per volum licitat',
+    sv_top_disc_vol:'Disciplines per volum', sv_top_terr_vol:'Territoris per volum licitat',
+    sv_no_data:'Sense dades', sv_more_time:'Més dades amb el temps',
+    sv_no_adj:'Sense adjudicataris identificats',
   },
   eu:{
     lang:'eu',
     hd_eyebrow:'Kontratu Publikoen Behatokia',
     hd_name:'Lizitazioak · Diseinu eta Ikusizko Komunikazioa',
-    btn_stats:'Estatistikak', btn_guide:'Gida', btn_conditions:'Baldintzak', btn_about:'Informazioa', btn_alerts:'Alertak',
+    btn_stats:'Estatistikak', btn_guide:'Gida', btn_conditions:'Baldintzak', btn_tops:'Top-ak', btn_about:'Informazioa', btn_alerts:'Alertak',
     btn_csv:'CSV', btn_close:'Itxi ✕',
     st_total:'lizitazioak', st_vigent:'indarrean', st_vol:'bolumena €',
     st_week:'laster iraungitzen', st_new:'gaur berriak', st_loading:'Kargatzen…',
+    st_updated:'Eguneratua', st_sample:'Lagin datuak',
+    tk_warn_pre:'lizitazio', tk_warn_suf:'laster iraungitzen',
     fl_ccaa:'AA EE', fl_comarca:'Probintzia / Eskualdea', fl_all_terr:'Lurralde osoa',
     fl_status:'Egoera', fl_disc:'Diziplina', fl_all:'Denak',
     s_vigente:'Indarrean', s_adjudicado:'Esleituta', s_desierta:'Hutsik',
@@ -1400,15 +1421,25 @@ const I18N = {
     stats_title:'Behatokiaren estatistikak', about_title:'Behatokiari buruz',
     search_ph:'Bilatu titulua, erakundea, lekua…', adj_ph:'Iragazi esleipenduna…',
     nueva:'BERRIA', adjudicado_a:'Esleituta',
+    sv_by_disc:'Diziplinaren arabera', sv_by_terr:'Lurraldearen arabera', sv_by_range:'Aurrekontu-tartearen arabera',
+    sv_by_month:'Hileko argitalpenak', sv_by_adj:'Esleipendunak',
+    sv_plazo_disc:'Batez besteko epea diziplinaren arabera', sv_budget_disc:'Batez besteko aurrekontua diziplinaren arabera',
+    sv_top_orgs:'Gehien kontratatzen duten erakundeak', sv_result:'Lizitazioen emaitza',
+    sv_top_ppto:'Aurrekontu handieneko lizitazioak', sv_top_orgs_vol:'Erakundeak bolumenaren arabera',
+    sv_top_disc_vol:'Diziplinak bolumenaren arabera', sv_top_terr_vol:'Lurraldeak bolumenaren arabera',
+    sv_no_data:'Daturik ez', sv_more_time:'Datu gehiago denborarekin',
+    sv_no_adj:'Esleipendunik ez',
   },
   gl:{
     lang:'gl',
     hd_eyebrow:'Observatorio de Contratación Pública',
     hd_name:'Licitacións · Deseño e Comunicación Visual',
-    btn_stats:'Estatísticas', btn_guide:'Guía', btn_conditions:'Condicións', btn_about:'Sobre nós', btn_alerts:'Alertas',
+    btn_stats:'Estatísticas', btn_guide:'Guía', btn_conditions:'Condicións', btn_tops:'Tops', btn_about:'Sobre nós', btn_alerts:'Alertas',
     btn_csv:'CSV', btn_close:'Pechar ✕',
     st_total:'licitacións', st_vigent:'vixentes', st_vol:'volume €',
     st_week:'vencen axiña', st_new:'novas hoxe', st_loading:'Cargando…',
+    st_updated:'Actualizado', st_sample:'Datos de mostra',
+    tk_warn_pre:'licitación', tk_warn_suf:'vence axiña',
     fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca', fl_all_terr:'Todo o territorio',
     fl_status:'Estado', fl_disc:'Disciplina', fl_all:'Todas',
     s_vigente:'Vixente', s_adjudicado:'Adxudicado', s_desierta:'Deserta',
@@ -1429,6 +1460,14 @@ const I18N = {
     stats_title:'Estatísticas do observatorio', about_title:'Sobre o observatorio',
     search_ph:'Buscar por título, organismo, lugar…', adj_ph:'Filtrar adxudicatario…',
     nueva:'NOVA', adjudicado_a:'Adxudicado a',
+    sv_by_disc:'Por disciplina', sv_by_terr:'Por territorio', sv_by_range:'Por rango de orzamento',
+    sv_by_month:'Publicacións por mes', sv_by_adj:'Empresas adxudicatarias',
+    sv_plazo_disc:'Prazo medio por disciplina (días)', sv_budget_disc:'Orzamento medio por disciplina',
+    sv_top_orgs:'Organismos que máis contratan', sv_result:'Resultado das licitacións',
+    sv_top_ppto:'Licitacións de maior orzamento', sv_top_orgs_vol:'Organismos por volume licitado',
+    sv_top_disc_vol:'Disciplinas por volume', sv_top_terr_vol:'Territorios por volume licitado',
+    sv_no_data:'Sen datos', sv_more_time:'Máis datos co tempo',
+    sv_no_adj:'Sen adxudicatarios identificados',
   }
 };
 
@@ -1572,18 +1611,19 @@ function renderStrip() {
   const uEl = el('s-update');
   if (state.generatedAt) {
     const d2   = new Date(state.generatedAt);
-    const date = d2.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
-    const time = d2.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-    uEl.innerHTML = `<strong>Actualizado</strong> ${date} ${time}`;
+    const date = d2.toLocaleDateString(t().lang+'-ES',{day:'2-digit',month:'short',year:'numeric'});
+    const time = d2.toLocaleTimeString(t().lang+'-ES',{hour:'2-digit',minute:'2-digit'});
+    uEl.innerHTML = `<strong>${t().st_updated||'Actualizado'}</strong> ${date} ${time}`;
   } else {
-    uEl.innerHTML = `<strong>Datos de muestra</strong>`;
+    uEl.innerHTML = `<strong>${t().st_sample||'Datos de muestra'}</strong>`;
   }
 
   // Ticker
   const wk = d.filter(r=>{ const n=daysTo(r.data_limit); return r.estat==='Vigente'&&n!==null&&n>=0&&n<=7; }).length;
+  const vigCount = d.filter(r=>r.estat==='Vigente').length;
   const msg = wk > 0
-    ? `⚠ ${wk} licitación${wk>1?'es':''} vence${wk>1?'n':''} esta semana`
-    : `${d.filter(r=>r.estat==='Vigente').length} licitaciones vigentes`;
+    ? `⚠ ${wk} ${t().tk_warn_pre||'licitación'+( wk>1?'es':'')} ${t().tk_warn_suf||( wk>1?'vencen':'vence')+' esta semana'}`
+    : `${vigCount} ${t().st_vigent||'vigentes'}`;
   ['tk-a','tk-b'].forEach(id => { const e=el(id); if(e) e.textContent=msg; });
 }
 
@@ -2010,36 +2050,36 @@ function renderStats() {
 
   el('sv-grid').innerHTML = `
     <div class="sv-card">
-      <div class="sv-card-title">Por disciplina</div>
+      <div class="sv-card-title">${t().sv_by_disc||'Por disciplina'}</div>
       <div class="chart-wrap">
         ${svgDonut(discE, discTotal)}
         <div class="donut-legend">${donutLegend(discE, discTotal)}</div>
       </div>
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Por territorio</div>
+      <div class="sv-card-title">${t().sv_by_terr||'Por territorio'}</div>
       <div class="sv-bars">${hbars(ccaaE, ccaaMax)}</div>
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Por rango de presupuesto</div>
+      <div class="sv-card-title">${t().sv_by_range||'Por rango de presupuesto'}</div>
       <div class="chart-wrap">
         ${svgDonut(ranges.filter(([,v])=>v>0), rangeTotal, 100, RANGE_COLORS)}
         <div class="donut-legend">${donutLegend(ranges.filter(([,v])=>v>0), rangeTotal, 5, RANGE_COLORS)}</div>
       </div>
     </div>
-    <div class="sv-card" style="grid-column:span 3">
-      <div class="sv-card-title">Publicaciones por mes</div>
-      ${months.length >= 2 ? trendBars(months) : '<div class="sv-empty">Más datos con el tiempo</div>'}
+    <div class="sv-card" style="grid-column:1/-1">
+      <div class="sv-card-title">${t().sv_by_month||'Publicaciones por mes'}</div>
+      ${months.length >= 2 ? trendBars(months) : `<div class="sv-empty">${t().sv_more_time||'Más datos con el tiempo'}</div>`}
     </div>
     <div class="sv-card" style="display:none"><!-- fuente card hidden: dataset es homogéneo PLACSP --></div>
-    <div class="sv-card">
-      <div class="sv-card-title">Empresas adjudicatarias</div>
+    <div class="sv-card" style="grid-column:1/-1">
+      <div class="sv-card-title">${t().sv_by_adj||'Empresas adjudicatarias'}</div>
       ${adjE.length
         ? '<div style="display:flex;flex-wrap:wrap">'+adjE.map(([name,info])=>`<div class="sv-adj-item">
             <span class="sv-adj-name" title="${name}">${name}</span>
             <span class="sv-adj-val">${info.count}×${info.total?' · '+fmt(info.total):''}</span>
           </div>`).join('')+'</div>'
-        : '<div class="sv-empty">Se acumularán con cada actualización del fetcher.</div>'}
+        : `<div class="sv-empty">${t().sv_no_adj||'Se acumularán con cada actualización del fetcher.'}</div>`}
     </div>
   `;
 }
@@ -2151,22 +2191,22 @@ function renderConditions() {
 
   el('cond-grid').innerHTML = `
     <div class="sv-card">
-      <div class="sv-card-title">Presupuesto medio por disciplina</div>
+      <div class="sv-card-title">${t().sv_budget_disc||'Presupuesto medio por disciplina'}</div>
       <div class="sv-bars">${hbars(discBudgetE, discBudgetMax, fmt, (lbl)=>DISC_COLORS[lbl]||neutralColor(0))}</div>
-      ${discBudgetE.length===0?'<div class="sv-empty">Sin datos de presupuesto suficientes.</div>':''}
+      ${discBudgetE.length===0?`<div class="sv-empty">${t().sv_no_data||'Sin datos de presupuesto suficientes.'}</div>`:''}
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Plazo medio de presentación por disciplina (días)</div>
+      <div class="sv-card-title">${t().sv_plazo_disc||'Plazo medio de presentación por disciplina (días)'}</div>
       <div class="sv-bars">${hbars(discPlazoE, discPlazoMax, v=>v+'d', (lbl)=>DISC_COLORS[lbl]||neutralColor(0))}</div>
       ${plazoNote}
-      ${discPlazoE.length===0?'<div class="sv-empty">Sin datos de fechas suficientes.</div>':''}
+      ${discPlazoE.length===0?`<div class="sv-empty">${t().sv_no_data||'Sin datos de fechas suficientes.'}</div>`:''}
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Organismos que más contratan diseño</div>
+      <div class="sv-card-title">${t().sv_top_orgs||'Organismos que más contratan diseño'}</div>
       <div class="sv-bars">${hbars(orgE, orgMax)}</div>
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Resultado de las licitaciones</div>
+      <div class="sv-card-title">${t().sv_result||'Resultado de las licitaciones'}</div>
       <div class="chart-wrap">
         ${svgDonut([['Vigente',estVig],['Adjudicado',estAdj],['Desierta',estDes]].filter(([,v])=>v>0), d.length, 100, k=>ESTAT_COLORS[k]||'var(--text3)')}
         <div class="donut-legend">
@@ -2252,7 +2292,7 @@ function renderTops() {
   el('tops-grid').innerHTML = `
     ${filterNote}
     <div class="sv-card" style="grid-column:1/-1">
-      <div class="sv-card-title">Licitaciones de mayor presupuesto</div>
+      <div class="sv-card-title">${t().sv_top_ppto||'Licitaciones de mayor presupuesto'}</div>
       ${topPpto.map(r=>`
         <div class="sv-bar-row" title="${r.titol}">
           <span class="sv-bar-label" style="max-width:55%">${r.titol.length>52?r.titol.slice(0,52)+'…':r.titol}</span>
@@ -2261,25 +2301,25 @@ function renderTops() {
         </div>`).join('')}
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Organismos por volumen licitado</div>
+      <div class="sv-card-title">${t().sv_top_orgs_vol||'Organismos por volumen licitado'}</div>
       <div class="sv-bars">${hbars(orgVolE, orgVolMax, fmt)}</div>
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Disciplinas por volumen</div>
+      <div class="sv-card-title">${t().sv_top_disc_vol||'Disciplinas por volumen'}</div>
       <div class="sv-bars">${hbars(discVolE, discVolMax, fmt, (lbl)=>DISC_COLORS[lbl]||'var(--accent)')}</div>
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Territorios por volumen licitado</div>
+      <div class="sv-card-title">${t().sv_top_terr_vol||'Territorios por volumen licitado'}</div>
       <div class="sv-bars">${hbars(terrVolE, terrVolMax, fmt)}</div>
     </div>
     <div class="sv-card">
-      <div class="sv-card-title">Empresas adjudicatarias</div>
+      <div class="sv-card-title">${t().sv_by_adj||'Empresas adjudicatarias'}</div>
       ${adjE.length ? `<div class="sv-bars">${adjE.map(([lbl,v],i)=>`
         <div class="sv-bar-row" title="${lbl}">
           <span class="sv-bar-label">${lbl}</span>
           <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(v.count/adjMax*100)}%"></div></div>
           <span class="sv-bar-val">${v.count} · ${v.total?fmt(v.total):''}</span>
-        </div>`).join('')}</div>` : '<div class="sv-empty">Sin adjudicatarios identificados</div>'}
+        </div>`).join('')}</div>` : `<div class="sv-empty">${t().sv_no_adj||'Sin adjudicatarios identificados'}</div>`}
     </div>
   `;
 }
