@@ -339,7 +339,10 @@ async function loadData() {
   ADG.data = SAMPLE;
   ADG.isSample = true;
   try {
-    const r = await fetch(`./data.json?t=${Date.now()}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const r = await fetch(`./data.json?t=${Date.now()}`, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const raw = await r.json();
     const items = Array.isArray(raw) ? raw : (raw.data || []);
