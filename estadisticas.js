@@ -317,7 +317,7 @@ function render() {
     <div class="sv-section-title">${t('sv_tops')}</div>
     <div class="sv-grid">
       <!-- Top 5 mayor presupuesto -->
-      <div class="sv-card" style="grid-column:1/-1">
+      <div class="sv-card" >
         <div class="sv-card-title">${t('sv_top_ppto')}</div>
         ${top5.length ? `<div style="display:flex;flex-direction:column;gap:6px">${top5HTML}</div>` : `<div class="sv-empty">${t('sv_no_data')}</div>`}
       </div>
