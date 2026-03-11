@@ -882,6 +882,15 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       <span class="filter-lbl" data-i18n="fl_comarca">Provincia / Comarca</span>
       <select class="terr-sel" id="sel-comarca" aria-label="Provincia"></select>
     </div>
+    <div class="filter-group" id="year-group">
+      <span class="filter-lbl">Año</span>
+      <select class="terr-sel" id="sel-year" aria-label="Año">
+        <option value="">Todos</option>
+        <option value="2024">2024</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+      </select>
+    </div>
     <div class="filter-group">
       <span class="filter-lbl" data-i18n="fl_status">Estado</span>
       <button class="pill active" data-estat="" aria-pressed="true" data-i18n="fl_all">Todas</button>
@@ -947,6 +956,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       <div class="ov-head">
         <div class="ov-tabs">
           <button class="ov-tab active" data-tab="stats" data-i18n="btn_stats">Estadísticas</button>
+          <button class="ov-tab" data-tab="tops">Tops</button>
           <button class="ov-tab" data-tab="conditions" data-i18n="btn_conditions">Condiciones</button>
         </div>
         <button class="ov-close" id="sv-close" data-i18n="btn_close">Cerrar ✕</button>
@@ -955,6 +965,10 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
       <div class="ov-body ov-tab-body" id="tab-stats">
         <div class="sv-bignums" id="sv-bignums"></div>
         <div class="sv-grid" id="sv-grid"></div>
+      </div>
+      <!-- Tab: Tops -->
+      <div class="ov-body ov-tab-body" id="tab-tops" style="display:none">
+        <div id="tops-grid" class="sv-grid"></div>
       </div>
       <!-- Tab: Condiciones -->
       <div class="ov-body ov-tab-body" id="tab-conditions" style="display:none">
@@ -1002,6 +1016,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
           <div class="about-card">
             <div class="about-card-title">Changelog</div>
             <div>
+              <div class="changelog-item"><span class="cl-ver">v1.6.6</span><span class="cl-date">Mar 2026</span> — Filtro año, estadísticas y condiciones sobre datos filtrados, panel Tops (presupuestos / organismos / disciplinas / territorios / adjudicatarios), colores por disciplina en gráficos, fix Calvià→IB, MAX_ITEMS 500→3000.</div>
               <div class="changelog-item"><span class="cl-ver">v1.5.3</span><span class="cl-date">Mar 2026</span> — Bootstrap Icons, i18n completo, panel Guía de licitaciones, panel Acerca de, overlay de estadísticas, fix adjudicatarios, fix CPV falsos positivos, WIP footer, Señalética icon fix.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4.1</span><span class="cl-date">Mar 2026</span> — Fix fila seleccionada dark/light, fix overlay estadísticas, adjudicatarios en panel, fix CPV 34928470 mobiliario urbano.</div>
               <div class="changelog-item"><span class="cl-ver">v1.4</span><span class="cl-date">Mar 2026</span> — Badge NUEVA, contador vencen esta semana, fecha de última actualización real, exportar CSV, compartir licitación por URL, vista estadísticas, campo adjudicatario, buscador adjudicatarios, historial de estados.</div>
@@ -1230,7 +1245,7 @@ tr.sel .bell-btn:hover { background:rgba(255,255,255,.08); }
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span>v1.5.3</span>
+      <i class="bi bi-code-slash"></i><span>v1.6.6</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default; letter-spacing:.05em; text-transform:none">
@@ -1419,7 +1434,7 @@ const SAMPLE = [
 // ── STATE ──────────────────────────────────────────────────────────────────
 const state = {
   data:[], generatedAt:null, lang:'es', theme:'light',
-  disc:'', estat:'', ccaa:'', comarca:'',
+  disc:'', estat:'', ccaa:'', comarca:'', year:'',
   query:'', adjQuery:'',
   sortCol:'rellevancia', sortDir:-1,
   selectedId:null,
@@ -1489,12 +1504,15 @@ function applyI18n() {
   renderTable();
   if (state.selectedId) renderDetail();
   if (state.activePanel === 'stats')      renderStats();
+  if (state.activePanel === 'stats' && state.activeStatsTab === 'tops') renderTops();
   if (state.activePanel === 'conditions') renderConditions();
 }
 
 // ── FILTER + SORT ──────────────────────────────────────────────────────────
-function getRows() {
+// getFilteredRows() — applies all active filters, NO sort. Used by stats/conditions.
+function getFilteredRows() {
   let rows = state.data;
+  if (state.year)     rows = rows.filter(r => (r.data_pub||'').slice(0,4) === state.year);
   if (state.disc)     rows = rows.filter(r => (r.disciplines||[]).includes(state.disc));
   if (state.estat)    rows = rows.filter(r => r.estat === state.estat);
   if (state.ccaa)     rows = rows.filter(r => r.ccaa === state.ccaa);
@@ -1509,6 +1527,11 @@ function getRows() {
       (r.kw||[]).some(k => k.toLowerCase().includes(q))
     );
   }
+  return rows;
+}
+
+function getRows() {
+  const rows = getFilteredRows();
   const col = state.sortCol, dir = state.sortDir;
   return [...rows].sort((a,b) => {
     let va = a[col], vb = b[col];
@@ -1804,12 +1827,24 @@ function renderDetail() {
 }
 
 // ── CHART HELPERS ──────────────────────────────────────────────────────────
-const CHART_COLORS = [
-  'var(--text)', '#555', '#888', '#aaa', '#ccc',
-  '#333', '#777', '#999', '#bbb', '#ddd'
-];
-// For dark mode, swap
-const chartColor = i => CHART_COLORS[i % CHART_COLORS.length];
+// Per-discipline color palette — AA contrast, consistent hues
+const DISC_COLORS = {
+  branding:   '#C94040',
+  editorial:  '#2E72AA',
+  web:        '#2A9A68',
+  uxui:       '#7040C0',
+  publicitat: '#C07030',
+  senyaletica:'#B08020',
+  fotografia: '#3A6A9A',
+  audiovisual:'#C03070',
+  illustracio:'#4A8A38',
+  impressio:  '#606878',
+};
+const CHART_COLORS = Object.values(DISC_COLORS);
+const chartColor = (i, discKey) => {
+  if (discKey && DISC_COLORS[discKey]) return DISC_COLORS[discKey];
+  return CHART_COLORS[i % CHART_COLORS.length];
+};
 
 function svgDonut(entries, total, size=110) {
   if (!total || !entries.length) {
@@ -1829,7 +1864,7 @@ function svgDonut(entries, total, size=110) {
     const gap  = circ - dash;
     const rot  = (offset / total) * 360 - 90;
     circles += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
-      stroke="${chartColor(i)}" stroke-width="${strokeW}"
+      stroke="${chartColor(i, entries[i]?.[0])}" stroke-width="${strokeW}"
       stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}"
       transform="rotate(${rot.toFixed(1)} ${cx} ${cy})" />`;
     offset += val;
@@ -1855,7 +1890,8 @@ function trendBars(monthData) {
 
 // ── RENDER STATS ───────────────────────────────────────────────────────────
 function renderStats() {
-  const d = state.data;
+  const d = getFilteredRows();
+  const isFiltered = d.length < state.data.length;
   if (!d.length) { el('sv-bignums').innerHTML=''; el('sv-grid').innerHTML='<div class="sv-empty" style="padding:24px 0">Sin datos</div>'; return; }
 
   const totalVol = d.reduce((s,r)=>s+(r.pressupost||0),0);
@@ -1863,7 +1899,7 @@ function renderStats() {
   const avgVol   = withPpto.length ? Math.round(totalVol/withPpto.length) : 0;
 
   el('sv-bignums').innerHTML = `
-    <div class="sv-bignum"><div class="sv-bignum-val">${d.length}</div><div class="sv-bignum-lbl">Total</div></div>
+    <div class="sv-bignum"><div class="sv-bignum-val">${d.length}${isFiltered?`<span style="font-size:11px;color:var(--text3);margin-left:4px">/ ${state.data.length}</span>`:''}</div><div class="sv-bignum-lbl">${isFiltered?'Filtradas / Total':'Total'}</div></div>
     <div class="sv-bignum"><div class="sv-bignum-val" style="color:var(--c-ok)">${d.filter(r=>r.estat==='Vigente').length}</div><div class="sv-bignum-lbl">Vigentes</div></div>
     <div class="sv-bignum"><div class="sv-bignum-val">${fmt(totalVol)||'—'}</div><div class="sv-bignum-lbl">Volumen total</div></div>
     <div class="sv-bignum"><div class="sv-bignum-val">${fmt(avgVol)||'—'}</div><div class="sv-bignum-lbl">Ppto. medio</div></div>
@@ -1924,7 +1960,7 @@ function renderStats() {
   // Donut legend
   const donutLegend = (entries, total, max=6) => entries.slice(0,max).map(([lbl,val],i)=>`
     <div class="donut-legend-item">
-      <span class="donut-dot" style="background:${chartColor(i)}"></span>
+      <span class="donut-dot" style="background:${chartColor(i, lbl)}"></span>
       <span>${DISC_LABELS[lbl]||lbl}</span>
       <span class="donut-pct">${total?Math.round(val/total*100):0}%</span>
     </div>`).join('');
@@ -1970,7 +2006,7 @@ function renderStats() {
 
 // ── RENDER CONDITIONS ──────────────────────────────────────────────────────
 function renderConditions() {
-  const d = state.data;
+  const d = getFilteredRows();
   if (!d.length) {
     el('cond-bignums').innerHTML='';
     el('cond-grid').innerHTML='<div class="sv-empty" style="padding:24px 0">Sin datos suficientes. Ejecuta el fetcher con <code>--pages 5</code> para cargar el histórico de 2026.</div>';
@@ -2110,15 +2146,99 @@ function renderConditions() {
     </div>
   `;
 }
+// ── RENDER TOPS ────────────────────────────────────────────────────────────
+function renderTops() {
+  const d = getFilteredRows();
+  const isFiltered = d.length < state.data.length;
+  if (!d.length) { el('tops-grid').innerHTML='<div class="sv-empty" style="padding:24px 0">Sin datos</div>'; return; }
+
+  const hbars = (entries, max, fmtFn, colorFn) => entries.map(([lbl,val],i)=>`
+    <div class="sv-bar-row" title="${lbl}">
+      <span class="sv-bar-label">${DISC_LABELS[lbl]||lbl}</span>
+      <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(val/max*100)}%;background:${colorFn?colorFn(lbl,i):'var(--accent)'}"></div></div>
+      <span class="sv-bar-val">${fmtFn?fmtFn(val):val}</span>
+    </div>`).join('');
+
+  // Top presupuestos (licitaciones individuales más altas)
+  const topPpto = [...d].filter(r=>r.pressupost).sort((a,b)=>b.pressupost-a.pressupost).slice(0,8);
+  const pptoMax = topPpto[0]?.pressupost||1;
+
+  // Top organismos por volumen
+  const orgVolMap={};
+  d.forEach(r=>{ if(r.organisme&&r.pressupost){ orgVolMap[r.organisme]=(orgVolMap[r.organisme]||0)+r.pressupost; }});
+  const orgVolE = Object.entries(orgVolMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const orgVolMax = orgVolE[0]?.[1]||1;
+
+  // Top disciplinas por volumen
+  const discVolMap={};
+  d.forEach(r=>{ (r.disciplines||[]).forEach(dd=>{ if(r.pressupost) discVolMap[dd]=(discVolMap[dd]||0)+r.pressupost; }); });
+  const discVolE = Object.entries(discVolMap).sort((a,b)=>b[1]-a[1]);
+  const discVolMax = discVolE[0]?.[1]||1;
+
+  // Top adjudicatarios por número de contratos
+  const adjMap={};
+  d.filter(r=>r.adjudicatari&&r.adjudicatari.trim().length>4&&!/^\d|^ES[\s\d]/.test(r.adjudicatari)).forEach(r=>{
+    const k=r.adjudicatari.trim();
+    if(!adjMap[k]) adjMap[k]={count:0,total:0};
+    adjMap[k].count++; adjMap[k].total+=(r.pressupost||0);
+  });
+  const adjE = Object.entries(adjMap).sort((a,b)=>b[1].count-a[1].count).slice(0,8);
+  const adjMax = adjE[0]?.[1].count||1;
+
+  // Top territorios por volumen
+  const terrVolMap={};
+  d.forEach(r=>{ if(r.pressupost){ const k=TERRITORIES[r.ccaa]?.name||r.ccaa||'?'; terrVolMap[k]=(terrVolMap[k]||0)+r.pressupost; }});
+  const terrVolE = Object.entries(terrVolMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const terrVolMax = terrVolE[0]?.[1]||1;
+
+  const filterNote = isFiltered ? `<p style="font-size:11px;color:var(--text3);margin:0 0 14px">Mostrando datos de ${d.length} licitaciones filtradas (${state.data.length} total).</p>` : '';
+
+  el('tops-grid').innerHTML = `
+    ${filterNote}
+    <div class="sv-card" style="grid-column:1/-1">
+      <div class="sv-card-title">Licitaciones de mayor presupuesto</div>
+      ${topPpto.map(r=>`
+        <div class="sv-bar-row" title="${r.titol}">
+          <span class="sv-bar-label" style="max-width:55%">${r.titol.length>52?r.titol.slice(0,52)+'…':r.titol}</span>
+          <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(r.pressupost/pptoMax*100)}%"></div></div>
+          <span class="sv-bar-val">${fmt(r.pressupost)}</span>
+        </div>`).join('')}
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Organismos por volumen licitado</div>
+      <div class="sv-bars">${hbars(orgVolE, orgVolMax, fmt)}</div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Disciplinas por volumen</div>
+      <div class="sv-bars">${hbars(discVolE, discVolMax, fmt, (lbl)=>DISC_COLORS[lbl]||'var(--accent)')}</div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Territorios por volumen licitado</div>
+      <div class="sv-bars">${hbars(terrVolE, terrVolMax, fmt)}</div>
+    </div>
+    <div class="sv-card">
+      <div class="sv-card-title">Empresas adjudicatarias</div>
+      ${adjE.length ? `<div class="sv-bars">${adjE.map(([lbl,v],i)=>`
+        <div class="sv-bar-row" title="${lbl}">
+          <span class="sv-bar-label">${lbl}</span>
+          <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${Math.round(v.count/adjMax*100)}%"></div></div>
+          <span class="sv-bar-val">${v.count} · ${v.total?fmt(v.total):''}</span>
+        </div>`).join('')}</div>` : '<div class="sv-empty">Sin adjudicatarios identificados</div>'}
+    </div>
+  `;
+}
+
 const PANELS = {stats:'pnl-stats', about:'pnl-about', guide:'pnl-guide'};
 const BTNS   = {stats:'btn-stats', about:'btn-about', guide:'btn-guide'};
 
 function switchStatsTab(tab) {
   state.activeStatsTab = tab;
   el('tab-stats').style.display      = tab==='stats'      ? '' : 'none';
+  el('tab-tops').style.display       = tab==='tops'       ? '' : 'none';
   el('tab-conditions').style.display = tab==='conditions' ? '' : 'none';
   document.querySelectorAll('.ov-tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
   if (tab==='stats')      renderStats();
+  if (tab==='tops')       renderTops();
   if (tab==='conditions') renderConditions();
 }
 
@@ -2206,6 +2326,7 @@ el('sel-ccaa').addEventListener('change', e=>{
   onFilterChange();
 });
 el('sel-comarca').addEventListener('change', e=>{ state.comarca=e.target.value; onFilterChange(); });
+el('sel-year').addEventListener('change',   e=>{ state.year=e.target.value;   onFilterChange(); });
 el('search').addEventListener('input',     e=>{ state.query=e.target.value;    onFilterChange(); });
 el('adj-search').addEventListener('input', e=>{ state.adjQuery=e.target.value; onFilterChange(); });
 
