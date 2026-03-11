@@ -1,6 +1,6 @@
 /*
  * ADG Licitaciones — about.js
- * v2.1 — Mar 2026
+ * β3.0 — Mar 2026
  * Página: about.html
  * Contiene: CHANGELOG hardcodeado, renderCredit
  *
@@ -17,7 +17,8 @@ const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
 // ── CHANGELOG (hardcoded — fuente de verdad del proyecto) ───────────────────
 const CHANGELOG = [
-  { ver:'v2.1',     date:'11 Mar 2026', text:'Fix crítico: error "Identifier el already declared" impedía cargar datos en todas las páginas desde la separación multi-página. Todos los JS de página ahora usan IIFE. Changelog hardcodeado. loadData con timeout de seguridad. Bump versión.' },
+  { ver:'β3.0',     date:'11 Mar 2026', text:'Fase 0 · Fundación del ecosistema. Nueva home como hub central con cards a cada herramienta y roadmap visual. Renombrado index.html → licitaciones.html. Datos movidos a carpeta data/. Navegación ampliada con tab Inicio. loadJSON genérico en app.js. Preparada la estructura para Laus Tracker, Directorio de Socios, Recursos, Calculadora, Mapa, Bolsa de Prácticas, Barómetro y Alertas.' },
+  { ver:'v2.1',     date:'11 Mar 2026', text:'Fix crítico: error "Identifier el already declared" impedía cargar datos en todas las páginas desde la separación multi-página. Todos los JS de página ahora usan IIFE. Changelog hardcodeado. loadData con timeout de seguridad.' },
   { ver:'v2.0',     date:'Mar 2026', text:'Arquitectura multi-página: index (tabla) · estadísticas · about. CSS y JS compartidos via app.js y style.css. Multi-disciplina OR con chips removibles. Panel estadísticas con filtros locales independientes (año/CCAA/estado/disciplina). Paleta de colores por disciplina (light+dark). Semáforo de estados: verde vigente, gris adjudicado, rojo desierta. Fetcher v2.0 con progress bar, sin límite de items, y enriquecimiento. Navegación por tabs entre páginas.' },
   { ver:'v1.6.7',   date:'Mar 2026', text:'Filtro por año. Estadísticas y condiciones calculadas sobre datos filtrados. Panel Tops: mayores presupuestos, organismos, disciplinas, territorios y adjudicatarios por volumen. Colores por disciplina en todos los gráficos. Fix Calvià → IB. MAX_ITEMS de 500 a 3000.' },
   { ver:'v1.5.3',   date:'Mar 2026', text:'Migración a Bootstrap Icons. i18n completo ES/CA/EU/GL en todos los paneles. Guía de licitaciones para diseñadores con señales de alerta, buenas señales, marco legal LCSP y recursos. Acerca del observatorio con fuentes de datos. Overlay de estadísticas con donut y barras. Fix adjudicatarios con HTML entities. Fix CPV falsos positivos. WIP banner y footer.' },

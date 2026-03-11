@@ -1,6 +1,6 @@
 /*
  * ADG Licitaciones — app.js
- * v2.1 — Mar 2026
+ * β3.0 — Mar 2026
  * Compartido: index.html · estadisticas.html · about.html
  * Contiene: DISC colors, TERR map, I18N (ES/CA/EU/GL),
  *           SAMPLE data, ADG state, utils (fmt, daysTo, discTag,
@@ -59,7 +59,7 @@ const I18N = {
     hd_eyebrow:'Observatorio de Contratación Pública', hd_name:'Licitaciones · Diseño y Comunicación Visual',
     btn_about:'Acerca de', btn_guide:'Guía', btn_stats:'Estadísticas',
     btn_alerts:'Alertas', btn_csv:'CSV', btn_close:'Cerrar ✕',
-    nav_list:'Licitaciones', nav_stats:'Estadísticas', nav_about:'Acerca de',
+    nav_list:'Licitaciones', nav_stats:'Estadísticas', nav_about:'Acerca de', nav_home:'Inicio',
     st_total:'licitaciones', st_vigent:'vigentes', st_vol:'volumen €',
     st_week:'vencen esta semana', st_new:'nuevas hoy', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de muestra',
@@ -101,7 +101,7 @@ const I18N = {
     hd_eyebrow:'Observatori de Contractació Pública', hd_name:'Licitacions · Disseny i Comunicació Visual',
     btn_about:"Sobre l'obs.", btn_guide:'Guia', btn_stats:'Estadístiques',
     btn_alerts:'Alertes', btn_csv:'CSV', btn_close:'Tancar ✕',
-    nav_list:'Licitacions', nav_stats:'Estadístiques', nav_about:'Sobre nosaltres',
+    nav_list:'Licitacions', nav_stats:'Estadístiques', nav_about:'Sobre nosaltres', nav_home:'Inici',
     st_total:'licitacions', st_vigent:'vigents', st_vol:'volum €',
     st_week:'vencen aviat', st_new:'noves avui', st_loading:'Carregant…',
     st_updated:'Actualitzat', st_sample:'Dades de mostra',
@@ -142,7 +142,7 @@ const I18N = {
     hd_eyebrow:'Kontratu Publikoen Behatokia', hd_name:'Lizitazioak · Diseinu eta Ikusizko Komunikazioa',
     btn_about:'Informazioa', btn_guide:'Gida', btn_stats:'Estatistikak',
     btn_alerts:'Alertak', btn_csv:'CSV', btn_close:'Itxi ✕',
-    nav_list:'Lizitazioak', nav_stats:'Estatistikak', nav_about:'Informazioa',
+    nav_list:'Lizitazioak', nav_stats:'Estatistikak', nav_about:'Informazioa', nav_home:'Hasiera',
     st_total:'lizitazioak', st_vigent:'indarrean', st_vol:'bolumena €',
     st_week:'laster iraungitzen', st_new:'gaur berriak', st_loading:'Kargatzen…',
     st_updated:'Eguneratua', st_sample:'Lagin datuak',
@@ -182,7 +182,7 @@ const I18N = {
     hd_eyebrow:'Observatorio de Contratación Pública', hd_name:'Licitacións · Deseño e Comunicación Visual',
     btn_about:'Sobre nós', btn_guide:'Guía', btn_stats:'Estatísticas',
     btn_alerts:'Alertas', btn_csv:'CSV', btn_close:'Pechar ✕',
-    nav_list:'Licitacións', nav_stats:'Estatísticas', nav_about:'Sobre nós',
+    nav_list:'Licitacións', nav_stats:'Estatísticas', nav_about:'Sobre nós', nav_home:'Inicio',
     st_total:'licitacións', st_vigent:'vixentes', st_vol:'volume €',
     st_week:'vencen axiña', st_new:'novas hoxe', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de mostra',
@@ -341,7 +341,7 @@ async function loadData() {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
-    const r = await fetch(`./data.json?t=${Date.now()}`, { signal: controller.signal });
+    const r = await fetch(`./data/licitaciones.json?t=${Date.now()}`, { signal: controller.signal });
     clearTimeout(timeout);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const raw = await r.json();
@@ -466,4 +466,20 @@ function initModal() {
 }
 
 // Export for page scripts
-window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData };
+window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON };
+
+// ── GENERIC JSON LOADER ──────────────────────────────────────────────────
+async function loadJSON(path, timeoutMs) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs || 4000);
+    const r = await fetch(`${path}?t=${Date.now()}`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const raw = await r.json();
+    return Array.isArray(raw) ? raw : (raw.data || raw);
+  } catch (e) {
+    console.warn('[ADG] loadJSON failed for', path, e.message);
+    return null;
+  }
+}
