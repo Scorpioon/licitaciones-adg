@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Acerca de · ADG Licitaciones</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+<div class="shell-top">
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span class="ticker-item" id="tk-a"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Observatorio de Contratación Pública</span><span class="ticker-sep">·</span>
+      <span class="ticker-item" id="tk-b"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Observatorio de Contratación Pública</span><span class="ticker-sep">·</span>
+    </div>
+  </div>
+  <header class="header" role="banner">
+    <div class="logo-wrap">
+      <img class="logo-img" src="./img/img_2.png" alt="ADG FAD" height="30">
+      <div class="logo-sep"></div>
+      <div>
+        <div class="logo-eyebrow" data-i18n="hd_eyebrow">Observatorio de Contratación Pública</div>
+        <div class="logo-name" data-i18n="hd_name">Licitaciones · Diseño y Comunicación Visual</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <nav class="nav-tabs">
+        <a class="nav-tab" href="./index.html"><i class="bi bi-table"></i><span data-i18n="nav_list">Licitaciones</span></a>
+        <a class="nav-tab" href="./estadisticas.html"><i class="bi bi-bar-chart-fill"></i><span data-i18n="nav_stats">Estadísticas</span></a>
+        <a class="nav-tab current" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
+      </nav>
+      <div class="lang-wrap">
+        <button class="lang-btn active" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="ca">CA</button>
+        <button class="lang-btn" data-lang="eu">EU</button>
+        <button class="lang-btn" data-lang="gl">GL</button>
+      </div>
+      <button class="hbtn" id="btn-theme"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
+    </div>
+  </header>
+</div>
+
+<div class="page-body" style="padding:24px;max-width:1100px;margin:0 auto">
+
+  <!-- WIP NOTICE -->
+  <div class="wip-banner">
+    <i class="bi bi-cone-striped"></i>
+    <div><strong>Proyecto en desarrollo activo.</strong> Los datos son de muestra. Las alertas por email están en fase beta. Si encuentras errores o quieres colaborar, abre un issue en GitHub.</div>
+  </div>
+
+  <!-- ABOUT: 2 columns -->
+  <div style="font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--text3);margin-bottom:14px" data-i18n="about_title">Acerca del observatorio</div>
+  <div class="about-2col" style="margin-bottom:30px">
+    <!-- LEFT: info -->
+    <div>
+      <div class="about-card">
+        <div class="about-card-title">¿Qué es este observatorio?</div>
+        <div class="about-body">
+          <p>El <strong>Observatorio de Licitaciones Públicas ADG-FAD</strong> es una iniciativa sin ánimo de lucro que centraliza y clasifica las convocatorias de contratación pública relacionadas con el <strong>diseño gráfico y la comunicación visual</strong> en España.</p>
+          <p>Su objetivo es hacer accesible a los profesionales del diseño una información que, aunque pública, está dispersa en decenas de plataformas autonómicas y estatales.</p>
+        </div>
+      </div>
+      <div class="about-card">
+        <div class="about-card-title">¿Cómo funciona?</div>
+        <div class="about-body">
+          <p>Un script Python (<code>fetch_licitaciones.py</code>) descarga periódicamente los datos de los ZIPs de PLACSP, los filtra por relevancia para el sector del diseño y genera un fichero <code>data.json</code> que alimenta esta interfaz.</p>
+          <p>El filtrado se basa en palabras clave, códigos CPV y un sistema de puntuación de relevancia. <strong>Solo se muestran licitaciones con puntuación ≥ 20</strong>.</p>
+          <p>Todo el código es <strong>open source</strong> — puedes contribuir, hacer fork o desplegar tu propia versión desde <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank" rel="noopener">GitHub ↗</a>.</p>
+        </div>
+      </div>
+      <div class="about-card">
+        <div class="about-card-title">Fuentes de datos</div>
+        <div class="about-body">
+          <p><strong>PLACSP</strong> — Plataforma de Contratación del Sector Público (<a href="https://contrataciondelestado.es" target="_blank">contrataciondelestado.es</a>). Datos en formato ATOM (XML) distribuidos en ficheros ZIP mensuales.</p>
+          <p>Las plataformas autonómicas (Gencat, Euskadi, etc.) publican sus datos en PLACSP mediante integración automática.</p>
+          <p>Los datos son siempre <strong>información pública</strong> — no se realiza ningún scraping de pantallas ni se vulneran términos de servicio.</p>
+          <div class="credit-line">Desarrollado por <a href="https://adg-fad.org" target="_blank">ADG-FAD</a> · Código y datos bajo licencia abierta · <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank">Contribuir en GitHub</a></div>
+        </div>
+      </div>
+    </div>
+    <!-- RIGHT: changelog -->
+    <div>
+      <div class="about-card" style="height:100%">
+        <div class="about-card-title">Changelog</div>
+        <div id="changelog-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GUIDE -->
+  <div style="font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--text3);margin-bottom:14px" id="guide-title">Guía de licitaciones para diseñadores</div>
+  <p class="guide-intro">Las licitaciones públicas son una oportunidad real para estudios y profesionales del diseño. Sin embargo, su complejidad administrativa desalienta a muchos. Esta guía recoge lo esencial que necesitas saber.</p>
+
+  <div class="guide-grid">
+    <!-- Señales de alerta -->
+    <div class="guide-card">
+      <div class="guide-card-title">Señales de alerta</div>
+      <div class="guide-items">
+        <div class="guide-item"><div class="guide-dot dot-red"></div><div><strong>Presupuesto < 3.000 €</strong> — difícilmente cubre el coste real de trabajo creativo profesional.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-red"></div><div><strong>Plazo < 10 días</strong> — apenas tiempo para preparar documentación y propuesta.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-red"></div><div><strong>Sin criterios estéticos</strong> — la valoración se hace solo por precio, lo que penaliza la calidad.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-warn"></div><div><strong>Adjudicatario habitual</strong> — si siempre adjudica a la misma empresa, puede ser difícil entrar.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-warn"></div><div><strong>Pliegos muy técnicos</strong> — requisitos de solvencia desproporcionados para el volumen del contrato.</div></div>
+        <div class="guide-note">Denuncia presupuestos irrisorios al Colegio o a ADG-FAD.</div>
+      </div>
+    </div>
+    <!-- Buenas señales -->
+    <div class="guide-card">
+      <div class="guide-card-title">Buenas señales</div>
+      <div class="guide-items">
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><strong>Criterios estéticos ≥ 30%</strong> — la calidad del diseño tiene peso real en la valoración.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><strong>Plazo > 20 días</strong> — tiempo razonable para preparar una buena propuesta.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><strong>Lote por disciplina</strong> — muestra conocimiento del sector y permite especialización.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><strong>Presupuesto público detallado</strong> — indica que el organismo sabe lo que pide.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><strong>Primera vez que licitan</strong> — más apertura a nuevos proveedores sin histórico previo.</div></div>
+        <div class="guide-note">Si un organismo te adjudica bien, cultiva la relación para futuras convocatorias.</div>
+      </div>
+    </div>
+    <!-- Marco legal LCSP -->
+    <div class="guide-card">
+      <div class="guide-card-title">Marco legal · LCSP 9/2017</div>
+      <div class="guide-items">
+        <div class="guide-item"><div class="guide-dot" style="background:var(--text3)"></div><div><span class="lcsp-ref">Art. 145</span> <strong>Criterios de adjudicación</strong> — pueden incluir calidad, estética, organización, cualificación.</div></div>
+        <div class="guide-item"><div class="guide-dot" style="background:var(--text3)"></div><div><span class="lcsp-ref">Art. 159</span> <strong>Procedimiento abierto simplificado</strong> — para contratos menores de 2M€. Más ágil.</div></div>
+        <div class="guide-item"><div class="guide-dot" style="background:var(--text3)"></div><div><span class="lcsp-ref">Art. 168</span> <strong>Contrato menor</strong> — hasta 15.000 € en servicios. Sin pliego complejo, adjudicación directa.</div></div>
+        <div class="guide-item"><div class="guide-dot" style="background:var(--text3)"></div><div><span class="lcsp-ref">Art. 94</span> <strong>Solvencia técnica</strong> — acredita con trabajos similares del último año (1-3 años habitualmente).</div></div>
+        <div class="guide-note">La LCSP promueve la concurrencia y prohíbe el fraccionamiento artificial de contratos.</div>
+      </div>
+    </div>
+    <!-- Recursos -->
+    <div class="guide-card">
+      <div class="guide-card-title">Recursos útiles</div>
+      <div class="guide-items">
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><a href="https://contrataciondelestado.es" target="_blank" rel="noopener"><strong>PLACSP</strong></a> — Plataforma oficial de contratación del sector público.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><a href="https://contractaciopublica.gencat.cat" target="_blank" rel="noopener"><strong>Gencat Contractació</strong></a> — Plataforma de la Generalitat de Catalunya.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><a href="https://www.euskadi.eus/contratacion" target="_blank" rel="noopener"><strong>Contratación Euskadi</strong></a> — Gobierno Vasco.</div></div>
+        <div class="guide-item"><div class="guide-dot dot-ok"></div><div><a href="https://adg-fad.org" target="_blank" rel="noopener"><strong>ADG-FAD</strong></a> — Asociación de Diseñadores Gráficos. Formación, colectivización y defensa.</div></div>
+        <div class="guide-item"><div class="guide-dot" style="background:var(--text3)"></div><div><strong>Guía práctica ADG</strong> — Cómo presentarse a una licitación pública de diseño. <a href="#" style="border-bottom:1px solid var(--border2)">Descargar PDF ↗</a></div></div>
+        <div class="guide-note">Si encuentras un contrato con presupuesto irrisorio, reporta a ADG-FAD para que lo documenten.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="shell-foot footer">
+  <div class="footer-left">
+    <img class="footer-logo" src="./img/img_2.png" alt="ADG">
+    <div class="footer-text"><strong>ADG-FAD</strong> · Observatorio de Contratación Pública · v2.0</div>
+  </div>
+  <div class="footer-links">
+    <a class="footer-link" href="https://github.com/scorpioon/licitaciones-adg" target="_blank"><i class="bi bi-github"></i>GitHub</a>
+    <div class="footer-sep"></div>
+    <a class="footer-link" href="./index.html"><i class="bi bi-table"></i>Licitaciones</a>
+  </div>
+</footer>
+
+<script src="./app.js"></script>
+<script src="./about.js"></script>
+</body>
+</html>
