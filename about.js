@@ -1,4 +1,17 @@
-/* ── about.js v2.0 ──────────────────────────────────────────────────────── */
+/*
+ * ADG Licitaciones — about.js
+ * v2.0 — Mar 2026
+ * Página: about.html
+ * Contiene: fetchChangelog (GitHub API + fallback FALLBACK[]),
+ *           VERSION_MAP (detección versión por commit msg),
+ *           renderCredit
+ *
+ * CHANGELOG
+ * v2.0  Mar 2026  Changelog en vivo desde GitHub Commits API.
+ *                 Fallback estático si API no disponible.
+ *                 VERSION_MAP para etiquetar commits con semver.
+ * v1.x  Ene–Feb   No existía como página independiente
+ */
 "use strict";
 
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;

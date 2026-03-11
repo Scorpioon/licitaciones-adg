@@ -182,7 +182,7 @@ _BOILERPLATE_FRAGS = [
 # PROGRESS HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def pprint(msg: str, end: str = "\n"):
+def pprint(msg: str = "", end: str = "\n"):
     """Print con flush automático para PowerShell."""
     print(msg, end=end, flush=True)
 
@@ -946,14 +946,14 @@ def main():
 
     if args.local_dir:
         all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score, t_start))
-        pprint()
+        pprint("")
         session = build_session() if args.enrich else None
     else:
         session = build_session()
         active_sources = SOURCES if args.source == "all" else [s for s in SOURCES if args.source in s["name"]]
         for src in active_sources:
             all_new_items.extend(fetch_source(session, src, args.pages, args.min_score))
-            pprint()
+            pprint("")
 
     # Dedup dentro de la corrida actual (mayor relevancia gana)
     dedup_new: dict = {}
