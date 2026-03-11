@@ -1,6 +1,6 @@
 /*
  * ADG Licitaciones — estadisticas.js
- * v2.1 — Mar 2026
+ * β3.0 — Mar 2026
  * Página: estadisticas.html
  * Contiene: SV state (filtros locales independientes),
  *           getRows, render con bignums / donut / trend bars /

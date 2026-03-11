@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Licitaciones · Diseño y Comunicación Visual — ADG</title>
+<meta name="description" content="Observatorio de licitaciones públicas para el sector del diseño gráfico y la comunicación visual.">
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+<div class="shell-top">
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span class="ticker-item" id="tk-a"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Observatorio de Contratación Pública · Diseño Gráfico y Comunicación Visual</span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Fuentes: PLACSP · Plataformas autonómicas · contrataciondelestado.es</span><span class="ticker-sep">·</span>
+      <span class="ticker-item" id="tk-b"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Observatorio de Contratación Pública · Diseño Gráfico y Comunicación Visual</span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Fuentes: PLACSP · Plataformas autonómicas · contrataciondelestado.es</span><span class="ticker-sep">·</span>
+    </div>
+  </div>
+  <header class="header" role="banner">
+    <div class="logo-wrap">
+      <img class="logo-img" src="./img/img_2.png" alt="ADG FAD" height="30">
+      <div class="logo-sep"></div>
+      <div>
+        <div class="logo-eyebrow" data-i18n="hd_eyebrow">Observatorio de Contratación Pública</div>
+        <div class="logo-name" data-i18n="hd_name">Licitaciones · Diseño y Comunicación Visual</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <nav class="nav-tabs">
+        <a class="nav-tab" href="./index.html"><i class="bi bi-house"></i><span data-i18n="nav_home">Inicio</span></a>
+        <a class="nav-tab current" href="./licitaciones.html"><i class="bi bi-table"></i><span data-i18n="nav_list">Licitaciones</span></a>
+        <a class="nav-tab" href="./estadisticas.html"><i class="bi bi-bar-chart-fill"></i><span data-i18n="nav_stats">Estadísticas</span></a>
+        <a class="nav-tab" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
+      </nav>
+      <button class="htbtn filled" id="btn-subscribe"><i class="bi bi-bell"></i><span data-i18n="btn_alerts">Alertas</span></button>
+      <div class="lang-wrap">
+        <button class="lang-btn active" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="ca">CA</button>
+        <button class="lang-btn" data-lang="eu">EU</button>
+        <button class="lang-btn" data-lang="gl">GL</button>
+      </div>
+      <button class="hbtn" id="btn-theme"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
+    </div>
+  </header>
+  <div class="stats-strip">
+    <div class="sstat"><span class="sstat-val" id="s-total">—</span><span class="sstat-lbl" data-i18n="st_total">licitaciones</span></div>
+    <div class="sstat"><span class="sstat-val" id="s-vigent" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_vigent">vigentes</span></div>
+    <div class="sstat"><span class="sstat-val" id="s-vol">—</span><span class="sstat-lbl" data-i18n="st_vol">volumen €</span></div>
+    <div class="sstat"><span class="sstat-val" id="s-warn" style="color:var(--s-warn)">—</span><span class="sstat-lbl" data-i18n="st_week">vencen esta semana</span></div>
+    <div class="sstat"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">nuevas hoy</span></div>
+    <div class="sstat"><span class="live-dot"></span><span class="update-info" id="s-update"><strong data-i18n="st_loading">Cargando…</strong></span></div>
+  </div>
+  <div class="filters">
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-lbl" data-i18n="fl_ccaa">CCAA</span>
+        <select class="terr-sel" id="sel-ccaa">
+          <option value="" data-i18n="fl_all_terr">Todo el territorio</option>
+          <option value="AN">Andalucía</option><option value="AR">Aragón</option><option value="AS">Asturias</option>
+          <option value="IB">Baleares</option><option value="CN">Canarias</option><option value="CB">Cantabria</option>
+          <option value="CM">Castilla-La Mancha</option><option value="CL">Castilla y León</option>
+          <option value="CT">Catalunya</option><option value="EX">Extremadura</option><option value="GA">Galicia</option>
+          <option value="RI">La Rioja</option><option value="MD">Madrid</option><option value="MU">Murcia</option>
+          <option value="NA">Navarra</option><option value="PV">País Vasco</option>
+          <option value="VC">C. Valenciana</option><option value="ES">Estatal</option>
+        </select>
+      </div>
+      <div class="filter-group" id="comarca-group" style="display:none">
+        <span class="filter-lbl" data-i18n="fl_comarca">Provincia</span>
+        <select class="terr-sel" id="sel-comarca"></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-lbl">Año</span>
+        <select class="terr-sel" id="sel-year" style="min-width:90px">
+          <option value="">Todos</option>
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-lbl" data-i18n="fl_status">Estado</span>
+        <button class="pill active" data-estat="" data-i18n="fl_all">Todas</button>
+        <button class="pill" data-estat="Vigente"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-ok)"></i><span data-i18n="s_vigente">Vigente</span></button>
+        <button class="pill" data-estat="Adjudicado"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-adj)"></i><span data-i18n="s_adjudicado">Adjudicado</span></button>
+        <button class="pill" data-estat="Desierta"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-des)"></i><span data-i18n="s_desierta">Desierta</span></button>
+      </div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-group stretch">
+        <span class="filter-lbl" data-i18n="fl_disc">Disciplina</span>
+        <button class="pill active" id="pill-all-disc" data-disc-all data-i18n="fl_all">Todas</button>
+        <button class="pill" data-disc="branding"><i class="bi bi-award"></i>Branding</button>
+        <button class="pill" data-disc="editorial"><i class="bi bi-journal-text"></i>Editorial</button>
+        <button class="pill" data-disc="web"><i class="bi bi-globe2"></i>Web</button>
+        <button class="pill" data-disc="uxui"><i class="bi bi-cursor"></i>UX · UI</button>
+        <button class="pill" data-disc="publicitat"><i class="bi bi-megaphone"></i>Publicidad</button>
+        <button class="pill" data-disc="senyaletica"><i class="bi bi-signpost-split"></i>Señalética</button>
+        <button class="pill" data-disc="fotografia"><i class="bi bi-camera"></i>Fotografía</button>
+        <button class="pill" data-disc="audiovisual"><i class="bi bi-film"></i>Audiovisual</button>
+        <button class="pill" data-disc="illustracio"><i class="bi bi-pen"></i>Ilustración</button>
+        <button class="pill" data-disc="impressio"><i class="bi bi-printer"></i>Impresión</button>
+      </div>
+    </div>
+  </div>
+  <div class="active-filters-bar" id="active-filters-bar"></div>
+  <div class="toolbar">
+    <div class="search-wrap"><i class="bi bi-search"></i><input class="search-input" id="search" type="search" placeholder="Buscar…"></div>
+    <div class="adj-wrap"><i class="bi bi-buildings"></i><input class="adj-input" id="adj-search" type="search" placeholder="Adjudicatario…"></div>
+    <select class="sort-sel" id="sort-sel">
+      <option value="rellevancia,desc" data-i18n="sort_rel">↓ Relevancia</option>
+      <option value="pressupost,desc" data-i18n="sort_ppto">↓ Presupuesto</option>
+      <option value="data_limit,asc" data-i18n="sort_vence">↑ Vence antes</option>
+      <option value="data_pub,desc" data-i18n="sort_recent">↓ Más reciente</option>
+    </select>
+    <span class="result-count" id="count"></span>
+    <button class="csv-btn" id="btn-csv"><i class="bi bi-download"></i><span data-i18n="btn_csv">CSV</span></button>
+  </div>
+  <div class="notice" id="notice"><i class="bi bi-check-circle-fill" style="color:var(--s-ok);font-size:13px"></i><span id="notice-text"></span></div>
+</div>
+
+<main class="main">
+  <div class="list-col" id="list-col">
+    <table id="main-table">
+      <thead><tr>
+        <th class="sortable" data-col="titol"><span data-i18n="col_licit">Licitación</span><i class="sort-arrow">↕</i></th>
+        <th class="sortable" data-col="organisme"><span data-i18n="col_org">Organismo</span><i class="sort-arrow">↕</i></th>
+        <th class="sortable" data-col="pressupost"><span data-i18n="col_ppto">Presupuesto</span><i class="sort-arrow">↕</i></th>
+        <th class="sortable" data-col="rellevancia"><span data-i18n="col_rel">Relevancia</span><i class="sort-arrow">↕</i></th>
+        <th class="sortable" data-col="estat"><span data-i18n="col_estat">Estado</span><i class="sort-arrow">↕</i></th>
+        <th class="sortable" data-col="data_limit"><span data-i18n="col_term">Termina</span><i class="sort-arrow">↕</i></th>
+        <th></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty"><i class="bi bi-files"></i><div class="empty-title" data-i18n="empty_t">Sin resultados</div><div style="font-size:10.5px;color:var(--text3)" data-i18n="empty_s">Prueba con otros filtros.</div></div>
+    <div class="pagination-bar" id="pagination-bar" style="display:none">
+      <div class="pg-left">
+        <span class="pg-label" data-i18n="pg_show">Mostrar</span>
+        <select class="pg-perpage" id="pg-perpage"><option value="15">15</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select>
+        <span class="pg-label" id="pg-info"></span>
+      </div>
+      <div class="pg-pages" id="pg-pages"></div>
+    </div>
+  </div>
+  <aside class="detail-col" id="detail">
+    <div class="dp-head"><span class="dp-eyebrow" data-i18n="dp_eyebrow">Detalle</span><button class="dp-close" id="dp-close"><i class="bi bi-x"></i></button></div>
+    <div class="dp-body">
+      <div class="dp-title" id="dp-title"></div>
+      <div class="dp-badges" id="dp-badges"></div>
+      <div id="dp-rows"></div>
+      <hr class="dp-div">
+      <div class="dp-lbl" data-i18n="dp_disc">Disciplinas</div><div class="dp-chips" id="dp-disc-chips"></div>
+      <div class="dp-lbl" data-i18n="dp_kw">Palabras clave</div><div class="dp-chips" id="dp-kw-chips"></div>
+      <div id="dp-hist-wrap" style="display:none"><hr class="dp-div"><div class="dp-lbl" data-i18n="dp_hist">Historial</div><div id="dp-historial"></div></div>
+      <hr class="dp-div">
+      <div class="dp-actions">
+        <a class="dp-cta" id="dp-cta" href="#" target="_blank" rel="noopener" data-i18n="dp_cta">Ver en contrataciondelestado.es ↗</a>
+        <button class="dp-share" id="dp-share"><i class="bi bi-share"></i></button>
+      </div>
+      <p class="dp-cta-note" id="dp-cta-note"></p>
+      <div class="dp-notify">
+        <button class="dp-notify-toggle" id="dp-notify-toggle"><i class="bi bi-bell"></i><span data-i18n="dp_notify_btn">Notificarme</span></button>
+        <div class="dp-notify-form" id="dp-notify-form">
+          <input class="dp-notify-input" type="email" id="dp-notify-email" placeholder="tu@email.com">
+          <button class="dp-notify-submit" id="dp-notify-submit" data-i18n="dp_notify_submit">Activar →</button>
+          <div class="dp-notify-ok" id="dp-notify-ok"><i class="bi bi-check-circle-fill"></i> <span data-i18n="dp_notify_ok">Alerta activada</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer class="footer shell-foot" role="contentinfo">
+  <div class="footer-left">
+    <img class="footer-logo" src="./img/img_2.png" alt="ADG" height="16">
+    <div class="footer-text">
+      <strong>ADG · Associació de Disseny Gràfic i Comunicació Visual</strong><br>
+      <span>Fuente: PLACSP · contrataciondelestado.es · Open Source · </span><span class="footer-wip">⚠ WIP — herramienta en desarrollo</span>
+    </div>
+  </div>
+  <div class="footer-links">
+    <a href="https://www.instagram.com/adgfad/" target="_blank" rel="noopener" class="footer-link" aria-label="Instagram">
+      <i class="bi bi-instagram"></i><span>@adgfad</span>
+    </a>
+    <div class="footer-sep"></div>
+    <a href="https://adg-fad.org" target="_blank" rel="noopener" class="footer-link">
+      <i class="bi bi-globe2"></i><span>adg-fad.org</span>
+    </a>
+    <div class="footer-sep"></div>
+    <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank" rel="noopener" class="footer-link">
+      <i class="bi bi-github"></i><span>GitHub</span>
+    </a>
+    <div class="footer-sep"></div>
+    <span class="footer-link" style="cursor:default">
+      <i class="bi bi-code-slash"></i><span>β3.0</span>
+    </span>
+    <div class="footer-sep"></div>
+    <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
+      made with <span style="color:#e44;margin:0 1px">♥</span> by&nbsp;<a href="https://collapsecreative.com" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid var(--border3)">collapsecreative</a>
+    </span>
+  </div>
+</footer>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title"><i class="bi bi-bell" style="margin-right:4px"></i><span data-i18n="modal_title">Alertas</span></span><button class="modal-close" id="modal-close"><i class="bi bi-x"></i></button></div>
+    <div class="modal-body">
+      <div id="modal-form-wrap">
+        <p class="modal-desc" data-i18n="modal_desc">Recibe un email cuando aparezca una nueva licitación. Sin spam.</p>
+        <form id="sub-form" action="https://formspree.io/f/FORM_ID_AQUI" method="POST">
+          <label class="m-label" data-i18n="modal_email">Email</label><input class="m-input" type="email" name="email" placeholder="tu@estudio.com" required>
+          <label class="m-label" data-i18n="modal_disc">Disciplinas</label>
+          <div class="m-cb-grid">
+            <label class="m-cb"><input type="checkbox" name="disc" value="branding"> Branding</label>
+            <label class="m-cb"><input type="checkbox" name="disc" value="editorial"> Editorial</label>
+            <label class="m-cb"><input type="checkbox" name="disc" value="web"> Web</label>
+            <label class="m-cb"><input type="checkbox" name="disc" value="uxui"> UX · UI</label>
+            <label class="m-cb"><input type="checkbox" name="disc" value="publicitat"> Publicidad</label>
+            <label class="m-cb"><input type="checkbox" name="disc" value="fotografia"> Fotografía</label>
+            <label class="m-cb"><input type="checkbox" name="disc" value="audiovisual"> Audiovisual</label>
+            <label class="m-cb"><input type="checkbox" name="disc" value="illustracio"> Ilustración</label>
+          </div>
+          <label class="m-label" data-i18n="modal_terr">Territorio</label>
+          <select class="m-select" name="territorio"><option value="">Todo el territorio</option><option value="CT">Catalunya</option><option value="MD">Madrid</option><option value="AN">Andalucía</option><option value="PV">País Vasco</option></select>
+          <button class="m-submit" type="submit" data-i18n="modal_submit">Suscribirme →</button>
+        </form>
+      </div>
+      <div class="m-success" id="modal-success"><div class="m-success-icon"><i class="bi bi-check-circle-fill"></i></div><div class="m-success-title" data-i18n="modal_ok_t">¡Registrado!</div><div class="m-success-sub" data-i18n="modal_ok_s">Te avisaremos pronto.</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="./app.js"></script>
+<script src="./licitaciones.js"></script>
+</body>
+</html>
