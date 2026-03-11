@@ -1,0 +1,50 @@
+{
+  "meta": { "version": "1.0.0", "updated": "2026-03-11" },
+  "calculadora": {
+    "proyectos": [
+      { "id": "branding",    "disc": "branding",    "horasBase": [40, 200] },
+      { "id": "editorial",   "disc": "editorial",   "horasBase": [20, 100] },
+      { "id": "web",         "disc": "web",         "horasBase": [30, 150] },
+      { "id": "uxui",        "disc": "uxui",        "horasBase": [40, 200] },
+      { "id": "publicitat",  "disc": "publicitat",  "horasBase": [30, 120] },
+      { "id": "senyaletica", "disc": "senyaletica", "horasBase": [30, 120] },
+      { "id": "fotografia",  "disc": "fotografia",  "horasBase": [5, 40] },
+      { "id": "audiovisual", "disc": "audiovisual", "horasBase": [20, 80] },
+      { "id": "illustracio", "disc": "illustracio", "horasBase": [10, 60] },
+      { "id": "impressio",   "disc": "impressio",   "horasBase": [25, 80] }
+    ],
+    "experiencia": [
+      { "id": "junior",   "tarifaHora": [25, 35] },
+      { "id": "mid",      "tarifaHora": [40, 55] },
+      { "id": "senior",   "tarifaHora": [60, 85] },
+      { "id": "director", "tarifaHora": [90, 130] }
+    ],
+    "complejidad": [
+      { "id": "baja",     "mult": 1.0 },
+      { "id": "media",    "mult": 1.25 },
+      { "id": "alta",     "mult": 1.5 },
+      { "id": "muy_alta", "mult": 1.75 }
+    ],
+    "urgencia": [
+      { "id": "estandar", "mult": 1.0 },
+      { "id": "rapido",   "mult": 1.25 },
+      { "id": "urgente",  "mult": 1.5 },
+      { "id": "express",  "mult": 2.0 }
+    ]
+  },
+  "recursos": {
+    "plantillas": [
+      { "id": "contrato",     "url": "#" },
+      { "id": "presupuesto",  "url": "#" },
+      { "id": "cesion",       "url": "#" },
+      { "id": "nda",          "url": "#" },
+      { "id": "brief",        "url": "#" }
+    ],
+    "referencias": [
+      { "id": "tarifas_adg",  "url": "https://adg-fad.org" },
+      { "id": "lpi",          "url": "https://www.boe.es/buscar/act.php?id=BOE-A-1996-8930" },
+      { "id": "irpf",         "url": "#" },
+      { "id": "guia_ppto",    "url": "#" }
+    ]
+  }
+}
