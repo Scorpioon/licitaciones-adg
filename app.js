@@ -1,6 +1,6 @@
 /*
  * ADG Licitaciones — app.js
- * v2.0 — Mar 2026
+ * v2.1 — Mar 2026
  * Compartido: index.html · estadisticas.html · about.html
  * Contiene: DISC colors, TERR map, I18N (ES/CA/EU/GL),
  *           SAMPLE data, ADG state, utils (fmt, daysTo, discTag,
@@ -352,7 +352,6 @@ async function loadData() {
       ADG.generatedAt = raw.generated_at || null;
       ADG.isSample = false;
       ADG.fetcher_version = raw.fetcher_version || '?';
-      // Show success notice
       const n = document.getElementById('notice');
       const nt = document.getElementById('notice-text');
       if (n && nt) {

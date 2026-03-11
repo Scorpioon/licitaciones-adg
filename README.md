@@ -1,4 +1,4 @@
-# 📡 ADG Licitaciones
+# 📡 ADG Licitaciones v2.1
 
 **Observatorio de licitaciones públicas de diseño gráfico y comunicación visual en España.**
 
