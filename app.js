@@ -311,31 +311,46 @@ function applyTheme(theme) {
 
 // ── DATA LOADING ─────────────────────────────────────────────────────────
 async function loadData() {
+  // Pre-load SAMPLE so table is never empty while fetching
+  ADG.data = SAMPLE;
+  ADG.isSample = true;
   try {
     const r = await fetch(`./data.json?t=${Date.now()}`);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const raw = await r.json();
     const items = Array.isArray(raw) ? raw : (raw.data || []);
-    ADG.data = items.map(normalizeItem);
-    ADG.generatedAt = raw.generated_at || null;
-    ADG.isSample = false;
-    ADG.fetcher_version = raw.fetcher_version || '?';
+    if (items.length) {
+      items.forEach(normalizeItem);
+      ADG.data = items;
+      ADG.generatedAt = raw.generated_at || null;
+      ADG.isSample = false;
+      ADG.fetcher_version = raw.fetcher_version || '?';
+      // Show success notice
+      const n = document.getElementById('notice');
+      const nt = document.getElementById('notice-text');
+      if (n && nt) {
+        nt.textContent = `${items.length} licitaciones cargadas · ${ADG.generatedAt || ''}`;
+        n.classList.add('show');
+        setTimeout(() => n.classList.remove('show'), 4500);
+      }
+    }
   } catch (e) {
     console.warn('[ADG] data.json not found, using sample:', e.message);
-    ADG.data = SAMPLE;
-    ADG.generatedAt = null;
-    ADG.isSample = true;
   }
   document.dispatchEvent(new Event('adg:loaded'));
 }
 
 function normalizeItem(r) {
-  // Normalize font label
-  if (r.font === 'LOCAL' || r.font === 'LOCAL-ZIP') r.font = 'PLACSP';
-  // Strip stray HTML from adjudicatari
+  if (r.font && /^LOCAL(?:-ZIP)?$/.test(r.font)) r.font = 'PLACSP';
   if (r.adjudicatari) {
-    r.adjudicatari = r.adjudicatari.replace(/<[^>]+>/g, '').replace(/\s+/g,' ').trim();
-    if (/^ES[\s-]?\d/.test(r.adjudicatari)) r.adjudicatari = '';
+    if (/detalle|adjudicaci/i.test(r.adjudicatari)) {
+      r.adjudicatari = '';
+    } else {
+      r.adjudicatari = r.adjudicatari
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+        .replace(/<[^>]+>/g, '')
+        .replace(/\s+/g, ' ').trim();
+    }
   }
   return r;
 }

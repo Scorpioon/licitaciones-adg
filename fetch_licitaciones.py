@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-fetch_licitaciones.py — ADG Licitaciones v1.6
+fetch_licitaciones.py — ADG Licitaciones v2.0
 Histórico acumulativo + soporte .zip/.atom local + enrich opcional
+Mejoras v2.0: progress en PowerShell, sin cap de items, timing, ZIP optimizado
 """
 
 import argparse
@@ -23,16 +24,16 @@ try:
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
 except ImportError:
-    sys.exit("Instala requests: K:\\PYTHON\\python.exe -m pip install requests")
+    sys.exit("Instala requests: pip install requests --break-system-packages")
 
-OUTPUT_FILE = Path("data.json")
+OUTPUT_FILE  = Path("data.json")
 MIN_SCORE_DEFAULT = 20
-MAX_ITEMS_DEFAULT = 3000
-TIMEOUT = 45
+MAX_ITEMS_DEFAULT = 0        # 0 = sin límite
+TIMEOUT      = 45
 ENRICH_DELAY = 0.8
 
 HEADERS = {
-    "User-Agent": "ADG-Licitaciones/1.6 (+https://adg-fad.org)",
+    "User-Agent": "ADG-Licitaciones/2.0 (+https://adg-fad.org)",
     "Accept": "application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
 }
 
@@ -117,38 +118,37 @@ MEDIUM_DESC_KW = [
 ]
 
 DISC_KW = {
-    "branding": ["branding", "identidad corporativa", "identitat corporativa", "logotipo", "logotip",
-                 "logo", "manual de marca", "manual de identidad", "imagen corporativa"],
-    "editorial": ["editorial", "maquetación", "maquetació", "revista", "catálogo", "catàleg",
-                  "folleto", "fullet", "cartel", "cartell", "infografía", "memoria anual",
-                  "publicación", "publicació", "díptico", "tríptico"],
-    "web": ["diseño web", "disseny web", "página web", "pàgina web", "sitio web", "portal web",
-            "wordpress", "diseño digital"],
-    "uxui": ["ux", "ui", "experiencia de usuario", "usabilidad", "interfaz", "app", "aplicación",
-             "ux/ui", "experiència d'usuari"],
-    "publicitat": ["publicidad", "publicitat", "campaña publicitaria", "campanya publicitària",
-                   "marketing", "màrqueting", "promoción", "spot publicitario"],
+    "branding":    ["branding", "identidad corporativa", "identitat corporativa", "logotipo", "logotip",
+                    "logo", "manual de marca", "manual de identidad", "imagen corporativa"],
+    "editorial":   ["editorial", "maquetación", "maquetació", "revista", "catálogo", "catàleg",
+                    "folleto", "fullet", "cartel", "cartell", "infografía", "memoria anual",
+                    "publicación", "publicació", "díptico", "tríptico"],
+    "web":         ["diseño web", "disseny web", "página web", "pàgina web", "sitio web", "portal web",
+                    "wordpress", "diseño digital"],
+    "uxui":        ["ux", "ui", "experiencia de usuario", "usabilidad", "interfaz", "app", "aplicación",
+                    "ux/ui", "experiència d'usuari"],
+    "publicitat":  ["publicidad", "publicitat", "campaña publicitaria", "campanya publicitària",
+                    "marketing", "màrqueting", "promoción", "spot publicitario"],
     "senyaletica": ["señalética", "senyalètica", "rotulación", "retolació", "señalización corporativa",
                     "museografía", "diseño de exposición", "expositores", "señales"],
-    "fotografia": ["fotografía corporativa", "fotografía de producto", "reportaje fotográfico",
-                   "fotografía profesional"],
+    "fotografia":  ["fotografía corporativa", "fotografía de producto", "reportaje fotográfico",
+                    "fotografía profesional"],
     "audiovisual": ["producción audiovisual", "producció audiovisual", "vídeo corporativo",
                     "motion graphics", "animación gráfica", "spot", "multimedia"],
     "illustracio": ["ilustración", "il·lustració", "ilustración editorial"],
-    "impressio": ["impresión", "impressió", "artes gráficas", "arts gràfiques", "offset", "serigrafía"],
+    "impressio":   ["impresión", "impressió", "artes gráficas", "arts gràfiques", "offset", "serigrafía"],
 }
 
 CCAA_KW = {
     "CT": ["cataluña", "catalunya", "barcelona", "girona", "lleida", "tarragona",
            "generalitat de catalunya", "diputació de barcelona", "ajuntament de barcelona",
            "ajuntament de girona", "ajuntament de lleida", "ajuntament de tarragona"],
-    "MD": ["madrid", "comunidad de madrid", "ayuntamiento de madrid", "comunitat de madrid"],
+    "MD": ["madrid", "comunidad de madrid", "ayuntamiento de madrid"],
     "AN": ["andalucía", "andalucia", "sevilla", "málaga", "granada", "córdoba", "junta de andalucía"],
     "PV": ["país vasco", "pais vasco", "euskadi", "bilbao", "donostia", "vitoria",
            "gobierno vasco", "diputación foral"],
     "VC": ["comunitat valenciana", "comunidad valenciana", "valencia", "valència",
-           "alicante", "alacant", "castellón", "castelló", "generalitat valenciana",
-           "ajuntament de valència", "ajuntament d'alacant", "ajuntament de castelló"],
+           "alicante", "alacant", "castellón", "castelló", "generalitat valenciana"],
     "GA": ["galicia", "xunta de galicia", "vigo", "a coruña", "santiago", "pontevedra"],
     "AR": ["aragón", "aragon", "zaragoza", "gobierno de aragón"],
     "CM": ["castilla-la mancha", "toledo", "albacete", "ciudad real"],
@@ -178,13 +178,39 @@ _BOILERPLATE_FRAGS = [
     "objeto del contrato", "plazo de ejecución", "criterios de adjudicación",
 ]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESS HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def pprint(msg: str, end: str = "\n"):
+    """Print con flush automático para PowerShell."""
+    print(msg, end=end, flush=True)
+
+
+def progress_bar(current: int, total: int, width: int = 30, prefix: str = "") -> str:
+    """Genera una barra de progreso ASCII."""
+    if total == 0:
+        return f"{prefix}[{'─'*width}] 0/0"
+    pct = current / total
+    filled = int(width * pct)
+    bar = "█" * filled + "░" * (width - filled)
+    return f"{prefix}[{bar}] {current}/{total} ({pct*100:.0f}%)"
+
+
+def elapsed(start: float) -> str:
+    s = time.time() - start
+    if s < 60:
+        return f"{s:.1f}s"
+    return f"{int(s//60)}m {int(s%60)}s"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SESSION
+# ─────────────────────────────────────────────────────────────────────────────
 
 def build_session():
     retry = Retry(
-        total=3,
-        connect=3,
-        read=3,
-        backoff_factor=1.0,
+        total=3, connect=3, read=3, backoff_factor=1.0,
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=("HEAD", "GET", "OPTIONS"),
     )
@@ -194,6 +220,10 @@ def build_session():
     s.mount("http://", HTTPAdapter(max_retries=retry))
     return s
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TEXT HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
 
 def strip_html(raw):
     t = html_mod.unescape(raw or "")
@@ -224,6 +254,10 @@ def title_passes_gate(titulo: str) -> bool:
             return True
     return False
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SCORING
+# ─────────────────────────────────────────────────────────────────────────────
 
 def score_item(titulo: str, desc: str, cpv_codes: list, min_score: int) -> tuple:
     title_norm = norm(titulo)
@@ -262,11 +296,13 @@ def score_item(titulo: str, desc: str, cpv_codes: list, min_score: int) -> tuple
         if any(kw_in(full, k) for k in keys):
             discs.add(disc)
 
-    # No mostrar "otros" aún; si no hay disciplina clara, dejamos lista vacía.
-    # El item puede seguir siendo útil por score/keywords.
     score = max(0, min(100, score))
     return score, sorted(discs), list(kws)[:12]
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# XML EXTRACTION
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _local(tag: str) -> str:
     return tag.split("}")[-1] if "}" in tag else tag
@@ -420,6 +456,10 @@ def extract_cpv_from_categories(entry) -> list:
     return list(dict.fromkeys(codes))
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# TEXT-BASED EXTRACTION
+# ─────────────────────────────────────────────────────────────────────────────
+
 def extract_org(content: str, titulo: str) -> str:
     text = f"{content} {titulo}"
     patterns = [
@@ -523,6 +563,10 @@ def detect_ccaa(src_ccaa, organisme: str, content: str) -> str:
     return "ES"
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ENRICH
+# ─────────────────────────────────────────────────────────────────────────────
+
 def scrape_adj_from_detail_page(session, url: str) -> str:
     if not url or "/plataforma" in url:
         return ""
@@ -530,36 +574,31 @@ def scrape_adj_from_detail_page(session, url: str) -> str:
         r = session.get(url, timeout=12)
         if not r.ok:
             return ""
-        html_text = r.text
         m = re.search(
             r'title=["\']Winning party["\'][^>]*>[^<]*</span>\s*<span[^>]+title=["\']([^"\'<>]{4,130})["\']',
-            html_text,
-            re.I | re.S
+            r.text, re.I | re.S
         )
         if m:
             cand = m.group(1).strip()
-            if (
-                cand
-                and cand.lower() not in ("winning party", "—", "-", "")
-                and not _NUTS_RE.match(cand)
-                and len(cand.split()) >= 2
-                and not any(f in cand.lower() for f in _BOILERPLATE_FRAGS)
-            ):
+            if (cand and cand.lower() not in ("winning party", "—", "-", "")
+                    and not _NUTS_RE.match(cand) and len(cand.split()) >= 2
+                    and not any(f in cand.lower() for f in _BOILERPLATE_FRAGS)):
                 return cand[:120]
     except Exception as e:
-        print(f"      [!] detail fetch: {e}")
+        pprint(f"      [!] detail fetch: {e}")
     return ""
 
 
 def enrich_adjudicataris(items: list, session) -> list:
     to_enrich = [i for i in items if i.get("estat") == "Adjudicado" and not i.get("adjudicatari")]
     if not to_enrich:
-        print("  ℹ No hay adjudicados sin adjudicatario para enriquecer.")
+        pprint("  ℹ No hay adjudicados sin adjudicatario para enriquecer.")
         return items
 
-    print(f"  🔍 Enriqueciendo {len(to_enrich)} adjudicatarios…")
+    pprint(f"  🔍 Enriqueciendo {len(to_enrich)} adjudicatarios…")
     enriched = 0
-    for item in to_enrich:
+    for idx, item in enumerate(to_enrich, 1):
+        pprint(progress_bar(idx, len(to_enrich), prefix="  "), end="\r")
         adj = scrape_adj_from_detail_page(session, item.get("url", ""))
         if adj:
             item["adjudicatari"] = adj
@@ -567,14 +606,16 @@ def enrich_adjudicataris(items: list, session) -> list:
                 if h.get("estat") == "Adjudicado" and "Adjudicado a" not in h.get("nota", ""):
                     h["nota"] = f"Adjudicado a {adj}"
             enriched += 1
-            print(f"      ✓ {item['titol'][:50]}… → {adj[:40]}")
-        else:
-            print(f"      – {item['titol'][:50]}…")
         time.sleep(ENRICH_DELAY)
 
-    print(f"  → {enriched}/{len(to_enrich)} enriquecidos")
+    pprint("")  # newline after progress bar
+    pprint(f"  → {enriched}/{len(to_enrich)} enriquecidos")
     return items
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PERSISTENCE
+# ─────────────────────────────────────────────────────────────────────────────
 
 def load_previous(path: Path) -> dict:
     if not path.exists():
@@ -593,13 +634,6 @@ def make_history_entry(date_str: str, estat: str, nota: str) -> dict:
 
 
 def merge_master(new_items: list, previous: dict, today: str) -> list:
-    """
-    Maestro acumulativo por id:
-    - conserva todo lo anterior
-    - actualiza con lo nuevo
-    - mantiene historial
-    - no borra automáticamente vigentes viejos
-    """
     merged = dict(previous)
 
     for item in new_items:
@@ -611,25 +645,13 @@ def merge_master(new_items: list, previous: dict, today: str) -> list:
             prev_estat = prev.get("estat", "Vigente")
             new_estat = item.get("estat", "Vigente")
 
-            # arrastre de campos valiosos si lo nuevo viene vacío
-            if not item.get("adjudicatari") and prev.get("adjudicatari"):
-                item["adjudicatari"] = prev["adjudicatari"]
-            if not item.get("pressupost") and prev.get("pressupost"):
-                item["pressupost"] = prev["pressupost"]
-            if not item.get("organisme") and prev.get("organisme"):
-                item["organisme"] = prev["organisme"]
-            if not item.get("data_limit") and prev.get("data_limit"):
-                item["data_limit"] = prev["data_limit"]
-            if not item.get("url") and prev.get("url"):
-                item["url"] = prev["url"]
+            # Arrastrar campos valiosos si lo nuevo viene vacío
+            for field in ("adjudicatari", "pressupost", "organisme", "data_limit", "url",
+                          "disciplines", "kw"):
+                if not item.get(field) and prev.get(field):
+                    item[field] = prev[field]
 
-            # conservar disciplinas/kw si lo nuevo viene pobre
-            if not item.get("disciplines") and prev.get("disciplines"):
-                item["disciplines"] = prev["disciplines"]
-            if not item.get("kw") and prev.get("kw"):
-                item["kw"] = prev["kw"]
-
-            # historial
+            # Historial de cambios de estado
             if new_estat != prev_estat:
                 nota = (
                     f"Adjudicado a {item['adjudicatari']}"
@@ -650,6 +672,10 @@ def merge_master(new_items: list, previous: dict, today: str) -> list:
 
     return list(merged.values())
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROCESSING
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _get_next_url(root) -> str:
     for child in root:
@@ -723,51 +749,54 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
                 "historial": [],
             })
         except Exception as e:
-            print(f"    [!] entry error: {e}")
+            pprint(f"    [!] entry error: {e}")
 
     return page_results, discarded
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FETCH: ONLINE
+# ─────────────────────────────────────────────────────────────────────────────
+
 def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
     name = source["name"]
     src_ccaa = source.get("ccaa")
-    base_url = source["url"]
+    url = source["url"]
 
-    print(f"  ↓ {name}  [hasta {max_pages} página(s) × ~100 items]")
+    pprint(f"  ↓ {name}  [hasta {max_pages} página(s) × ~100 items]")
     all_results = []
     seen_ids = set()
-    url = base_url
     pages_done = 0
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     while url and pages_done < max_pages:
         page_label = f"p{pages_done + 1}" if max_pages > 1 else ""
-        print(f"    {url[:90]}{'…' if len(url) > 90 else ''} {page_label}")
+        pprint(f"    {url[:90]}{'…' if len(url) > 90 else ''} {page_label}")
 
         try:
             r = session.get(url, timeout=TIMEOUT)
             r.raise_for_status()
         except Exception as e:
-            print(f"    [!] {e}")
+            pprint(f"    [!] {e}")
             break
 
         head = r.content[:3000].lower()
         if b"<feed" not in head and b"<entry" not in head:
-            print("    [!] Respuesta no parece Atom")
+            pprint("    [!] Respuesta no parece Atom")
             break
 
         try:
             root = ET.fromstring(r.content)
         except ET.ParseError as e:
-            print(f"    [!] XML parse error: {e}")
+            pprint(f"    [!] XML parse error: {e}")
             break
 
         entries = parse_atom_entries(root)
-        print(f"    → {len(entries)} entries")
+        pprint(f"    → {len(entries)} entries")
 
         page_results, discarded = _process_entries(entries, src_ccaa, name, seen_ids, today, min_score)
         dup_info = f" dup={discarded['dup']}" if discarded["dup"] else ""
-        print(
+        pprint(
             f"    → {len(page_results)} relevantes | "
             f"gate={discarded['title_gate']} score={discarded['low_score']} "
             f"notitle={discarded['no_title']}{dup_info}"
@@ -781,135 +810,153 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
             time.sleep(0.4)
 
     if pages_done > 1:
-        print(f"    ── {pages_done} páginas, {len(all_results)} relevantes en total")
+        pprint(f"    ── {pages_done} páginas, {len(all_results)} relevantes en total")
 
     return all_results
 
 
-def fetch_local_dir(local_dir: Path, min_score: int) -> list:
-    print(f"  ↓ LOCAL  [{local_dir}]")
+# ─────────────────────────────────────────────────────────────────────────────
+# FETCH: LOCAL (atoms sueltos + ZIPs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
+    pprint(f"  ↓ LOCAL  [{local_dir}]")
     if not local_dir.exists():
-        print("    [!] La carpeta no existe")
+        pprint("    [!] La carpeta no existe")
         return []
 
     atom_files = sorted(local_dir.rglob("*.atom"))
-    zip_files = sorted(local_dir.rglob("*.zip"))
-    print(f"    → detectados {len(atom_files)} .atom y {len(zip_files)} .zip")
+    zip_files  = sorted(local_dir.rglob("*.zip"))
+    pprint(f"    → detectados {len(atom_files)} .atom sueltos y {len(zip_files)} .zip")
 
     all_results = []
-    seen_ids = set()
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    seen_ids    = set()
+    today       = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     processed_atom = 0
     processed_zip_members = 0
 
-    for atom_file in atom_files:
-        try:
-            root = ET.parse(atom_file).getroot()
-            entries = parse_atom_entries(root)
-            page_results, _discarded = _process_entries(entries, None, "LOCAL", seen_ids, today, min_score)
-            all_results.extend(page_results)
-            processed_atom += 1
+    # ── .atom sueltos ──────────────────────────────────────────────────────
+    if atom_files:
+        pprint(f"    Procesando {len(atom_files)} .atom sueltos…")
+        for i, atom_file in enumerate(atom_files, 1):
+            try:
+                root = ET.parse(atom_file).getroot()
+                entries = parse_atom_entries(root)
+                page_results, _ = _process_entries(entries, None, "LOCAL", seen_ids, today, min_score)
+                all_results.extend(page_results)
+                processed_atom += 1
+            except ET.ParseError as e:
+                pprint(f"    [!] XML parse error en {atom_file.name}: {e}")
+            except Exception as e:
+                pprint(f"    [!] error en {atom_file.name}: {e}")
 
-            if processed_atom % 200 == 0:
-                print(f"    … {processed_atom} .atom procesados | {len(all_results)} relevantes acumulados")
+            if i % 100 == 0 or i == len(atom_files):
+                pprint(progress_bar(i, len(atom_files), prefix=f"    .atom: ") + f"  [{elapsed(t_start)}]")
 
-        except ET.ParseError as e:
-            print(f"    [!] XML parse error en {atom_file.name}: {e}")
-        except Exception as e:
-            print(f"    [!] error en {atom_file.name}: {e}")
-
-    for zip_path in zip_files:
+    # ── ZIPs ───────────────────────────────────────────────────────────────
+    for zip_idx, zip_path in enumerate(zip_files, 1):
         try:
             with zipfile.ZipFile(zip_path) as zf:
                 atom_names = [n for n in zf.namelist() if n.lower().endswith(".atom")]
-                print(f"    → {zip_path.name}: {len(atom_names)} .atom internos detectados")
+                pprint(f"\n    [{zip_idx}/{len(zip_files)}] {zip_path.name}: {len(atom_names)} .atom")
 
                 zip_relevant_before = len(all_results)
 
-                for i, member in enumerate(atom_names, start=1):
+                for i, member in enumerate(atom_names, 1):
                     try:
                         with zf.open(member) as fh:
                             root = ET.parse(BytesIO(fh.read())).getroot()
-
                         entries = parse_atom_entries(root)
-                        page_results, _discarded = _process_entries(entries, None, "LOCAL-ZIP", seen_ids, today, min_score)
+                        page_results, _ = _process_entries(entries, None, "LOCAL-ZIP", seen_ids, today, min_score)
                         all_results.extend(page_results)
                         processed_zip_members += 1
-
-                        if i % 10 == 0 or i == len(atom_names):
-                            encontrados = len(all_results) - zip_relevant_before
-                            print(f"      … {i}/{len(atom_names)} .atom | {encontrados} relevantes en este zip")
-
-                    except ET.ParseError as e:
-                        print(f"    [!] XML parse error en {zip_path.name}::{Path(member).name}: {e}")
+                    except ET.ParseError:
+                        pass
                     except Exception as e:
-                        print(f"    [!] error en {zip_path.name}::{Path(member).name}: {e}")
+                        pprint(f"    [!] {Path(member).name}: {e}")
 
-            total_zip = len(all_results) - zip_relevant_before
-            print(f"    ✓ {zip_path.name}: {len(atom_names)} .atom internos procesados | {total_zip} relevantes")
+                    # Actualizar barra cada 10 atoms o al final
+                    if i % 10 == 0 or i == len(atom_names):
+                        encontrados = len(all_results) - zip_relevant_before
+                        pprint(
+                            progress_bar(i, len(atom_names), prefix="      ") +
+                            f"  {encontrados} relevantes  [{elapsed(t_start)}]",
+                            end="\r"
+                        )
+
+                pprint("")  # newline
+                zip_relevant = len(all_results) - zip_relevant_before
+                pprint(f"    ✓ {zip_path.name}: {zip_relevant} relevantes")
 
         except Exception as e:
-            print(f"    [!] No se pudo abrir {zip_path.name}: {e}")
+            pprint(f"    [!] No se pudo abrir {zip_path.name}: {e}")
 
-    print(f"    ── local: {processed_atom} .atom sueltos + {processed_zip_members} .atom dentro de zip")
-    print(f"    ── local: {len(all_results)} relevantes en total")
+    pprint(f"\n    ── local: {processed_atom} .atom sueltos + {processed_zip_members} .atom en ZIP")
+    pprint(f"    ── local: {len(all_results)} relevantes en total  [{elapsed(t_start)}]")
     return all_results
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SORT
+# ─────────────────────────────────────────────────────────────────────────────
+
 def sort_master_items(items: list) -> list:
     def _sort_key(x):
-        data_pub = x.get("data_pub") or ""
-        rel = x.get("rellevancia") or 0
-        ppto = x.get("pressupost") or 0
-        return (data_pub, rel, ppto)
+        return (x.get("data_pub") or "", x.get("rellevancia") or 0, x.get("pressupost") or 0)
     return sorted(items, key=_sort_key, reverse=True)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────────────
+
 def main():
-    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v1.6")
-    ap.add_argument("--output", default=str(OUTPUT_FILE), help=f"Archivo de salida (default: {OUTPUT_FILE})")
+    ap = argparse.ArgumentParser(description="ADG Licitaciones Fetcher v2.0")
+    ap.add_argument("--output",    default=str(OUTPUT_FILE), help=f"Archivo de salida (default: {OUTPUT_FILE})")
     ap.add_argument("--min-score", type=int, default=MIN_SCORE_DEFAULT, help=f"Puntuación mínima (default: {MIN_SCORE_DEFAULT})")
-    ap.add_argument("--pages", type=int, default=1, help="Páginas a recorrer por feed siguiendo rel='next' (~100 items/página).")
-    ap.add_argument("--source", choices=["all", "643", "1044"], default="all", help="Feed a usar: 643, 1044 o all.")
-    ap.add_argument("--local-dir", help="Procesa .atom y/o .zip locales recursivamente desde esta carpeta. Cuando se usa, NO hace fetch online en esta ejecución.")
-    ap.add_argument("--enrich", action="store_true", help="Scrape páginas de detalle para adjudicatarios sin WinningParty XML. Lento.")
-    ap.add_argument("--stats", action="store_true", help="Solo mostrar estadísticas, no guardar")
-    ap.add_argument("--dry-run", action="store_true", help="Mostrar resumen sin guardar")
-    ap.add_argument("--max-items", type=int, default=MAX_ITEMS_DEFAULT, help=f"Cap de seguridad del maestro (default: {MAX_ITEMS_DEFAULT})")
+    ap.add_argument("--pages",     type=int, default=1,   help="Páginas online por feed (rel=next, ~100 items/página).")
+    ap.add_argument("--source",    choices=["all", "643", "1044"], default="all", help="Feed online: 643, 1044 o all.")
+    ap.add_argument("--local-dir", help="Procesa .atom y .zip recursivamente desde esta carpeta (no hace fetch online).")
+    ap.add_argument("--enrich",    action="store_true", help="Scraping de páginas de detalle para adjudicatarios. Lento.")
+    ap.add_argument("--dry-run",   action="store_true", help="Mostrar resumen sin guardar.")
+    ap.add_argument("--stats",     action="store_true", help="Solo estadísticas, no guardar.")
+    ap.add_argument("--max-items", type=int, default=MAX_ITEMS_DEFAULT,
+                    help="Límite del maestro (0 = sin límite, default: 0).")
     args = ap.parse_args()
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    t_start = time.time()
+    today   = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     out_path = Path(args.output)
 
-    print(f"\n{'═' * 60}")
-    print(f"  ADG Licitaciones Fetcher v1.6")
-    print(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
-    print(f"  Min score:  {args.min_score}  |  Páginas: {args.pages} × ~100 items/feed")
-    print(f"  Enrich:     {'SÍ (lento)' if args.enrich else 'NO'}")
-    print(f"  Local dir:  {args.local_dir if args.local_dir else 'NO'}")
-    print(f"  Max items:  {args.max_items}")
-    print(f"  Output:     {out_path}")
-    print(f"{'═' * 60}\n")
+    pprint(f"\n{'═'*60}")
+    pprint(f"  ADG Licitaciones Fetcher v2.0")
+    pprint(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
+    pprint(f"  Min score:  {args.min_score}  |  Páginas: {args.pages}")
+    pprint(f"  Enrich:     {'SÍ (lento)' if args.enrich else 'NO'}")
+    pprint(f"  Local dir:  {args.local_dir or 'NO'}")
+    pprint(f"  Max items:  {'sin límite' if not args.max_items else args.max_items}")
+    pprint(f"  Output:     {out_path}")
+    pprint(f"{'═'*60}\n")
 
     previous = load_previous(out_path)
-    print(f"  Datos anteriores cargados: {len(previous)} items\n")
+    pprint(f"  Datos anteriores cargados: {len(previous)} items\n")
 
     all_new_items = []
 
     if args.local_dir:
-        all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score))
-        print()
+        all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score, t_start))
+        pprint()
         session = build_session() if args.enrich else None
     else:
         session = build_session()
         active_sources = SOURCES if args.source == "all" else [s for s in SOURCES if args.source in s["name"]]
         for src in active_sources:
             all_new_items.extend(fetch_source(session, src, args.pages, args.min_score))
-            print()
+            pprint()
 
-    # dedup dentro de la corrida actual por id + relevancia
-    dedup_new = {}
+    # Dedup dentro de la corrida actual (mayor relevancia gana)
+    dedup_new: dict = {}
     for item in all_new_items:
         key = item["id"]
         if key not in dedup_new or item["rellevancia"] > dedup_new[key]["rellevancia"]:
@@ -918,62 +965,65 @@ def main():
     merged = merge_master(list(dedup_new.values()), previous, today)
 
     if args.enrich:
-        print("\n  ── Enriqueciendo adjudicatarios (--enrich) ──")
+        pprint("\n  ── Enriqueciendo adjudicatarios (--enrich) ──")
         merged = enrich_adjudicataris(merged, session or build_session())
 
     merged = sort_master_items(merged)
 
-    # cap de seguridad, pero ahora alto y sobre maestro acumulativo
-    if args.max_items and len(merged) > args.max_items:
+    # Cap opcional (0 = sin límite)
+    if args.max_items and args.max_items > 0 and len(merged) > args.max_items:
+        pprint(f"  ⚠ Cap aplicado: {len(merged)} → {args.max_items} items")
         merged = merged[:args.max_items]
 
-    vigentes = sum(1 for x in merged if x.get("estat") == "Vigente")
+    # ── Estadísticas finales ───────────────────────────────────────────────
+    vigentes    = sum(1 for x in merged if x.get("estat") == "Vigente")
     adjudicados = sum(1 for x in merged if x.get("estat") == "Adjudicado")
-    con_ppto = sum(1 for x in merged if x.get("pressupost"))
-    vol_total = sum(x.get("pressupost", 0) or 0 for x in merged)
-    vol_medio = vol_total / con_ppto if con_ppto else 0
+    con_ppto    = sum(1 for x in merged if x.get("pressupost"))
+    vol_total   = sum(x.get("pressupost", 0) or 0 for x in merged)
+    vol_medio   = vol_total / con_ppto if con_ppto else 0
 
-    print(f"\n{'─' * 50}")
-    print(f"  Items finales:      {len(merged)}")
-    print(f"  Vigentes:           {vigentes}")
-    print(f"  Adjudicados:        {adjudicados}")
-    print(f"  Con presupuesto:    {con_ppto} ({100 * con_ppto // max(len(merged), 1)}%)")
-    print(f"  Volumen total:      {vol_total:,.0f} €")
-    print(f"  Presupuesto medio:  {vol_medio:,.0f} €")
-    print(f"  Con adjudicatario:  {sum(1 for x in merged if x.get('adjudicatari'))}")
+    pprint(f"\n{'─'*50}")
+    pprint(f"  Items finales:      {len(merged)}")
+    pprint(f"  Vigentes:           {vigentes}")
+    pprint(f"  Adjudicados:        {adjudicados}")
+    pprint(f"  Con presupuesto:    {con_ppto} ({100 * con_ppto // max(len(merged), 1)}%)")
+    pprint(f"  Volumen total:      {vol_total:,.0f} €")
+    pprint(f"  Presupuesto medio:  {vol_medio:,.0f} €")
+    pprint(f"  Con adjudicatario:  {sum(1 for x in merged if x.get('adjudicatari'))}")
 
     disc_counter = Counter()
     for x in merged:
         for d in x.get("disciplines", []):
-            if d != "otros":
-                disc_counter[d] += 1
+            disc_counter[d] += 1
     if disc_counter:
-        print("  Disciplinas: " + " | ".join(f"{k}:{v}" for k, v in disc_counter.most_common(8)))
+        pprint("  Disciplinas: " + " | ".join(f"{k}:{v}" for k, v in disc_counter.most_common(10)))
 
     years = sorted({(x.get("data_pub") or "")[:4] for x in merged if x.get("data_pub")})
     if years:
-        print(f"  Rango años:         {years[0]}–{years[-1]}")
+        pprint(f"  Rango años:         {years[0]}–{years[-1]}")
 
-    print(f"{'─' * 50}\n")
+    pprint(f"  Tiempo total:       {elapsed(t_start)}")
+    pprint(f"{'─'*50}\n")
 
     if args.stats or args.dry_run:
         if args.dry_run:
             for x in merged[:20]:
-                print(f"  [{x['rellevancia']:3d}] {x['titol'][:90]}")
-        print("  (--stats/--dry-run: no se guarda)")
+                pprint(f"  [{x['rellevancia']:3d}] {x['titol'][:90]}")
+        pprint("  (--stats/--dry-run: no se guarda)")
         return
 
     envelope = {
-        "generated_at": now_iso,
-        "count": len(merged),
-        "fetcher_version": "1.6",
-        "data": merged,
+        "generated_at":    now_iso,
+        "count":           len(merged),
+        "fetcher_version": "2.0",
+        "data":            merged,
     }
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(envelope, f, ensure_ascii=False, indent=2)
 
-    print(f"  ✅ Guardado en {out_path} ({out_path.stat().st_size // 1024} KB)")
+    size_kb = out_path.stat().st_size // 1024
+    pprint(f"  ✅ Guardado en {out_path} ({size_kb} KB)  [{elapsed(t_start)}]")
 
 
 if __name__ == "__main__":
