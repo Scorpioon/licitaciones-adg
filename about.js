@@ -34,15 +34,17 @@ const VERSION_MAP = [
   { match:/inicial|first.commit|fetch.*atom|github.action/i, ver:'v1.0'    },
 ];
 
-// ── FALLBACK changelog (shown when GitHub API unavailable) ─────────────────
-const FALLBACK = [
-  { ver:'v2.0',     date:'Mar 2026', text:'Arquitectura multi-página (index / estadísticas / about). CSS y JS compartidos. Multi-disciplina con chips removibles. Panel estadísticas con filtros locales independientes. Paleta colores por disciplina. Semáforo estados verde/ámbar/rojo. Changelog en vivo desde GitHub. Fetcher v2.0 con progress bar y sin límite de items.' },
-  { ver:'v1.6.7',   date:'Mar 2026', text:'Filtro año. Estadísticas y condiciones sobre datos filtrados. Panel Tops (presupuestos / organismos / disciplinas / territorios / adjudicatarios). Colores por disciplina en gráficos. Fix Calvià → IB. MAX_ITEMS 500 → 3000.' },
-  { ver:'v1.5.3',   date:'Mar 2026', text:'Bootstrap Icons. i18n completo. Panel Guía de licitaciones. Panel Acerca de. Overlay de estadísticas. Fix adjudicatarios. Fix CPV falsos positivos. WIP footer. Señalética icon fix.' },
-  { ver:'v1.4.1',   date:'Mar 2026', text:'Fix fila seleccionada dark/light. Fix overlay estadísticas. Adjudicatarios en panel. Fix CPV 34928470 mobiliario urbano.' },
-  { ver:'v1.4',     date:'Mar 2026', text:'Badge NUEVA. Contador "vencen esta semana". Fecha de última actualización real. Exportar CSV. Compartir licitación por URL. Vista estadísticas. Campo adjudicatario. Buscador adjudicatarios. Historial de estados.' },
-  { ver:'v1.3',     date:'Feb 2026', text:'Fix CPV match por familia de 5 dígitos. Filtro CPV_VALID_STARTS. Reducción de falsos positivos.' },
-  { ver:'v1.0–1.2', date:'Ene–Feb 2026', text:'Versión inicial: fetch PLACSP Atom, tabla con filtros, panel detalle, dark mode, multilingüe, GitHub Actions.' },
+// ── CHANGELOG (hardcoded — fuente de verdad del proyecto) ───────────────────
+const CHANGELOG = [
+  { ver:'v2.0',     date:'11 Mar 2026', text:'Arquitectura multi-página: index (tabla) · estadísticas · about. CSS y JS compartidos via app.js y style.css. Multi-disciplina OR con chips removibles. Panel estadísticas con filtros locales independientes (año/CCAA/estado/disciplina). Paleta de colores por disciplina (light+dark). Semáforo de estados: verde vigente, gris adjudicado, rojo desierta. Fetcher v2.0 con progress bar, sin límite de items, y enriquecimiento. Navegación por tabs entre páginas. Changelog hardcodeado. Fix pprint() default arg. GitHub Actions workflow para actualización diaria.' },
+  { ver:'v1.6.7',   date:'Mar 2026', text:'Filtro por año. Estadísticas y condiciones calculadas sobre datos filtrados. Panel Tops: mayores presupuestos, organismos, disciplinas, territorios y adjudicatarios por volumen. Colores por disciplina en todos los gráficos. Fix Calvià → IB. MAX_ITEMS de 500 a 3000.' },
+  { ver:'v1.5.3',   date:'Mar 2026', text:'Migración a Bootstrap Icons. i18n completo ES/CA/EU/GL en todos los paneles. Guía de licitaciones para diseñadores con señales de alerta, buenas señales, marco legal LCSP y recursos. Acerca del observatorio con fuentes de datos. Overlay de estadísticas con donut y barras. Fix adjudicatarios con HTML entities. Fix CPV falsos positivos. WIP banner y footer. Señalética icon fix.' },
+  { ver:'v1.4.1',   date:'Mar 2026', text:'Fix fila seleccionada en dark/light mode. Fix overlay estadísticas z-index. Adjudicatarios mostrados en panel de detalle. Fix CPV 34928470 mobiliario urbano excluido.' },
+  { ver:'v1.4',     date:'Mar 2026', text:'Badge NUEVA en licitaciones recientes. Contador "vencen esta semana". Fecha de última actualización real desde data.json. Exportar resultados filtrados a CSV. Compartir licitación por URL con query param. Vista de estadísticas con bignums y donuts. Campo adjudicatario en datos. Buscador de adjudicatarios. Historial de estados por licitación.' },
+  { ver:'v1.3',     date:'Feb 2026', text:'Fix CPV match por familia de 5 dígitos. Filtro CPV_VALID_STARTS para reducir falsos positivos (señalización vial, extintores, etc.).' },
+  { ver:'v1.2',     date:'Feb 2026', text:'Filtro por CCAA con selector de provincia/comarca. Búsqueda por adjudicatario. Ordenación por columnas clicables. Paginación configurable (15/20/50/100).' },
+  { ver:'v1.1',     date:'Ene 2026', text:'Dark mode con toggle y persistencia. Ticker animado en la cabecera. Stats strip con contadores en vivo. Multilingüe ES/CA/EU/GL con persistencia.' },
+  { ver:'v1.0',     date:'Ene 2026', text:'Versión inicial. Fetch de licitaciones desde ATOM de PLACSP. Tabla con filtros por estado y disciplina. Panel de detalle lateral. Scoring por relevancia. GitHub Actions para actualización automática. Datos de muestra como fallback.' },
 ];
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
@@ -66,10 +68,10 @@ function detectVer(msg) {
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────
-function renderFallback() {
+function renderChangelog() {
   const list = el('changelog-list');
   if (!list) return;
-  list.innerHTML = FALLBACK.map(c => `
+  list.innerHTML = CHANGELOG.map(c => `
     <div class="changelog-item">
       <div class="cl-ver">${c.ver}</div>
       <div class="cl-date">${c.date}</div>
@@ -78,44 +80,8 @@ function renderFallback() {
 }
 
 async function fetchChangelog() {
-  const list = el('changelog-list');
-  if (!list) return;
-  list.innerHTML = `<div style="font-size:10px;color:var(--text3);padding:6px 0">Cargando historial…</div>`;
-
-  try {
-    const res = await fetch(GITHUB_API, { headers:{ Accept:'application/vnd.github.v3+json' } });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const commits = await res.json();
-    if (!Array.isArray(commits) || !commits.length) throw new Error('empty');
-
-    // Detect known versions; fill gaps with minor bumps off the last known
-    let currentBase = 'v2.0';
-    let minorIdx = 0;
-
-    const rows = commits.map(c => {
-      const raw = c.commit?.message || '';
-      const known = detectVer(raw);
-      if (known) { currentBase = known; minorIdx = 0; return { c, label: known }; }
-      minorIdx++;
-      return { c, label: `${currentBase}.${minorIdx}` };
-    });
-
-    list.innerHTML = rows.map(({ c, label }) => {
-      const date = shortDate(c.commit?.committer?.date || c.commit?.author?.date);
-      const url  = c.html_url || '#';
-      const sha  = (c.sha||'').slice(0,7);
-      const msg  = cleanMsg(c.commit?.message);
-      return `<div class="changelog-item">
-        <div class="cl-ver">${label}</div>
-        <div class="cl-date">${date}</div>
-        <div style="flex:1;min-width:0">${msg} <a href="${url}" target="_blank" rel="noopener" style="margin-left:4px;font-size:8px;color:var(--text3);border-bottom:1px solid var(--border3);font-family:monospace">${sha}</a></div>
-      </div>`;
-    }).join('');
-
-  } catch(e) {
-    console.warn('[ADG] GitHub changelog unavailable:', e.message);
-    renderFallback();
-  }
+  // Always render the hardcoded changelog — it's the source of truth
+  renderChangelog();
 }
 
 function renderCredit() {
