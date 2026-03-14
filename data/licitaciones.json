@@ -1,64 +1,131 @@
 {
-  "generated_at": "2026-03-13T04:44:59Z",
-  "count": 2,
+  "generated_at": "2026-03-14T04:43:12Z",
+  "count": 4,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19217288",
-      "titol": "El objeto del contrato es el suministro bajo demanda de diversos artículos de merchandising personalizados con la identidad corporativa\r\nde la Oficina.",
-      "organisme": "Consejería Delegada de Gestión y Planeamiento Territorial y Medioambiental, S",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19239564",
+      "titol": "Licitación para la contratación de los servicios de diseño gráfico, creatividad e imagen corporativa para la Fundación Donostia International Physics Center.",
+      "organisme": "",
       "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 30000.0,
+      "tipus": "Servicios",
+      "pressupost": 51398.5,
       "disciplines": [
         "branding"
       ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-12",
+      "ccaa": "PV",
+      "lloc": "País Vasco",
+      "data_pub": "2026-03-13",
       "data_limit": "",
       "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=xCzC5PuYi%2FqcTfjQf3USOg%3D%3D",
-      "font": "PLACSP-643",
+      "rellevancia": 45,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso694375/es_doc/index.html",
+      "font": "PLACSP-1044",
       "kw": [
-        "identidad corporativa",
-        "CPV:22462000"
+        "diseño gráfico",
+        "CPV:79822500"
       ],
-      "cpv": "22462000, 39294100",
+      "cpv": "79822500",
       "historial": [
         {
-          "data": "2026-03-12",
+          "data": "2026-03-13",
           "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19226636",
-      "titol": "Sistema dinámico de adquisición de Suministro de merchandising y material promocional para EMASA. Suministro Carpa, golf-banner y urna",
-      "organisme": "Consejero Delegado de la Empresa Municipal de Aguas de Málaga S",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19234996",
+      "titol": "Servicio de diseño, maquetación, impresión y distribución de la revista municipal Calvià",
+      "organisme": "Teniente de Alcalde delegada de Servicios Generales, Informática, Comunicación y Coordinación Municipal del Ayuntamiento de Calviá",
       "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 1000.0,
-      "disciplines": [],
-      "ccaa": "AN",
-      "lloc": "Andalucía",
-      "data_pub": "2026-03-12",
+      "tipus": "Servicios",
+      "pressupost": 27360.0,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-13",
       "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=9p2ye7SOas3CfVQHDepjGQ%3D%3D",
+      "estat": "Vigente",
+      "rellevancia": 44,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=i%2B30LTj0%2FFbI8aL3PRS10Q%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "material promocional",
-        "CPV:22462000"
+        "maquetación",
+        "comunicación",
+        "CPV:79810000",
+        "CPV:22213000",
+        "comunicació"
       ],
-      "cpv": "22462000, 39299000, 18500000",
+      "cpv": "79810000, 22213000, 22314000",
       "historial": [
         {
-          "data": "2026-03-12",
-          "estat": "Adjudicado",
+          "data": "2026-03-13",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19203644",
+      "titol": "Diseño gráfico y suministro de soportes de comunicación visual e imprenta para las actividades culturales de Bilbao Zerbitzuak",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "PV",
+      "lloc": "País Vasco",
+      "data_pub": "2026-03-13",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expapjaso693025/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "diseño gráfico",
+        "CPV:79822500"
+      ],
+      "cpv": "79822500",
+      "historial": [
+        {
+          "data": "2026-03-13",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19122667",
+      "titol": "Servicio de diseño,edición e impresión de libros y material publicitario de la Concejalía de Cultura",
+      "organisme": "Alcaldía del Ayuntamiento de Navalmoral de la Mata",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 41259.24,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-13",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=5XhfjnV8RQaS81gZFETWmA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79971000",
+        "CPV:79800000",
+        "impresión de"
+      ],
+      "cpv": "79800000, 79971000, 22312000",
+      "historial": [
+        {
+          "data": "2026-03-13",
+          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
