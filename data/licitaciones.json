@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T04:43:12Z",
+  "generated_at": "2026-03-15T05:06:32Z",
   "count": 4,
   "fetcher_version": "2.0",
   "data": [
@@ -22,8 +22,8 @@
       "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso694375/es_doc/index.html",
       "font": "PLACSP-1044",
       "kw": [
-        "diseño gráfico",
-        "CPV:79822500"
+        "CPV:79822500",
+        "diseño gráfico"
       ],
       "cpv": "79822500",
       "historial": [
@@ -54,11 +54,11 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=i%2B30LTj0%2FFbI8aL3PRS10Q%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "maquetación",
-        "comunicación",
-        "CPV:79810000",
         "CPV:22213000",
-        "comunicació"
+        "maquetación",
+        "CPV:79810000",
+        "comunicació",
+        "comunicación"
       ],
       "cpv": "79810000, 22213000, 22314000",
       "historial": [
@@ -86,8 +86,8 @@
       "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expapjaso693025/es_doc/index.html",
       "font": "PLACSP-1044",
       "kw": [
-        "diseño gráfico",
-        "CPV:79822500"
+        "CPV:79822500",
+        "diseño gráfico"
       ],
       "cpv": "79822500",
       "historial": [
@@ -117,9 +117,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=5XhfjnV8RQaS81gZFETWmA%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79971000",
         "CPV:79800000",
-        "impresión de"
+        "impresión de",
+        "CPV:79971000"
       ],
       "cpv": "79800000, 79971000, 22312000",
       "historial": [
