@@ -1,157 +1,63 @@
 {
-  "generated_at": "2026-03-18T04:57:04Z",
-  "count": 5,
+  "generated_at": "2026-03-19T04:55:07Z",
+  "count": 2,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19257255",
-      "titol": "Servicio de edición , maquetación , impresión , promoción y comercialización , por lotes, de las obras ganadoras de los premios de poesía y novela ciudad de Badajoz.",
-      "organisme": "Alcaldía del Ayuntamiento de Badajoz",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18891800",
+      "titol": "AS-53/2025 serveis de fotografia i enregistrament audiovisual dels diferents actes i esdeveniments d’interès de la ciutat per a la direcció de serveis de comunicació",
+      "organisme": "Ajuntament de l'Hospitalet de Llobregat",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 32016.03,
-      "disciplines": [
-        "editorial",
-        "impressio",
-        "publicitat"
-      ],
-      "ccaa": "EX",
-      "lloc": "Extremadura",
-      "data_pub": "2026-03-17",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TeXSksEkhOlWhbmkna2nXQ%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79824000",
-        "CPV:79970000",
-        "maquetación"
-      ],
-      "cpv": "79970000, 79824000, 79342200",
-      "historial": [
-        {
-          "data": "2026-03-17",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19261742",
-      "titol": "2026PG0020AC - Comunicació i premsa, comunity management, disseny gràfic i de produccions materials per a la celebració del Centenari del Park Güell 2026",
-      "organisme": "Barcelona de Serveis Municipals SA",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 95992.5,
-      "disciplines": [],
-      "ccaa": "CT",
-      "lloc": "Catalunya",
-      "data_pub": "2026-03-17",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/2e88ced1-5bb7-42df-8f42-3c0fda38a29a/300724474",
-      "font": "PLACSP-1044",
-      "kw": [
-        "disseny gràfic",
-        "CPV:92400000",
-        "CPV:79822500"
-      ],
-      "cpv": "92400000, 79822500",
-      "historial": [
-        {
-          "data": "2026-03-17",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18876952",
-      "titol": "Contrato de servicios de diseño y ejecución de actuaciones de comunicación del proyecto “Vivero de empresas Martos Lab 4.0” cofinanciado al 85% por el fondo europeo de desarrollo regional (Feder) dentro del programa plurirregional de España - Feder 2021-2027, a través de la fundación Incyde, y cofinanciado al 15% por la Excma. Diputación provincial de Jaén.-",
-      "organisme": "Concejalía de Contratación y Bienes Patrimoniales del Ayuntamiento de Martos",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 70247.93,
+      "pressupost": 81400.0,
       "disciplines": [],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-17",
+      "data_pub": "2026-03-18",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=xmOxzVGv82y8ebB%2FXTwy0A%3D%3D",
-      "font": "PLACSP-643",
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e30a983a-68be-441d-b1df-d38e5a713e38/300706767",
+      "font": "PLACSP-1044",
       "kw": [
-        "CPV:79340000",
-        "servicios de diseño"
+        "CPV:79960000",
+        "serveis de comunicació",
+        "CPV:92111200"
       ],
-      "cpv": "71356200, 79340000",
+      "cpv": "79960000, 92111200",
       "historial": [
         {
-          "data": "2026-03-17",
+          "data": "2026-03-18",
           "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18223949",
-      "titol": "Subministrament i instal·lació sala immersiva i producció audiovisual",
-      "organisme": "Ajuntament de Penelles",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 60854.0,
-      "disciplines": [
-        "audiovisual"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-17",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/f3ae67bb-ca8e-4604-9167-1789ee7a7353/300724612",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:92100000",
-        "producció audiovisual"
-      ],
-      "cpv": "92100000, 32321200",
-      "historial": [
-        {
-          "data": "2026-03-17",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18943102",
-      "titol": "Servicios de comunicación digital institucional para el Centro Asociado de la UNED en Madrid Sur",
-      "organisme": "Dirección del Consorcio Universitario del Centro Asociado de la UNED en Madrid-Sur",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19269880",
+      "titol": "Contratación de los servicios de diseño, construcción, montaje, mantenimiento y desmontaje del stand de Euskadi Basque Country para la feria Food 4 Future 2026, incluyendo la creatividad, ejecución técnica, transporte y gestión integral del stand, conforme a los pliegos administrativos y técnicos.",
+      "organisme": "",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 23500.0,
+      "pressupost": 50000.0,
       "disciplines": [],
-      "ccaa": "MD",
-      "lloc": "Madrid",
-      "data_pub": "2026-03-17",
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-18",
       "data_limit": "",
-      "estat": "Adjudicado",
+      "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=GKGl0ISw2YL%2Fa9DgO%2BoYKQ%3D%3D",
-      "font": "PLACSP-643",
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso697107/es_doc/index.html",
+      "font": "PLACSP-1044",
       "kw": [
-        "servicios de comunicación",
-        "CPV:79340000"
+        "servicios de diseño",
+        "CPV:79950000"
       ],
-      "cpv": "79340000",
+      "cpv": "79950000",
       "historial": [
         {
-          "data": "2026-03-17",
-          "estat": "Adjudicado",
+          "data": "2026-03-18",
+          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
