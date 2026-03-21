@@ -1,214 +1,99 @@
 {
-  "generated_at": "2026-03-20T04:47:44Z",
-  "count": 7,
+  "generated_at": "2026-03-21T04:26:31Z",
+  "count": 3,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19140088",
-      "titol": "Servicio de redacción de contenidos, diseño, maquetación y artes finales de las memorias anuales corporativas de ACUAMED para 2025, 2026, 2027 y posible 2028",
-      "organisme": "Consejo de Administración de Aguas de las Cuencas Mediterráneas, S",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18946476",
+      "titol": "Lot 1 Dissenys anuals: Serveis de disseny gràfic recurrents i de suport continuat a la comunicació institucional de l’Ajuntament de Deltebre.\nLot 2 Dissenys #DeltebreProjecció: Serveis de disseny gràfic vinculats a la promoció del municipi, projecció turística i difusió d’esdeveniments i accions estratègiques.\nLot 3 Dissenys revista Desaigüe: Serveis de disseny, maquetació i redacció del butlletí ",
+      "organisme": "Ajuntament de Deltebre",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 55560.0,
+      "pressupost": 21198.34,
       "disciplines": [
         "editorial"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-19",
+      "data_pub": "2026-03-20",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 45,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Wwe7PLMDu0KIzo3LHNPGcQ%3D%3D",
-      "font": "PLACSP-643",
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/f75c40f9-650e-4b90-8a4e-fae0e7c0be58/300728169",
+      "font": "PLACSP-1044",
       "kw": [
-        "maquetación",
-        "CPV:79822500"
+        "CPV:79822500",
+        "disseny gràfic"
       ],
       "cpv": "79822500",
       "historial": [
         {
-          "data": "2026-03-19",
+          "data": "2026-03-20",
           "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19026071",
-      "titol": "Servicios de diseño, coordinación y organización de la “13ª Conferencia del Programa Marco de Investigación e Innovación en España – Horizonte Europa”.",
-      "organisme": "Dirección General del Centro para el Desarrollo Tecnológico y la Innovación, E",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19066873",
+      "titol": "Contratación de servicio de maquetación e impresión de material publicitario y de\r\nmerchandising para la Semana Santa y Fiesta del Chíviri 2026",
+      "organisme": "Alcaldía del Ayuntamiento de Trujillo",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 232580.0,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-19",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=xVOsuq3D%2FcuFQ%2FlhRK79lA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79950000",
-        "servicios de diseño"
-      ],
-      "cpv": "79950000",
-      "historial": [
-        {
-          "data": "2026-03-19",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18685086",
-      "titol": "Producció, subministrament, muntatge, manteniment i desmuntatge de la museografia de l’exposició temporal Seny i rauxa. 150 anys d’arquitectura catalana",
-      "organisme": "Institut de Cultura de Barcelona",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 171322.31,
-      "disciplines": [],
-      "ccaa": "CT",
-      "lloc": "Catalunya",
-      "data_pub": "2026-03-19",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/031521e0-1622-4a67-ba8c-60db973a5aa3/300727088",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:92521100",
-        "museografia"
-      ],
-      "cpv": "92521100",
-      "historial": [
-        {
-          "data": "2026-03-19",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19154890",
-      "titol": "Plan de Comunicación y Sensibilización del PSTD, correspondiente a la Actuación 14 del PSTD Conectando Alcalá la Real, en el Marco del Plan de Recuperación, Transformación y Resiliencia, financiado por la Unión Europea, Next GenerationEU.",
-      "organisme": "Alcaldia del Ayuntamiento de Alcalá la Real",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 138016.53,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-19",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=0aJHHxu6t3Xua%2Fi14w%2FPLA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79342000",
-        "plan de comunicación",
-        "CPV:79341400"
-      ],
-      "cpv": "79341400, 79342000",
-      "historial": [
-        {
-          "data": "2026-03-19",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18183317",
-      "titol": "Suministro por lotes de material promocional del programa “Tardes con Plan”.",
-      "organisme": "Junta de Contratación del Ministerio de Sanidad",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 98300.0,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-19",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=NTzXfryFnV6dkQsA7ROvsg%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "material promocional",
-        "CPV:22462000"
-      ],
-      "cpv": "22462000, 39221140, 39500000",
-      "historial": [
-        {
-          "data": "2026-03-19",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18891800",
-      "titol": "AS-53/2025 serveis de fotografia i enregistrament audiovisual dels diferents actes i esdeveniments d’interès de la ciutat per a la direcció de serveis de comunicació",
-      "organisme": "Ajuntament de l'Hospitalet de Llobregat",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 81400.0,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-19",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e30a983a-68be-441d-b1df-d38e5a713e38/300727281",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:92111200",
-        "CPV:79960000",
-        "serveis de comunicació"
-      ],
-      "cpv": "92111200, 79960000",
-      "historial": [
-        {
-          "data": "2026-03-19",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19172167",
-      "titol": "Contrato de suministro de impresión de dos revistas de la Tajea, 500 unidades por cada revista, y Cuadernillo histórico, 500 unidades de cada cuadernillo, a través del Sistema Dinámico de Adquisición de Suministros del Ilustre Ayuntamiento de San Miguel de Abona (expediente 4470/2025, categoría 3). Para poder licitar hay que estar previamente admitido en la categoria 3 (expediente 4470/2025)",
-      "organisme": "Alcaldía del Ayuntamiento de San Miguel de Abona",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 9508.32,
+      "pressupost": 6225.0,
       "disciplines": [
         "editorial",
         "impressio"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-19",
+      "data_pub": "2026-03-20",
       "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=cLd0HBGIgLmqb7rCcv76BA%3D%3D",
+      "estat": "Adjudicado",
+      "rellevancia": 45,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=owqw43rpvI0adbH3CysQuQ%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:22200000",
-        "impresión de",
-        "CPV:22000000"
+        "maquetación",
+        "CPV:79824000",
+        "CPV:79822500"
       ],
-      "cpv": "22000000, 22200000",
+      "cpv": "79822500, 39294100, 39221120",
       "historial": [
         {
-          "data": "2026-03-19",
+          "data": "2026-03-20",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19183776",
+      "titol": "Contratación del servicio de maquetación, preparación, impresión, clasificación, empaquetado y etiquetado de exámenes para procesos selectivos en ofertas públicas de empleo de Osakidetza.",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 360000.0,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-20",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/exposakisap2026000495/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "maquetación",
+        "CPV:79800000"
+      ],
+      "cpv": "79800000",
+      "historial": [
+        {
+          "data": "2026-03-20",
           "estat": "Vigente",
           "nota": "Publicación"
         }
