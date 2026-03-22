@@ -1,35 +1,35 @@
 {
-  "generated_at": "2026-03-21T04:26:31Z",
-  "count": 3,
+  "generated_at": "2026-03-22T04:52:49Z",
+  "count": 2,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18946476",
-      "titol": "Lot 1 Dissenys anuals: Serveis de disseny gràfic recurrents i de suport continuat a la comunicació institucional de l’Ajuntament de Deltebre.\nLot 2 Dissenys #DeltebreProjecció: Serveis de disseny gràfic vinculats a la promoció del municipi, projecció turística i difusió d’esdeveniments i accions estratègiques.\nLot 3 Dissenys revista Desaigüe: Serveis de disseny, maquetació i redacció del butlletí ",
-      "organisme": "Ajuntament de Deltebre",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18897084",
+      "titol": "Alquiler, montaje y desmontaje de estands, mobiliario y servicio de impresión de vinilos para II  Feria agrícola Expocherry de Albuñol, que se celebrará del 11 al 13 de marzo de 2026, según las especificaciones del Pliego de Prescripciones técnicas.",
+      "organisme": "Junta de Gobierno Local del Ayuntamiento de Albuñol",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 21198.34,
+      "pressupost": 59174.0,
       "disciplines": [
-        "editorial"
+        "impressio"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-20",
+      "data_pub": "2026-03-21",
       "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 45,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/f75c40f9-650e-4b90-8a4e-fae0e7c0be58/300728169",
-      "font": "PLACSP-1044",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=%2F%2F8BBj5zEH3LIx6q1oPaMg%3D%3D",
+      "font": "PLACSP-643",
       "kw": [
-        "CPV:79822500",
-        "disseny gràfic"
+        "CPV:79821000",
+        "impresión de"
       ],
-      "cpv": "79822500",
+      "cpv": "39154100, 39100000, 79821000",
       "historial": [
         {
-          "data": "2026-03-20",
-          "estat": "Vigente",
+          "data": "2026-03-21",
+          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
@@ -54,8 +54,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=owqw43rpvI0adbH3CysQuQ%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "maquetación",
         "CPV:79824000",
+        "maquetación",
         "CPV:79822500"
       ],
       "cpv": "79822500, 39294100, 39221120",
@@ -63,38 +63,6 @@
         {
           "data": "2026-03-20",
           "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19183776",
-      "titol": "Contratación del servicio de maquetación, preparación, impresión, clasificación, empaquetado y etiquetado de exámenes para procesos selectivos en ofertas públicas de empleo de Osakidetza.",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 360000.0,
-      "disciplines": [
-        "editorial",
-        "impressio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-20",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/exposakisap2026000495/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "maquetación",
-        "CPV:79800000"
-      ],
-      "cpv": "79800000",
-      "historial": [
-        {
-          "data": "2026-03-20",
-          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
