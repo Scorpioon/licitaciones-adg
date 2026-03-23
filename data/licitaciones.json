@@ -1,68 +1,65 @@
 {
-  "generated_at": "2026-03-22T04:52:49Z",
+  "generated_at": "2026-03-23T05:04:01Z",
   "count": 2,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18897084",
-      "titol": "Alquiler, montaje y desmontaje de estands, mobiliario y servicio de impresión de vinilos para II  Feria agrícola Expocherry de Albuñol, que se celebrará del 11 al 13 de marzo de 2026, según las especificaciones del Pliego de Prescripciones técnicas.",
-      "organisme": "Junta de Gobierno Local del Ayuntamiento de Albuñol",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19288499",
+      "titol": "Servicios De Compra De Espacios En Medios De Comunicación Y Demás Soportes Publicitarios Para La Difusión De La Campaña De Publicidad Institucional Denominada “Naturaleza Viva” En El Marco Del Plan De Recuperación, Transformación, Transformación Y Resiliencia (Prtr). (Direccion General De Biodiversidad, Bosques Y Desertificacion)",
+      "organisme": "Dirección General de Racionalización y Centralización de la Contratación-Junta de Contratación Centralizada",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 59174.0,
+      "pressupost": 561983.47,
       "disciplines": [
-        "impressio"
+        "publicitat"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-21",
+      "data_pub": "2026-03-22",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=%2F%2F8BBj5zEH3LIx6q1oPaMg%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=qBhUEW31hhS2gkLQ8TeYKA%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79821000",
-        "impresión de"
+        "campaña de publicidad",
+        "CPV:79341200"
       ],
-      "cpv": "39154100, 39100000, 79821000",
+      "cpv": "79341200",
       "historial": [
         {
-          "data": "2026-03-21",
+          "data": "2026-03-22",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19066873",
-      "titol": "Contratación de servicio de maquetación e impresión de material publicitario y de\r\nmerchandising para la Semana Santa y Fiesta del Chíviri 2026",
-      "organisme": "Alcaldía del Ayuntamiento de Trujillo",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19288418",
+      "titol": "El presente contrato tiene por objeto la contratación de los servicios de comunicación del Ayuntamiento de Vera, para la contratación de una agencia especializada / central de medios que se encargue de la planificación y compra de espacios publicitarios en medios provinciales, comarcales y/o locales con el fin de difundir la actualidad y gestión municipal del Ayuntamiento de Vera.",
+      "organisme": "Alcaldía del Ayuntamiento de Vera",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 6225.0,
-      "disciplines": [
-        "editorial",
-        "impressio"
-      ],
+      "pressupost": 247933.88,
+      "disciplines": [],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-20",
+      "data_pub": "2026-03-22",
       "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 45,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=owqw43rpvI0adbH3CysQuQ%3D%3D",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=quq4OWAXE%2Fa5HQrHoP3G5A%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79824000",
-        "maquetación",
-        "CPV:79822500"
+        "CPV:79340000",
+        "servicios de comunicación",
+        "CPV:92400000"
       ],
-      "cpv": "79822500, 39294100, 39221120",
+      "cpv": "79340000, 92400000, 79341000",
       "historial": [
         {
-          "data": "2026-03-20",
-          "estat": "Adjudicado",
+          "data": "2026-03-22",
+          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
