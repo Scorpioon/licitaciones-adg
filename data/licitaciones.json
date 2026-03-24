@@ -1,65 +1,255 @@
 {
-  "generated_at": "2026-03-23T05:04:01Z",
-  "count": 2,
+  "generated_at": "2026-03-24T04:53:59Z",
+  "count": 8,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19288499",
-      "titol": "Servicios De Compra De Espacios En Medios De Comunicación Y Demás Soportes Publicitarios Para La Difusión De La Campaña De Publicidad Institucional Denominada “Naturaleza Viva” En El Marco Del Plan De Recuperación, Transformación, Transformación Y Resiliencia (Prtr). (Direccion General De Biodiversidad, Bosques Y Desertificacion)",
-      "organisme": "Dirección General de Racionalización y Centralización de la Contratación-Junta de Contratación Centralizada",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19295121",
+      "titol": "Servei de disseny gràfic i maquetació de diversos suports de promoció i divulgació del portafoli de productes de Loteries de Catalunya SAU, i d’accions transversals per a l’any 2026.\nLOT 1 Conceptualització, naming i disseny de logotips (V0951-MKJ-26-0002) \nLOT 2 Desenvolupament gràfic, maquetació i adaptació de peces vinculades al punt de venda (V0953-RET-26-0009)",
+      "organisme": "Loteries de Catalunya, SAU",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 561983.47,
+      "pressupost": 60085.37,
       "disciplines": [
-        "publicitat"
+        "branding",
+        "editorial"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-03-23",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 45,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/fa83ab13-4d8f-4855-9466-8495fc5727d7/300729408",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79822500",
+        "disseny gràfic"
+      ],
+      "cpv": "79822500",
+      "historial": [
+        {
+          "data": "2026-03-23",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18385942",
+      "titol": "Contratación del Servicio de Creatividad, Diseño, Maquetación, Arte Final y Adaptaciones para diferentes acciones de la Delegación de Participación Ciudadana del Excmo. Ayuntamiento de Marbella",
+      "organisme": "Junta de Gobierno del Ayuntamiento de Marbella",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 6611.57,
+      "disciplines": [
+        "editorial"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-22",
+      "data_pub": "2026-03-23",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=xB0u7lUZ4b036J9Lctlsuw%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "maquetación",
+        "CPV:79822500",
+        "CPV:79970000"
+      ],
+      "cpv": "79822500, 79970000, 79810000",
+      "historial": [
+        {
+          "data": "2026-03-23",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18993651",
+      "titol": "Elaboración e impresión de certificados y acreditaciones de formación profesional de la Comunidad de Madrid",
+      "organisme": "Organismo Autónomo Mercantil Boletín Oficial de la Comunidad de Madrid",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 81480.1,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "MD",
+      "lloc": "Madrid",
+      "data_pub": "2026-03-23",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/elaboracion-e-impresion-certificados-acreditaciones-formacion-profesional",
+      "font": "PLACSP-1044",
+      "kw": [
+        "impresión de",
+        "CPV:22450000"
+      ],
+      "cpv": "22450000",
+      "historial": [
+        {
+          "data": "2026-03-23",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18486046",
+      "titol": "Contratación de servicios de impresión y suministro de los recursos gráficos para la Ciutat de les Arts i les Ciències",
+      "organisme": "Dirección General de la Ciudad de las Artes y de las Ciencias S",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": 75000.0,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-23",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=qBhUEW31hhS2gkLQ8TeYKA%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TS4zL5%2B%2Fj%2FB70UvEyYJSGw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "campaña de publicidad",
-        "CPV:79341200"
+        "CPV:79823000",
+        "servicios de impresión",
+        "CPV:22462000"
       ],
-      "cpv": "79341200",
+      "cpv": "79823000, 30192800, 22462000",
       "historial": [
         {
-          "data": "2026-03-22",
+          "data": "2026-03-23",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19288418",
-      "titol": "El presente contrato tiene por objeto la contratación de los servicios de comunicación del Ayuntamiento de Vera, para la contratación de una agencia especializada / central de medios que se encargue de la planificación y compra de espacios publicitarios en medios provinciales, comarcales y/o locales con el fin de difundir la actualidad y gestión municipal del Ayuntamiento de Vera.",
-      "organisme": "Alcaldía del Ayuntamiento de Vera",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19290760",
+      "titol": "El presente contrato responde a la necesidad de dotar al organismo de un servicio integral de comunicación digital orientado a redes sociales, que combine capacidad estratégica básica, creatividad, producción audiovisual, gestión de contenidos y difusión, con un enfoque eminentemente práctico y operativo.",
+      "organisme": "Instituto Balear de la Juventud",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 247933.88,
-      "disciplines": [],
+      "pressupost": 60000.0,
+      "disciplines": [
+        "audiovisual"
+      ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-22",
+      "data_pub": "2026-03-23",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=quq4OWAXE%2Fa5HQrHoP3G5A%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=sKbuBGYd4UA7u6%2B%2FR7DUoA%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79340000",
-        "servicios de comunicación",
-        "CPV:92400000"
+        "producción audiovisual",
+        "CPV:79413000",
+        "CPV:79340000"
       ],
-      "cpv": "79340000, 92400000, 79341000",
+      "cpv": "79340000, 79413000, 79341400",
       "historial": [
         {
-          "data": "2026-03-22",
+          "data": "2026-03-23",
           "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19290769",
+      "titol": "Contratación del servicio de diseño de exposición, producción y montaje del stand de Gijón/Xixón en la Feria Internacional de Muestras de Asturias del año 2026 para el área de turismo de la empresa municipal Promoción Empresarial y Turística de Gijón S.A. (PETGSA)",
+      "organisme": "Dirección Gerencia y Presidencia mancomunados de Promoción Empresarial y Turística de Gijón, S",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 51500.0,
+      "disciplines": [
+        "publicitat",
+        "senyaletica"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-23",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=HHDaxFigLTtLAIVZdUs8KA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79950000",
+        "diseño de exposición"
+      ],
+      "cpv": "79950000",
+      "historial": [
+        {
+          "data": "2026-03-23",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19207232",
+      "titol": "Servicios de diseño, montaje y desmontaje de un stand para la participación de la Diputación provincial de A Coruña en el \"Salón Gourmets 2026\"",
+      "organisme": "Presidencia de la Diputación Provincial de A Coruña",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 23000.0,
+      "disciplines": [],
+      "ccaa": "GA",
+      "lloc": "Galicia",
+      "data_pub": "2026-03-23",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Snfog0TC%2FgM%2FbjW6njtWLw%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "servicios de diseño",
+        "CPV:79930000"
+      ],
+      "cpv": "79930000, 39154100",
+      "historial": [
+        {
+          "data": "2026-03-23",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/16321238",
+      "titol": "Desarrollo de los cursos de encuadernación y artes gráficas incluidos en la programación de Cursos de Iniciación a la Práctica Artística",
+      "organisme": "Ayuntamiento de Vitoria-Gasteiz-Concejala Delegada del Departamento de Cultura y Educación",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 16000.0,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "PV",
+      "lloc": "País Vasco",
+      "data_pub": "2026-03-23",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso570011/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:92000000",
+        "artes gráficas"
+      ],
+      "cpv": "92000000",
+      "historial": [
+        {
+          "data": "2026-03-23",
+          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
