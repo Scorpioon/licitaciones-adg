@@ -1,65 +1,33 @@
 {
-  "generated_at": "2026-03-25T04:54:52Z",
-  "count": 7,
+  "generated_at": "2026-03-26T05:07:21Z",
+  "count": 6,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19203419",
-      "titol": "S_2026_004_Servicios mantenimiento, gestión contenidos, desarrollo evolutivo, adaptacionesdiseño y maquetación de la web institucional",
-      "organisme": "Fundación para el conocimiento Madri+d",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18912400",
+      "titol": "Serveis de producció, gravació i edició de càpsules audiovisuals en format vídeo i/o infografia animada o estàtica per anunciar i fer difusió de les activitats, projectes i serveis promoguts per l’Ajuntament de Roses. Es considera que la realització d’aquest servei és fonamental per a la difusió entre la ciutadania de l’activitat dels diferents àmbits i serveis municipals (cultural, patrimonial, e",
+      "organisme": "Ajuntament de Roses",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 73656.0,
-      "disciplines": [
-        "editorial"
-      ],
+      "pressupost": 31331.12,
+      "disciplines": [],
       "ccaa": "ES",
       "lloc": "Estatal",
       "data_pub": "2026-03-25",
       "data_limit": "",
       "estat": "Vigente",
-      "rellevancia": 25,
-      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/s2026004servicios-mantenimiento-gestion-contenidos-desarrollo-evolutivo",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/2e4ad16e-c9d8-47f6-9145-6f2097060c32/300732565",
       "font": "PLACSP-1044",
       "kw": [
-        "diseño y maquetación"
+        "infografia",
+        "CPV:92111250"
       ],
-      "cpv": "72212224, 72413000",
+      "cpv": "92111250",
       "historial": [
         {
           "data": "2026-03-25",
           "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/17235417",
-      "titol": "Servei de disseny gràfic i maquetació per al desenvolupament de materials editorials i comunicatius vinculats a l’activitat del Gran Teatre del Liceu.",
-      "organisme": "Fundació del Gran Teatre del Liceu",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 77900.0,
-      "disciplines": [
-        "editorial"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-03-24",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 40,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/fbb79a0f-0550-472e-8fa1-4d76f598a408/300682661",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:79822500",
-        "disseny gràfic"
-      ],
-      "cpv": "79822500",
-      "historial": [
-        {
-          "data": "2026-03-24",
-          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
@@ -84,8 +52,8 @@
       "font": "PLACSP-643",
       "kw": [
         "CPV:79970000",
-        "CPV:79822500",
-        "maquetación"
+        "maquetación",
+        "CPV:79822500"
       ],
       "cpv": "79822500, 79970000, 79810000",
       "historial": [
@@ -115,9 +83,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TS4zL5%2B%2Fj%2FB70UvEyYJSGw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
+        "servicios de impresión",
         "CPV:79823000",
-        "CPV:22462000",
-        "servicios de impresión"
+        "CPV:22462000"
       ],
       "cpv": "79823000, 30192800, 22462000",
       "historial": [
@@ -147,9 +115,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=sKbuBGYd4UA7u6%2B%2FR7DUoA%3D%3D",
       "font": "PLACSP-643",
       "kw": [
+        "producción audiovisual",
         "CPV:79413000",
-        "CPV:79340000",
-        "producción audiovisual"
+        "CPV:79340000"
       ],
       "cpv": "79340000, 79413000, 79341400",
       "historial": [
@@ -209,8 +177,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Snfog0TC%2FgM%2FbjW6njtWLw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79930000",
-        "servicios de diseño"
+        "servicios de diseño",
+        "CPV:79930000"
       ],
       "cpv": "79930000, 39154100",
       "historial": [
