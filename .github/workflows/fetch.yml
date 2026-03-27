@@ -29,6 +29,7 @@ jobs:
       - name: Ejecutar fetcher (ATOM live)
         run: |
           mkdir -p data
+          cp data/licitaciones.json data.json 2>/dev/null || true
           python fetch_licitaciones.py --min-score 20
           mv data.json data/licitaciones.json
 
