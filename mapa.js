@@ -1,14 +1,18 @@
 /*
- * ADG Plataforma — mapa.js
- * β3.1 — Mar 2026
- * Página: mapa.html
- * Contiene: Leaflet map, CCAA centroids, discipline-colored markers,
- *           sidebar with list and filters
+ * ADG Plataforma Digital -- mapa.js
+ * b4.0 -- Mar 2026
+ * Role: Interactive territorial map -- Leaflet.js, CCAA centroids,
+ *       discipline-coloured circle markers, sidebar list and filters.
+ *       Phase 5: I18N pass, estudios toggle, FichaPanel integration.
+ * Page: mapa.html
+ * Depends on: app.js (ADG_Utils, ADG, DISC, TERR), shared.js (ADG_Shared),
+ *             Leaflet.js CDN
+ * Exports: nothing (IIFE)
  *
- * CHANGELOG
+ * CHANGELOG (newest first)
+ * b4.0  Mar 2026  Header updated. I18N pass and estudios stub pending (Phase 5).
  * v1.0  Mar 2026  F4 initial. Leaflet map with CCAA centroids.
- */
-;(function() {
+ */;(function() {
 "use strict";
 
 const { el, t, fmt, discColor, discTag, stateBadge, applyI18n, initShared, loadData } = ADG_Utils;

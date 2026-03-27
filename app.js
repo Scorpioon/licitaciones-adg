@@ -1,17 +1,19 @@
 /*
- * ADG Licitaciones — app.js
- * β3.1 — Mar 2026
- * Compartido: todas las páginas del ecosistema
- * Contiene: DISC colors, TERR map, I18N (ES/CA/EU/GL),
- *           SAMPLE data, ADG state, utils
+ * ADG Plataforma Digital -- app.js
+ * b4.0 -- Mar 2026
+ * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
+ *       Exposes window.ADG (state) and window.ADG_Utils (functions).
+ * Page: All pages (loaded first)
+ * Depends on: nothing (defines globals)
+ * Exports: window.ADG, window.ADG_Utils
  *
- * CHANGELOG
- * v2.1  Mar 2026  Added nav_recursos, nav_mapa i18n keys.
- * v2.0  Mar 2026  DISC palette light+dark. I18N stats keys.
- *                 ADG_Utils export. loadData normalizeItem.
- * v1.x  Ene–Feb   Embebido en index.html
- */
-"use strict";
+ * CHANGELOG (newest first)
+ * b4.0  Mar 2026  Added I18N keys for shared components (FichaPanel,
+ *                 TrafficLight, ToggleSwitch, AlertasStub, Alertas nav).
+ * b3.1  Mar 2026  Added nav_recursos, nav_mapa i18n keys.
+ * b3.0  Mar 2026  Multi-page split. ADG_Utils export. loadData normalizeItem.
+ * v1.x  Ene-Feb   Embebido en index.html
+ */"use strict";
 
 // ── DISCIPLINE METADATA (colors, icons, labels) ──────────────────────────
 const DISC = {
@@ -93,6 +95,28 @@ const I18N = {
     sv_top_disc_vol:'Disciplinas por volumen', sv_top_terr:'Territorios por volumen',
     sv_no_data:'Sin datos suficientes', sv_no_adj:'Sin adjudicatarios identificados',
     sv_filter_label:'Filtrando', sv_of:'de',
+    nav_alertas:'Alertas',
+    fp_eyebrow:'Detalle de licitacion', fp_organism:'Organismo',
+    fp_budget:'Presupuesto', fp_deadline:'Termina', fp_published:'Publicado',
+    fp_type:'Tipo', fp_adjudicado_a:'Adjudicado a', fp_cpv:'CPV', fp_source:'Fuente',
+    fp_disciplines:'Disciplinas', fp_keywords:'Palabras clave',
+    fp_history:'Historial', fp_no_history:'Sin historial de estados',
+    fp_documents:'Documentos', fp_no_docs:'Sin documentos adjuntos',
+    fp_relations:'Licitaciones relacionadas', fp_no_relations:'Sin relaciones',
+    fp_view_official:'Ver en contrataciondelestado.es',
+    fp_close:'Cerrar', fp_share:'Compartir',
+    fp_advisory_tips:'Buenas senales', fp_advisory_warn:'Atencion', fp_advisory_notes:'Notas',
+    tl_good:'Buena licitacion', tl_medium:'Valoracion media',
+    tl_bad:'Senales negativas', tl_unknown:'Sin valorar',
+    sw_stats:'Estadisticas', sw_barometro:'Barometro',
+    sw_licit:'Licitaciones', sw_estudios:'Estudios',
+    alr_title:'Alertas por email', alr_profile_lbl:'Perfil',
+    alr_profile_talent:'Talento / Estudiante', alr_profile_pro:'Profesional',
+    alr_criteria_disc:'Disciplinas de interes', alr_criteria_terr:'Territorio',
+    alr_criteria_kw:'Palabras clave', alr_criteria_health:'Calidad de licitacion',
+    alr_coming_soon_t:'En desarrollo',
+    alr_coming_soon_d:'Las alertas estaran disponibles proximamente.',
+    alr_notify_btn:'Activar alertas',
   },
   ca:{
     lang:'ca',dir:'ltr',
@@ -135,6 +159,28 @@ const I18N = {
     sv_top_disc_vol:'Disciplines per volum', sv_top_terr:'Territoris per volum',
     sv_no_data:'Sense dades suficients', sv_no_adj:'Sense adjudicataris identificats',
     sv_filter_label:'Filtrant', sv_of:'de',
+    nav_alertas:'Alertes',
+    fp_eyebrow:'Detall de licitacio', fp_organism:'Organisme',
+    fp_budget:'Pressupost', fp_deadline:'Termina', fp_published:'Publicat',
+    fp_type:'Tipus', fp_adjudicado_a:'Adjudicat a', fp_cpv:'CPV', fp_source:'Font',
+    fp_disciplines:'Disciplines', fp_keywords:'Paraules clau',
+    fp_history:'Historial', fp_no_history:'Sense historial d\u0027estats',
+    fp_documents:'Documents', fp_no_docs:'Sense documents adjunts',
+    fp_relations:'Licitacions relacionades', fp_no_relations:'Sense relacions',
+    fp_view_official:'Veure a contrataciondelestado.es',
+    fp_close:'Tancar', fp_share:'Compartir',
+    fp_advisory_tips:'Bones senyals', fp_advisory_warn:'Atencio', fp_advisory_notes:'Notes',
+    tl_good:'Bona licitacio', tl_medium:'Valoracio mitjana',
+    tl_bad:'Senyals negatives', tl_unknown:'Sense valorar',
+    sw_stats:'Estadistiques', sw_barometro:'Barometre',
+    sw_licit:'Licitacions', sw_estudios:'Estudis',
+    alr_title:'Alertes per email', alr_profile_lbl:'Perfil',
+    alr_profile_talent:'Talent / Estudiant', alr_profile_pro:'Professional',
+    alr_criteria_disc:'Disciplines d\u0027interes', alr_criteria_terr:'Territori',
+    alr_criteria_kw:'Paraules clau', alr_criteria_health:'Qualitat de licitacio',
+    alr_coming_soon_t:'En desenvolupament',
+    alr_coming_soon_d:'Les alertes estaran disponibles aviat.',
+    alr_notify_btn:'Activar alertes',
   },
   eu:{
     lang:'eu',dir:'ltr',
@@ -216,6 +262,28 @@ const I18N = {
     sv_top_disc_vol:'Disciplinas por volume', sv_top_terr:'Territorios por volume',
     sv_no_data:'Sen datos suficientes', sv_no_adj:'Sen adxudicatarios identificados',
     sv_filter_label:'Filtrando', sv_of:'de',
+    nav_alertas:'Alertas',
+    fp_eyebrow:'Detalle da licitacion', fp_organism:'Organismo',
+    fp_budget:'Orzamento', fp_deadline:'Remata', fp_published:'Publicado',
+    fp_type:'Tipo', fp_adjudicado_a:'Adxudicado a', fp_cpv:'CPV', fp_source:'Fonte',
+    fp_disciplines:'Disciplinas', fp_keywords:'Palabras clave',
+    fp_history:'Historial', fp_no_history:'Sen historial de estados',
+    fp_documents:'Documentos', fp_no_docs:'Sen documentos adxuntos',
+    fp_relations:'Licitacions relacionadas', fp_no_relations:'Sen relacions',
+    fp_view_official:'Ver en contrataciondelestado.es',
+    fp_close:'Pechar', fp_share:'Compartir',
+    fp_advisory_tips:'Boas sinais', fp_advisory_warn:'Atencio', fp_advisory_notes:'Notas',
+    tl_good:'Boa licitacion', tl_medium:'Valoracion media',
+    tl_bad:'Sinais negativos', tl_unknown:'Sen valorar',
+    sw_stats:'Estatisticas', sw_barometro:'Barometro',
+    sw_licit:'Licitacions', sw_estudios:'Estudos',
+    alr_title:'Alertas por email', alr_profile_lbl:'Perfil',
+    alr_profile_talent:'Talento / Estudante', alr_profile_pro:'Profesional',
+    alr_criteria_disc:'Disciplinas de interese', alr_criteria_terr:'Territorio',
+    alr_criteria_kw:'Palabras clave', alr_criteria_health:'Calidade da licitacion',
+    alr_coming_soon_t:'En desenvolvemento',
+    alr_coming_soon_d:'As alertas estaran disponibles proximamente.',
+    alr_notify_btn:'Activar alertas',
   },
 };
 

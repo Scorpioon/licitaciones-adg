@@ -1,8 +1,16 @@
 /*
- * ADG Licitaciones — about.js
- * β3.1 — Mar 2026
- */
-;(function() {
+ * ADG Plataforma Digital -- about.js
+ * b4.0 -- Mar 2026
+ * Role: Changelog rendering, credit line, guide title I18N update.
+ *       Phase 6 will expand into full helpdesk/governance page.
+ * Page: about.html
+ * Depends on: app.js (ADG_Utils, ADG), shared.js (ADG_Shared)
+ * Exports: nothing (IIFE)
+ *
+ * CHANGELOG (newest first)
+ * b4.0  Mar 2026  Header updated. Helpdesk expansion pending (Phase 6).
+ * v1.0  Mar 2026  Hardcoded changelog, credit line, guide title i18n.
+ */;(function() {
 "use strict";
 
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;

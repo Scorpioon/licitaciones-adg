@@ -1,17 +1,17 @@
 /*
- * ADG Plataforma — recursos.js
- * β3.1 — Mar 2026
- * Página: recursos.html
- * Contiene: Calculadora de Honorarios + Recursos profesionales
- *           Tabs, calc engine, resource cards
+ * ADG Plataforma Digital -- recursos.js
+ * b4.0 -- Mar 2026
+ * Role: Fee calculator (project x experience x complexity x urgency) and
+ *       professional resources section. Internal tabs: Calculadora / Recursos.
+ *       Phase 4 will add: Biblioteca tab and stub tools index.
+ * Page: recursos.html
+ * Depends on: app.js (ADG_Utils, ADG, DISC), shared.js (ADG_Shared)
+ * Exports: nothing (IIFE)
  *
- * CHANGELOG
- * v1.0  Mar 2026  F3 initial. Calculadora con 4 variables
- *                 (proyecto, experiencia, complejidad, urgencia).
- *                 Recursos: plantillas legales + referencias.
- *                 IIFE pattern. ADG_Utils integration.
- */
-;(function() {
+ * CHANGELOG (newest first)
+ * b4.0  Mar 2026  Header updated. Biblioteca tab pending (Phase 4).
+ * v1.0  Mar 2026  F3 initial. Calculator with 4 variables. Legal templates.
+ */;(function() {
 "use strict";
 
 const { el, t, fmt, fmtFull, discColor, discTag,
