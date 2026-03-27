@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""
-fetch_licitaciones.py — ADG Licitaciones v2.0
-Histórico acumulativo + soporte .zip/.atom local + enrich opcional
-Mejoras v2.0: progress en PowerShell, sin cap de items, timing, ZIP optimizado
-"""
+# ADG Plataforma Digital -- fetch_licitaciones.py
+# b4.0 -- Mar 2026
+# Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
+#       adjudicatario enrichment. Writes data/licitaciones.json.
+#
+# CHANGELOG (newest first)
+# b4.0  Mar 2026  Header updated. Fetch path bug fix and multi-stage
+#                 pipeline pending (Phase 7).
+# v2.0  Mar 2026  Incremental merge, ZIP support, enrichment, progress bar.
+# v1.x  Ene-Feb   Initial ATOM fetcher.
 
 import argparse
 import hashlib

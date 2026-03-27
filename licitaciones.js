@@ -1,20 +1,19 @@
 /*
- * ADG Licitaciones — index.js
- * β3.0 — Mar 2026
- * Página: index.html (tabla principal)
- * Contiene: state S, getFiltered, getSorted, render, rowHTML,
- *           openDetail, closeDetail, renderPagination,
- *           renderFilterChips, clearAll, syncDiscPills,
- *           exportCSV, bell subscriptions, URL state
+ * ADG Plataforma Digital -- licitaciones.js
+ * b4.0 -- Mar 2026
+ * Role: Main procurement table -- state, filtering, sorting, detail panel,
+ *       pagination, CSV export, URL sharing, bell subscriptions.
+ * Page: licitaciones.html
+ * Depends on: app.js (ADG_Utils, ADG, DISC, TERR), shared.js (ADG_Shared)
+ * Exports: nothing (IIFE)
  *
- * CHANGELOG
- * v2.1  Mar 2026  IIFE wrap — fix 'el' already declared.
- * v2.0  Mar 2026  Multi-disciplina OR logic con Set(). Active
- *                 filter chips removibles individualmente.
- *                 syncDiscPills con colores por disc. clearAll.
- * v1.x  Ene–Feb   Embebido en index.html
- */
-;(function() {
+ * CHANGELOG (newest first)
+ * b4.0  Mar 2026  Header updated. Stale copy string fixed.
+ *                 shared.js available but not yet wired (Phase 2).
+ * v2.1  Mar 2026  IIFE wrap -- fix 'el' already declared.
+ * v2.0  Mar 2026  Multi-disciplina OR logic. Active filter chips.
+ * v1.x  Ene-Feb   Embebido en index.html
+ */;(function() {
 "use strict";
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge,
@@ -539,7 +538,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const notice = el('notice');
     const noticeText = el('notice-text');
     if (notice && noticeText) {
-      noticeText.textContent = 'Mostrando datos de ejemplo. Coloca data.json junto a index.html para ver datos reales.';
+      noticeText.textContent = 'Mostrando datos de ejemplo. Los datos reales se sirven desde data/licitaciones.json.';
       notice.classList.add('show');
     }
   }

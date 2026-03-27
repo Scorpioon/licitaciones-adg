@@ -1,16 +1,19 @@
 /*
- * ADG Plataforma — barometro.js
- * β3.1 — Mar 2026
- * Página: barometro.html
- * Contiene: Auto-generated quarterly report from licitaciones data.
- *           Printable format, key metrics, narrative insights.
+ * ADG Plataforma Digital -- barometro.js
+ * b4.0 -- Mar 2026
+ * Role: Auto-generated sector report -- bignums, discipline/territory
+ *       breakdowns, monthly sparklines, top-5 table. Printable format.
+ *       NOTE: Will be absorbed into estadisticas.js in Phase 3.
+ *       barometro.html will become a redirect tombstone at that point.
+ * Page: barometro.html
+ * Depends on: app.js (ADG_Utils, ADG, DISC, TERR), shared.js (ADG_Shared)
+ * Exports: nothing (IIFE)
  *
- * CHANGELOG
- * v1.0  Mar 2026  F6 initial. Auto-report with bignums, discipline
- *                 breakdown, territorial analysis, market conditions,
- *                 and narrative insights.
- */
-;(function() {
+ * CHANGELOG (newest first)
+ * b4.0  Mar 2026  Header updated. Absorption into estadisticas.js pending.
+ * v1.0  Mar 2026  F6 initial. Auto-report with bignums, discipline breakdown,
+ *                 territorial analysis, market conditions, narrative insights.
+ */;(function() {
 "use strict";
 
 const { el, t, fmt, fmtFull, discColor, applyI18n, initShared, loadData } = ADG_Utils;

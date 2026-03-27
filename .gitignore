@@ -1,0 +1,31 @@
+# Dependencies / builds
+node_modules/
+dist/
+build/
+.next/
+__pycache__/
+.venv/
+venv/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local backups created by patches
+_backup_phase1_*/
+_backup_phase1fix_*/
+_backup_phase1b_*/
+
+# Heavy local data not for repo
+historico/
+
+# Optional local artifacts
+*.log
+
+# Local patch scripts
+patch_*.ps1
+
+# If you want SOTs local only, uncomment this:
+# snapshots/

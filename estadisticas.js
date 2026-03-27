@@ -1,19 +1,19 @@
 /*
- * ADG Licitaciones — estadisticas.js
- * β3.0 — Mar 2026
- * Página: estadisticas.html
- * Contiene: SV state (filtros locales independientes),
- *           getRows, render con bignums / donut / trend bars /
- *           barCards / top5 / adjudicatarios / condiciones
+ * ADG Plataforma Digital -- estadisticas.js
+ * b4.0 -- Mar 2026
+ * Role: Statistics dashboard -- local filter state, bignums, donut SVG,
+ *       trend bars, bar cards, top5, adjudicatarios, market conditions.
+ *       Will absorb barometro.js in Phase 3.
+ * Page: estadisticas.html
+ * Depends on: app.js (ADG_Utils, ADG, DISC, TERR), shared.js (ADG_Shared)
+ * Exports: nothing (IIFE)
  *
- * CHANGELOG
- * v2.1  Mar 2026  IIFE wrap — fix 'el' already declared.
- * v2.0  Mar 2026  Página independiente. Filtros locales propios
- *                 (año/CCAA/estat/disc) desacoplados de index.
- *                 Donut SVG, trend bars, insights automáticos.
- * v1.x  Ene–Feb   Panel overlay dentro de index.html
- */
-;(function() {
+ * CHANGELOG (newest first)
+ * b4.0  Mar 2026  Header updated. Barometro toggle pending (Phase 3).
+ * v2.1  Mar 2026  IIFE wrap -- fix 'el' already declared.
+ * v2.0  Mar 2026  Independent page. Local filters decoupled from table.
+ * v1.x  Ene-Feb   Panel overlay inside index.html
+ */;(function() {
 "use strict";
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag,
