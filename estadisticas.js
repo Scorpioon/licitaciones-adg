@@ -17,7 +17,7 @@
 "use strict";
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag,
-        applyI18n, updateStrip, initShared, loadData } = ADG_Utils;
+        applyI18n, updateStrip, updateTicker, initShared, loadData } = ADG_Utils;
 
 // ── LOCAL FILTER STATE (independent from main table) ─────────────────────
 const SV = {
@@ -469,6 +469,10 @@ function renderBaro() {
     +'</div>';
 }
 
+// -- ACTIVE VIEW REFRESH -- routes render call to current view
+function refreshActiveView() {
+  if (SV.view === 'baro') renderBaro(); else render();
+}
 // -- VIEW SWITCH -------------------------------------------------------------
 function switchView(v) {
   SV.view = v;
@@ -489,31 +493,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Estado pills
   document.querySelectorAll('[data-sv-estat]').forEach(p => {
     p.addEventListener('click', () => {
-      SV.estat = p.dataset.svEstat ?? ''; syncEstat(); render();
+      SV.estat = p.dataset.svEstat ?? ''; syncEstat(); refreshActiveView();
     });
   });
 
   // Disciplina pills — multi-select
   el('sv-all-disc')?.addEventListener('click', () => {
-    SV.discs.clear(); syncDiscs(); render();
+    SV.discs.clear(); syncDiscs(); refreshActiveView();
   });
   document.querySelectorAll('[data-sv-disc]').forEach(p => {
     p.addEventListener('click', () => {
       const d = p.dataset.svDisc;
       if (SV.discs.has(d)) SV.discs.delete(d); else SV.discs.add(d);
-      syncDiscs(); render();
+      syncDiscs(); refreshActiveView();
     });
   });
 
   document.querySelectorAll('[data-view]').forEach(function(b){b.addEventListener('click',function(){switchView(b.dataset.view);});});
-  el('sv-year')?.addEventListener('change', e => { SV.year=e.target.value; render(); });
-  el('sv-ccaa')?.addEventListener('change', e => { SV.ccaa=e.target.value; render(); });
+  el('sv-year')?.addEventListener('change', e => { SV.year=e.target.value; refreshActiveView(); });
+  el('sv-ccaa')?.addEventListener('change', e => { SV.ccaa=e.target.value; refreshActiveView(); });
 
-  document.addEventListener('adg:langchange', () => { applyI18n(); if(SV.view==='baro')renderBaro();else render(); updateStrip(); });
-  document.addEventListener('adg:themechange', () => { if(SV.view==='baro')renderBaro();else render(); });
+  document.addEventListener('adg:langchange', () => { applyI18n(); refreshActiveView(); updateStrip(); updateTicker(); });
+  document.addEventListener('adg:themechange', () => { refreshActiveView(); });
 
   await loadData();
   updateStrip();
-  render();
+  updateTicker();
+  refreshActiveView();
 });
 })();

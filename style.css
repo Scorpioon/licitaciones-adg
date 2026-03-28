@@ -675,6 +675,16 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sh-alertas-modal__desc { font-size:10.5px; color:var(--text2); line-height:1.65; margin-bottom:20px; }
 .sh-alertas-modal__close { font-size:8.5px; letter-spacing:.12em; text-transform:uppercase; padding:8px 20px; border:1px solid var(--border2); border-radius:var(--radius); background:none; color:var(--text2); cursor:pointer; transition:all .1s; }
 .sh-alertas-modal__close:hover { border-color:var(--border); color:var(--text); }
-/* ---- Phase 3: view toggle + filter suppression ------------------------- */
-.sv-view-toggle { padding:4px 16px 2px; display:flex; align-items:center; }
-.sv-lf.sv-baro-active { visibility:hidden; height:0; overflow:hidden; pointer-events:none; padding:0; margin:0; border:none; }
+/* ---- Phase 3v2: sidebar layout ---------------------------------------- */
+.sv-layout { display:flex; align-items:flex-start; }
+.sv-sidebar { width:220px; flex-shrink:0; border-right:1px solid var(--border2); padding:14px 12px; display:flex; flex-direction:column; gap:12px; position:sticky; top:0; max-height:100vh; overflow-y:auto; box-sizing:border-box; background:var(--bg); }
+.sv-main { flex:1; min-width:0; padding:24px 28px; box-sizing:border-box; }
+.sv-view-toggle .sh-toggle { display:flex; width:100%; }
+.sv-view-toggle .sh-toggle__btn { flex:1; text-align:center; font-size:8px; padding:6px 4px; }
+.sv-lf { display:flex; flex-direction:column; gap:10px; }
+.sv-lf-group { display:flex; flex-direction:column; gap:5px; }
+.sv-lf-group-lbl { font-size:7px; letter-spacing:.18em; text-transform:uppercase; color:var(--text3); font-weight:600; }
+.sv-lf-group select { width:100%; padding:5px 8px; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text); font-size:9.5px; box-sizing:border-box; }
+.sv-lf-pills { display:flex; flex-wrap:wrap; gap:3px; }
+.sv-summary { font-size:8px; color:var(--text3); line-height:1.65; border-top:1px solid var(--border3); padding-top:10px; }
+@media (max-width:768px) { .sv-layout { flex-direction:column; } .sv-sidebar { width:100%; max-height:none; position:static; border-right:none; border-bottom:1px solid var(--border2); } .sv-main { padding:14px 16px; } }
