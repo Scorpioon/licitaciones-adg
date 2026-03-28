@@ -46,77 +46,86 @@
       <button class="hbtn" id="btn-theme"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
     </div>
   </header>
-  <div class="stats-strip">
-    <div class="sstat"><span class="sstat-val" id="s-total">—</span><span class="sstat-lbl" data-i18n="st_total">licitaciones</span></div>
-    <div class="sstat"><span class="sstat-val" id="s-vigent" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_vigent">vigentes</span></div>
-    <div class="sstat"><span class="sstat-val" id="s-vol">—</span><span class="sstat-lbl" data-i18n="st_vol">volumen €</span></div>
-    <div class="sstat"><span class="sstat-val" id="s-warn" style="color:var(--s-warn)">—</span><span class="sstat-lbl" data-i18n="st_week">vencen esta semana</span></div>
-    <div class="sstat"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">nuevas hoy</span></div>
-    <div class="sstat"><span class="live-dot"></span><span class="update-info" id="s-update"><strong data-i18n="st_loading">Cargando…</strong></span></div>
-  </div>
-
-  <!-- VIEW TOGGLE -->
-  <div class="sv-view-toggle">
-    <div class="sh-toggle">
-      <button class="sh-toggle__btn active" data-view="stats" data-i18n="sw_stats">Estadisticas</button>
-      <button class="sh-toggle__btn" data-view="baro" data-i18n="sw_barometro">Barometro</button>
-    </div>
-  </div>
-  <!-- LOCAL FILTERS -->
-  <div class="sv-lf" id="sv-lf">
-    <div class="sv-lf-row">
-      <span class="sv-lf-label">Año</span>
-      <select id="sv-year">
-        <option value="">Todos</option>
-        <option value="2024">2024</option>
-        <option value="2025">2025</option>
-        <option value="2026">2026</option>
-      </select>
-      <span class="sv-lf-label" style="margin-left:8px">CCAA</span>
-      <select id="sv-ccaa" style="min-width:130px">
-        <option value="">Todo el territorio</option>
-        <option value="AN">Andalucía</option><option value="AR">Aragón</option>
-        <option value="AS">Asturias</option><option value="IB">Baleares</option>
-        <option value="CN">Canarias</option><option value="CB">Cantabria</option>
-        <option value="CM">Castilla-La Mancha</option><option value="CL">Castilla y León</option>
-        <option value="CT">Catalunya</option><option value="GA">Galicia</option>
-        <option value="MD">Madrid</option><option value="NA">Navarra</option>
-        <option value="PV">País Vasco</option><option value="VC">C. Valenciana</option>
-        <option value="ES">Estatal</option>
-      </select>
-      <span class="sv-lf-label" style="margin-left:8px">Estado</span>
-      <button class="pill active" data-sv-estat="">Todas</button>
-      <button class="pill" data-sv-estat="Vigente"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-ok)"></i>Vigente</button>
-      <button class="pill" data-sv-estat="Adjudicado"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-adj)"></i>Adjudicado</button>
-      <button class="pill" data-sv-estat="Desierta"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-des)"></i>Desierta</button>
-    </div>
-    <div class="sv-lf-row">
-      <span class="sv-lf-label">Disciplina</span>
-      <button class="pill active" id="sv-all-disc" data-sv-disc-all>Todas</button>
-      <button class="pill" data-sv-disc="branding"><i class="bi bi-award"></i>Branding</button>
-      <button class="pill" data-sv-disc="editorial"><i class="bi bi-journal-text"></i>Editorial</button>
-      <button class="pill" data-sv-disc="web"><i class="bi bi-globe2"></i>Web</button>
-      <button class="pill" data-sv-disc="uxui"><i class="bi bi-cursor"></i>UX·UI</button>
-      <button class="pill" data-sv-disc="publicitat"><i class="bi bi-megaphone"></i>Publicidad</button>
-      <button class="pill" data-sv-disc="senyaletica"><i class="bi bi-signpost-split"></i>Señalética</button>
-      <button class="pill" data-sv-disc="fotografia"><i class="bi bi-camera"></i>Fotografía</button>
-      <button class="pill" data-sv-disc="audiovisual"><i class="bi bi-film"></i>Audiovisual</button>
-      <button class="pill" data-sv-disc="illustracio"><i class="bi bi-pen"></i>Ilustración</button>
-      <button class="pill" data-sv-disc="impressio"><i class="bi bi-printer"></i>Impresión</button>
-    </div>
-  </div>
-  <div class="sv-summary" id="sv-summary"></div>
 </div>
 
-<div class="sv-body" id="sv-body">
-  <!-- Rendered by estadisticas.js -->
-  <div style="text-align:center;padding:60px 24px;color:var(--text3)">
-    <i class="bi bi-bar-chart" style="font-size:36px;display:block;margin-bottom:10px;opacity:.25"></i>
-    <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase">Cargando estadísticas…</div>
+<div class="sv-layout">
+  <aside class="sv-sidebar">
+    <div class="sv-view-toggle">
+      <div class="sh-toggle">
+        <button class="sh-toggle__btn active" data-view="stats" data-i18n="sw_stats">Estadisticas</button>
+        <button class="sh-toggle__btn" data-view="baro" data-i18n="sw_barometro">Barometro</button>
+      </div>
+    </div>
+    <nav class="sv-lf" id="sv-lf" aria-label="Filtros">
+      <div class="sv-lf-group">
+        <div class="sv-lf-group-lbl">A&ntilde;o</div>
+        <select id="sv-year">
+          <option value="">Todos</option>
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
+        </select>
+      </div>
+      <div class="sv-lf-group">
+        <div class="sv-lf-group-lbl">CCAA</div>
+        <select id="sv-ccaa">
+          <option value="">Todo el territorio</option>
+          <option value="AN">Andaluc&iacute;a</option>
+          <option value="AR">Arag&oacute;n</option>
+          <option value="AS">Asturias</option>
+          <option value="IB">Baleares</option>
+          <option value="CN">Canarias</option>
+          <option value="CB">Cantabria</option>
+          <option value="CM">Castilla-La Mancha</option>
+          <option value="CL">Castilla y Le&oacute;n</option>
+          <option value="CT">Catalunya</option>
+          <option value="GA">Galicia</option>
+          <option value="MD">Madrid</option>
+          <option value="NA">Navarra</option>
+          <option value="PV">Pa&iacute;s Vasco</option>
+          <option value="VC">C. Valenciana</option>
+          <option value="ES">Estatal</option>
+        </select>
+      </div>
+      <div class="sv-lf-group">
+        <div class="sv-lf-group-lbl">Estado</div>
+        <div class="sv-lf-pills">
+          <button class="pill active" data-sv-estat="">Todas</button>
+          <button class="pill" data-sv-estat="Vigente"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-ok)"></i>Vigente</button>
+          <button class="pill" data-sv-estat="Adjudicado"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-adj)"></i>Adjudicado</button>
+          <button class="pill" data-sv-estat="Desierta"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-des)"></i>Desierta</button>
+        </div>
+      </div>
+      <div class="sv-lf-group">
+        <div class="sv-lf-group-lbl">Disciplina</div>
+        <div class="sv-lf-pills">
+          <button class="pill active" id="sv-all-disc" data-sv-disc-all>Todas</button>
+          <button class="pill" data-sv-disc="branding"><i class="bi bi-award"></i>Branding</button>
+          <button class="pill" data-sv-disc="editorial"><i class="bi bi-journal-text"></i>Editorial</button>
+          <button class="pill" data-sv-disc="web"><i class="bi bi-globe2"></i>Web</button>
+          <button class="pill" data-sv-disc="uxui"><i class="bi bi-cursor"></i>UX&middot;UI</button>
+          <button class="pill" data-sv-disc="publicitat"><i class="bi bi-megaphone"></i>Publicidad</button>
+          <button class="pill" data-sv-disc="senyaletica"><i class="bi bi-signpost-split"></i>Se&ntilde;al&eacute;tica</button>
+          <button class="pill" data-sv-disc="fotografia"><i class="bi bi-camera"></i>Fotograf&iacute;a</button>
+          <button class="pill" data-sv-disc="audiovisual"><i class="bi bi-film"></i>Audiovisual</button>
+          <button class="pill" data-sv-disc="illustracio"><i class="bi bi-pen"></i>Ilustraci&oacute;n</button>
+          <button class="pill" data-sv-disc="impressio"><i class="bi bi-printer"></i>Impresi&oacute;n</button>
+        </div>
+      </div>
+    </nav>
+    <div class="sv-summary" id="sv-summary"></div>
+  </aside>
+  <div class="sv-main">
+    <div class="sv-body" id="sv-body">
+      <!-- Rendered by estadisticas.js -->
+      <div style="text-align:center;padding:60px 24px;color:var(--text3)">
+        <i class="bi bi-bar-chart" style="font-size:36px;display:block;margin-bottom:10px;opacity:.25"></i>
+        <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase">Cargando estadisticas...</div>
+      </div>
+    </div>
+    <div id="baro-page" class="baro-page" hidden></div>
   </div>
 </div>
-
-<div id="baro-page" class="baro-page" hidden></div>
 
 <footer class="footer shell-foot" role="contentinfo">
   <div class="footer-left">
