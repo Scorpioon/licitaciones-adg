@@ -675,3 +675,6 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sh-alertas-modal__desc { font-size:10.5px; color:var(--text2); line-height:1.65; margin-bottom:20px; }
 .sh-alertas-modal__close { font-size:8.5px; letter-spacing:.12em; text-transform:uppercase; padding:8px 20px; border:1px solid var(--border2); border-radius:var(--radius); background:none; color:var(--text2); cursor:pointer; transition:all .1s; }
 .sh-alertas-modal__close:hover { border-color:var(--border); color:var(--text); }
+/* ---- Phase 3: view toggle + filter suppression ------------------------- */
+.sv-view-toggle { padding:4px 16px 2px; display:flex; align-items:center; }
+.sv-lf.sv-baro-active { visibility:hidden; height:0; overflow:hidden; pointer-events:none; padding:0; margin:0; border:none; }
