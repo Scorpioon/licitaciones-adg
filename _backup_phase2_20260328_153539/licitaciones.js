@@ -9,7 +9,7 @@
  *
  * CHANGELOG (newest first)
  * b4.0  Mar 2026  Header updated. Stale copy string fixed.
- *                 Phase 2: FichaPanel wired. Status-tier sort. openDetail/closeDetail replaced.
+ *                 shared.js available but not yet wired (Phase 2).
  * v2.1  Mar 2026  IIFE wrap -- fix 'el' already declared.
  * v2.0  Mar 2026  Multi-disciplina OR logic. Active filter chips.
  * v1.x  Ene-Feb   Embebido en index.html
@@ -58,10 +58,7 @@ function getFiltered() {
 }
 
 function getSorted(rows) {
-  var statusTier = function(r) { return r.estat === 'Vigente' ? 0 : 1; };
   return [...rows].sort((a,b) => {
-    var ta = statusTier(a), tb = statusTier(b);
-    if (ta !== tb) return ta - tb;
     let va = a[S.sortCol], vb = b[S.sortCol];
     if (va == null) va = S.sortDir === 'asc' ? Infinity : -Infinity;
     if (vb == null) vb = S.sortDir === 'asc' ? Infinity : -Infinity;
@@ -153,23 +150,85 @@ function rowHTML(r) {
 
 // ── DETAIL PANEL ──────────────────────────────────────────────────────────
 function openDetail(id) {
-  var r = ADG.data.find(function(x) { return x.id === id; });
+  const r = ADG.data.find(x => x.id === id);
   if (!r) return;
   S.selectedId = id;
-  document.querySelectorAll('tbody tr').forEach(function(tr) {
-    tr.classList.toggle('sel', tr.dataset.id === id);
-  });
-  ADG_Shared.FichaPanel(r, {
-    container: el('detail'),
-    onClose: closeDetail
-  });
+  document.querySelectorAll('tbody tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.id === id));
+
+  const panel = el('detail');
+  panel.classList.add('open');
+
+  el('dp-title').textContent = r.titol;
+
+  // Badges
+  const days = daysTo(r.data_limit);
+  let badges = stateBadge(r.estat);
+  if (r.ccaa) badges += ` <span class="badge b-info">${TERR[r.ccaa]?.name || r.ccaa}</span>`;
+  if (isNew(r)) badges += ` <span class="badge-new">${t('nueva')}</span>`;
+  el('dp-badges').innerHTML = badges;
+
+  // Rows
+  const rows = [
+    ['Organismo', esc(r.organisme||'—')],
+    ['Presupuesto', `<span class="dp-amt">${fmtFull(r.pressupost)}</span>`],
+    ['Termina', r.data_limit ? `<span class="${days!==null&&days<=7?'date-warn':days>7?'date-ok':''}">${new Date(r.data_limit).toLocaleDateString(ADG.lang+'-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>` : '—'],
+    ['Publicado', r.data_pub ? new Date(r.data_pub).toLocaleDateString(ADG.lang+'-ES',{day:'numeric',month:'long',year:'numeric'}) : '—'],
+    ['Tipo', r.tipus||'—'],
+    r.adjudicatari ? ['Adjudicado a', `<strong>${esc(r.adjudicatari)}</strong>`] : null,
+    r.cpv ? ['CPV', `<span class="dp-cpv">${esc(r.cpv)}</span>`] : null,
+    ['Fuente', `<span class="source-badge">${esc(r.font||'PLACSP')}</span>`],
+  ].filter(Boolean);
+
+  el('dp-rows').innerHTML = rows.map(([k,v]) =>
+    `<div class="dp-row"><div class="dp-key">${k}</div><div class="dp-val">${v}</div></div>`
+  ).join('');
+
+  // Disc chips
+  el('dp-disc-chips').innerHTML = (r.disciplines||[]).map(d => {
+    const c = discColor(d);
+    return `<span class="dp-chip" style="color:${c.text};border-color:${c.text}20;background:${c.bg}">
+      <i class="bi ${DISC[d]?.icon||'bi-tag'}"></i>${DISC[d]?.label||d}
+    </span>`;
+  }).join('') || '<span style="font-size:10px;color:var(--text3)">—</span>';
+
+  // KW chips
+  el('dp-kw-chips').innerHTML = (r.kw||[]).map(k =>
+    `<span class="dp-chip"><i class="bi bi-tag"></i>${esc(k)}</span>`
+  ).join('') || '<span style="font-size:10px;color:var(--text3)">—</span>';
+
+  // Historial
+  const hw = el('dp-hist-wrap');
+  const hist = r.historial||[];
+  hw.style.display = hist.length ? '' : 'none';
+  if (hist.length) {
+    el('dp-historial').innerHTML = hist.map(h =>
+      `<div class="dp-hist-item">
+        <div class="dp-hist-date">${h.data||''}</div>
+        <div>${stateBadge(h.estat)}</div>
+        <div class="dp-hist-nota">${esc(h.nota||'')}</div>
+      </div>`
+    ).join('');
+  }
+
+  // CTA
+  const ctaEl = el('dp-cta');
+  const noteEl = el('dp-cta-note');
+  if (r.url && r.url.startsWith('http')) {
+    ctaEl.href = r.url;
+    noteEl.textContent = '';
+  } else {
+    ctaEl.href = 'https://contrataciondelestado.es';
+    noteEl.textContent = 'URL directa no disponible';
+  }
+
+  // URL sharing
   updateURL(id);
 }
 
 function closeDetail() {
   S.selectedId = null;
-  ADG_Shared.FichaClose(el('detail'));
-  document.querySelectorAll('tbody tr').forEach(function(tr) { tr.classList.remove('sel'); });
+  el('detail').classList.remove('open');
+  document.querySelectorAll('tbody tr').forEach(tr => tr.classList.remove('sel'));
   clearURL();
 }
 
@@ -341,8 +400,40 @@ function exportCSV() {
 }
 
 // ── SHARE ─────────────────────────────────────────────────────────────────
+function initShare() {
+  const btn = el('dp-share');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    navigator.clipboard?.writeText(location.href).then(() => {
+      btn.classList.add('copied');
+      btn.innerHTML = '<i class="bi bi-check2"></i>';
+      setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML='<i class="bi bi-share"></i>'; }, 2000);
+    });
+  });
+}
 
 // ── NOTIFY ────────────────────────────────────────────────────────────────
+function initNotify() {
+  const toggle = el('dp-notify-toggle');
+  const form = el('dp-notify-form');
+  const submit = el('dp-notify-submit');
+  const ok = el('dp-notify-ok');
+  if (!toggle) return;
+
+  toggle.addEventListener('click', () => {
+    form.classList.toggle('open');
+    toggle.classList.toggle('active', form.classList.contains('open'));
+  });
+  if (submit) submit.addEventListener('click', () => {
+    ok.style.display = 'block';
+    submit.style.display = 'none';
+    toggle.classList.add('active');
+    try {
+      const subs = JSON.parse(localStorage.getItem('adg-subs')||'[]');
+      if (S.selectedId && !subs.includes(S.selectedId)) { subs.push(S.selectedId); localStorage.setItem('adg-subs', JSON.stringify(subs)); }
+    } catch {}
+  });
+}
 
 // ── COMARCA SELECTOR ──────────────────────────────────────────────────────
 function updateComarca(ccaaCode) {
@@ -428,7 +519,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   el('btn-csv')?.addEventListener('click', exportCSV);
+  el('dp-close')?.addEventListener('click', closeDetail);
 
+  initShare();
+  initNotify();
   initModal();
 
   // Refresh on lang/theme change
