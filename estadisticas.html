@@ -55,6 +55,13 @@
     <div class="sstat"><span class="live-dot"></span><span class="update-info" id="s-update"><strong data-i18n="st_loading">Cargando…</strong></span></div>
   </div>
 
+  <!-- VIEW TOGGLE -->
+  <div class="sv-view-toggle">
+    <div class="sh-toggle">
+      <button class="sh-toggle__btn active" data-view="stats" data-i18n="sw_stats">Estadisticas</button>
+      <button class="sh-toggle__btn" data-view="baro" data-i18n="sw_barometro">Barometro</button>
+    </div>
+  </div>
   <!-- LOCAL FILTERS -->
   <div class="sv-lf" id="sv-lf">
     <div class="sv-lf-row">
@@ -108,6 +115,8 @@
     <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase">Cargando estadísticas…</div>
   </div>
 </div>
+
+<div id="baro-page" class="baro-page" hidden></div>
 
 <footer class="footer shell-foot" role="contentinfo">
   <div class="footer-left">

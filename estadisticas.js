@@ -25,6 +25,7 @@ const SV = {
   ccaa:  '',
   estat: '',
   discs: new Set(),
+  view:  'stats',
 };
 
 function getRows() {
@@ -66,6 +67,20 @@ function syncDiscs() {
 function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
 function avg(arr) { return arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function quarterLabel(d) { var q=Math.ceil((d.getMonth()+1)/3); return 'Q'+q+' '+d.getFullYear(); }
+function monthName(m) { return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m,10)-1]||m; }
+function miniBar(items, maxVal, colorFn) {
+  if (!items.length) return '';
+  var mx=maxVal||Math.max.apply(null,items.map(function(x){return x[1];}).concat([1]));
+  return items.map(function(x) {
+    var lb=x[0], val=x[1], c=colorFn?colorFn(lb):'var(--text)';
+    return '<div class="baro-bar-row">'
+      +'<div class="baro-bar-label">'+esc(lb)+'</div>'
+      +'<div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(val,mx)+'%;background:'+c+'"></div></div>'
+      +'<div class="baro-bar-val">'+(typeof val==='number'&&val>999?fmt(val):val)+'</div>'
+      +'</div>';
+  }).join('');
+}
 
 function donutSVG(segments, size=64) {
   const r = 20, cx=32, cy=32, circ=2*Math.PI*r;
@@ -367,6 +382,107 @@ function render() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
+// -- BARO RENDER (absorbed from barometro.js) --------------------------------
+function renderBaro() {
+  var page=el('baro-page'); if (!page) return;
+  var rows=ADG.data;
+  if (!rows.length) {
+    page.innerHTML='<div style="text-align:center;padding:60px;color:var(--text3)"><div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase">Sin datos para generar informe</div></div>';
+    return;
+  }
+  var now=new Date(), quarter=quarterLabel(now);
+  var reportDate=now.toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'});
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var discC=function(d){var dd=DISC[d];return dd?(isDark?dd.ld:dd.lc):'var(--text)';};
+  var total=rows.length;
+  var vigentes=rows.filter(function(r){return r.estat==='Vigente';}).length;
+  var adjudicados=rows.filter(function(r){return r.estat==='Adjudicado';}).length;
+  var desiertas=rows.filter(function(r){return r.estat==='Desierta';}).length;
+  var volumen=rows.reduce(function(s,r){return s+(r.pressupost||0);},0);
+  var conPpto=rows.filter(function(r){return r.pressupost>0;});
+  var avgPpto=conPpto.length?conPpto.reduce(function(s,r){return s+r.pressupost;},0)/conPpto.length:0;
+  var srtd=conPpto.slice().sort(function(a,b){return a.pressupost-b.pressupost;});
+  var medianPpto=srtd.length?srtd[Math.floor(srtd.length/2)].pressupost:0;
+  var tasaAdj=pct(adjudicados,total), tasaDes=pct(desiertas,total);
+  var byDisc={},byDiscVol={};
+  rows.forEach(function(r){(r.disciplines||[]).forEach(function(d){byDisc[d]=(byDisc[d]||0)+1;byDiscVol[d]=(byDiscVol[d]||0)+(r.pressupost||0);});});
+  var discArr=Object.entries(byDisc).sort(function(a,b){return b[1]-a[1];});
+  var discVolArr=Object.entries(byDiscVol).sort(function(a,b){return b[1]-a[1];});
+  var byCCAA={};
+  rows.forEach(function(r){if(r.ccaa)byCCAA[r.ccaa]=(byCCAA[r.ccaa]||0)+1;});
+  var ccaaArr=Object.entries(byCCAA).sort(function(a,b){return b[1]-a[1];});
+  var byMonth={};
+  rows.forEach(function(r){if(r.data_pub){var m=r.data_pub.slice(0,7);byMonth[m]=(byMonth[m]||0)+1;}});
+  var monthArr=Object.entries(byMonth).sort(function(a,b){return a[0].localeCompare(b[0]);}).slice(-6);
+  var top5=rows.slice().filter(function(r){return r.pressupost>0;}).sort(function(a,b){return b.pressupost-a.pressupost;}).slice(0,5);
+  var trend=null;
+  if(monthArr.length>=2){var ml=monthArr[monthArr.length-1][1],mp=monthArr[monthArr.length-2][1];trend={last:ml,prev:mp,diff:pct(ml-mp,mp),up:ml>=mp};}
+  var insights=[];
+  if(tasaDes>=25)insights.push({cls:'warn',icon:'bi-exclamation-triangle',text:'Tasa desierta '+tasaDes+'% supera el umbral del 25%.'});
+  if(tasaAdj>=60)insights.push({cls:'ok',icon:'bi-check-circle',text:'Mercado activo: '+tasaAdj+'% de tasa de adjudicacion.'});
+  var topD=discArr[0];
+  if(topD)insights.push({cls:'',icon:'bi-palette',text:'Disciplina lider: <strong>'+(DISC[topD[0]]&&DISC[topD[0]].label||topD[0])+'</strong> ('+topD[1]+' licitaciones).'});
+  if(trend)insights.push({cls:trend.up?'ok':'warn',icon:trend.up?'bi-graph-up-arrow':'bi-graph-down-arrow',text:'Volumen mensual '+(trend.up?'sube':'baja')+' '+Math.abs(trend.diff)+'% vs mes anterior.'});
+  var maxM=Math.max.apply(null,monthArr.map(function(x){return x[1];}).concat([1]));
+  var sparks=monthArr.map(function(x){return '<div class="baro-spark-col"><div class="baro-spark-bar" style="height:'+pct(x[1],maxM)+'%"></div><div class="baro-spark-lbl">'+monthName(x[0].split('-')[1])+'</div><div class="baro-spark-val">'+x[1]+'</div></div>';}).join('');
+  var dL=function(label){var d=Object.keys(DISC).find(function(k){return DISC[k].label===label;});return d?discC(d):'var(--text)';};
+  page.innerHTML=''
+    +'<div class="baro-header">'
+      +'<div class="baro-header-left">'
+        +'<div class="baro-header-eyebrow">Barometro del Sector &middot; ADG-FAD</div>'
+        +'<div class="baro-header-title">Informe de Contratacion Publica<br>en Diseno y Comunicacion Visual</div>'
+        +'<div class="baro-header-meta">'+quarter+' &middot; Generado el '+reportDate+(ADG.isSample?' &middot; <span style="color:var(--s-warn)">Datos de muestra</span>':'')+'</div>'
+      +'</div>'
+      +'<div class="baro-header-right"><button class="htbtn" onclick="window.print()"><i class="bi bi-printer"></i><span>Imprimir</span></button></div>'
+    +'</div>'
+    +'<div class="baro-section-title">Cifras clave</div>'
+    +'<div class="baro-bignums">'
+      +'<div class="baro-bignum"><div class="baro-bignum-val">'+total+'</div><div class="baro-bignum-lbl">Licitaciones totales</div></div>'
+      +'<div class="baro-bignum"><div class="baro-bignum-val" style="color:var(--s-ok)">'+vigentes+'</div><div class="baro-bignum-lbl">Vigentes</div></div>'
+      +'<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(volumen)+'</div><div class="baro-bignum-lbl">Volumen total</div></div>'
+      +'<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(avgPpto)+'</div><div class="baro-bignum-lbl">Presupuesto medio</div></div>'
+      +'<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(medianPpto)+'</div><div class="baro-bignum-lbl">Mediana</div></div>'
+      +'<div class="baro-bignum"><div class="baro-bignum-val">'+tasaAdj+'%</div><div class="baro-bignum-lbl">Tasa adjudicacion</div></div>'
+    +'</div>'
+    +'<div class="baro-section-title">Analisis automatico</div>'
+    +'<div class="baro-insights">'+insights.map(function(i){return '<div class="baro-insight '+i.cls+'"><i class="bi '+i.icon+'"></i><div>'+i.text+'</div></div>';}).join('')+'</div>'
+    +'<div class="baro-section-title">Evolucion mensual</div>'
+    +'<div class="baro-card">'+(monthArr.length?'<div class="baro-sparks">'+sparks+'</div>':'<div style="color:var(--text3);font-size:10px">Sin datos temporales</div>')+'</div>'
+    +'<div class="baro-section-title">Desglose por disciplina y territorio</div>'
+    +'<div class="baro-grid">'
+      +'<div class="baro-card"><div class="baro-card-title">Licitaciones por disciplina</div><div class="baro-bars">'+miniBar(discArr.slice(0,8).map(function(x){return [DISC[x[0]]&&DISC[x[0]].label||x[0],x[1]];}),null,dL)+'</div></div>'
+      +'<div class="baro-card"><div class="baro-card-title">Volumen por disciplina</div><div class="baro-bars">'+miniBar(discVolArr.slice(0,8).map(function(x){return [DISC[x[0]]&&DISC[x[0]].label||x[0],x[1]];}),null,dL)+'</div></div>'
+      +'<div class="baro-card"><div class="baro-card-title">Licitaciones por CCAA</div><div class="baro-bars">'+miniBar(ccaaArr.slice(0,8).map(function(x){return [TERR[x[0]]&&TERR[x[0]].name||x[0],x[1]];}))+'</div></div>'
+      +'<div class="baro-card"><div class="baro-card-title">Resolucion</div><div class="baro-bars">'+miniBar([['Adjudicadas',adjudicados],['Vigentes',vigentes],['Desiertas',desiertas]],total,function(l){return l==='Adjudicadas'?'var(--s-adj)':l==='Vigentes'?'var(--s-ok)':'var(--s-des)';})+'</div></div>'
+    +'</div>'
+    +'<div class="baro-section-title">Top 5 Mayor presupuesto</div>'
+    +'<div class="baro-card">'
+      +'<table class="baro-top-table">'
+        +'<thead><tr><th>#</th><th>Licitacion</th><th>Organismo</th><th>Presupuesto</th><th>Estado</th></tr></thead>'
+        +'<tbody>'+top5.map(function(r,i){return '<tr><td>'+(i+1)+'</td><td>'+esc(r.titol.length>50?r.titol.slice(0,50)+'...':r.titol)+'</td><td>'+esc(r.organisme||'-')+'</td><td style="font-weight:700">'+fmtFull(r.pressupost)+'</td><td>'+r.estat+'</td></tr>';}).join('')+'</tbody>'
+      +'</table>'
+    +'</div>'
+    +'<div class="baro-footer">'
+      +'<div>Generado automaticamente &middot; ADG Plataforma &middot; '+reportDate+'</div>'
+      +'<div>Fuente: PLACSP &middot; contrataciondelestado.es &middot; Datos '+(ADG.isSample?'de muestra':'reales')+'</div>'
+      +'<div style="margin-top:6px"><strong>ADG-FAD</strong> &middot; <a href="https://adg-fad.org" target="_blank" rel="noopener">adg-fad.org</a></div>'
+    +'</div>';
+}
+
+// -- VIEW SWITCH -------------------------------------------------------------
+function switchView(v) {
+  SV.view = v;
+  var isBaro = (v === 'baro');
+  document.querySelectorAll('[data-view]').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.view === v);
+  });
+  var lf=el('sv-lf'), sm=el('sv-summary'), body=el('sv-body'), baro=el('baro-page');
+  if (lf)   lf.classList.toggle('sv-baro-active', isBaro);
+  if (sm)   sm.style.display   = isBaro ? 'none' : '';
+  if (body) body.style.display  = isBaro ? 'none' : '';
+  if (baro) baro.hidden         = !isBaro;
+  if (isBaro) renderBaro(); else render();
+}
 document.addEventListener('DOMContentLoaded', async () => {
   initShared();
 
@@ -389,11 +505,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  document.querySelectorAll('[data-view]').forEach(function(b){b.addEventListener('click',function(){switchView(b.dataset.view);});});
   el('sv-year')?.addEventListener('change', e => { SV.year=e.target.value; render(); });
   el('sv-ccaa')?.addEventListener('change', e => { SV.ccaa=e.target.value; render(); });
 
-  document.addEventListener('adg:langchange', () => { applyI18n(); render(); updateStrip(); });
-  document.addEventListener('adg:themechange', () => render());
+  document.addEventListener('adg:langchange', () => { applyI18n(); if(SV.view==='baro')renderBaro();else render(); updateStrip(); });
+  document.addEventListener('adg:themechange', () => { if(SV.view==='baro')renderBaro();else render(); });
 
   await loadData();
   updateStrip();
