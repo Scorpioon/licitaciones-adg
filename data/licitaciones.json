@@ -1,6 +1,71 @@
 {
-  "generated_at": "2026-03-29T05:11:30Z",
-  "count": 0,
+  "generated_at": "2026-03-30T05:26:03Z",
+  "count": 2,
   "fetcher_version": "2.0",
-  "data": []
+  "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18458771",
+      "titol": "Servicio de producción audiovisual con destino a la Oficina de Comunicación del Ministerio del Interior",
+      "organisme": "Subdirección General de Gestión Económica y Patrimonial",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 217963.97,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-03-29",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Iz9Z0yeSBQd6nTs9LZ9RhQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:92112000",
+        "producción audiovisual",
+        "CPV:79340000"
+      ],
+      "cpv": "79340000, 92112000, 79960000",
+      "historial": [
+        {
+          "data": "2026-03-29",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19357482",
+      "titol": "Servicio de producción audiovisual para el Consorcio de la Zona Franca de Barcelona",
+      "organisme": "Consorcio de la Zona Franca de Barcelona",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 170000.0,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-03-29",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=PI8dDyIy4gQl5NjlNci%2BtA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "producción audiovisual",
+        "CPV:79970000",
+        "CPV:92111200"
+      ],
+      "cpv": "79970000, 92111200",
+      "historial": [
+        {
+          "data": "2026-03-29",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    }
+  ]
 }
