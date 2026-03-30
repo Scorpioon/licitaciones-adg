@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- estadisticas.js
- * b4.0 -- Mar 2026
+ * 0.4.3c -- Mar 2026
  * Role: Statistics dashboard -- local filter state, bignums, donut SVG,
  *       trend bars, bar cards, top5, adjudicatarios, market conditions.
  *       Will absorb barometro.js in Phase 3.
@@ -9,6 +9,7 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.4.3c Mar 2026  Quarter filter; renderBaro uses getRows(); sidebar in .main.
  * b4.0  Mar 2026  Header updated. Barometro toggle pending (Phase 3).
  * v2.1  Mar 2026  IIFE wrap -- fix 'el' already declared.
  * v2.0  Mar 2026  Independent page. Local filters decoupled from table.
@@ -26,6 +27,7 @@ const SV = {
   estat: '',
   discs: new Set(),
   view:  'stats',
+  quarter: '',
 };
 
 function getRows() {
@@ -34,6 +36,7 @@ function getRows() {
   if (SV.ccaa)  rows = rows.filter(r => r.ccaa === SV.ccaa);
   if (SV.estat) rows = rows.filter(r => r.estat === SV.estat);
   if (SV.discs.size) rows = rows.filter(r => (r.disciplines||[]).some(d => SV.discs.has(d)));
+  if (SV.quarter) { var qm=parseInt(SV.quarter,10); rows = rows.filter(function(r){ var m=parseInt((r.data_pub||'0000-00').slice(5,7),10); return Math.ceil(m/3)===qm; }); }
   return rows;
 }
 
@@ -64,6 +67,14 @@ function syncDiscs() {
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
+function syncQuarter() {
+  document.querySelectorAll('[data-sv-quarter]').forEach(function(p) {
+    var match = (p.dataset.svQuarter === SV.quarter);
+    p.classList.toggle('active', match);
+    p.setAttribute('aria-pressed', String(match));
+  });
+}
+
 function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
 function avg(arr) { return arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -385,7 +396,7 @@ function render() {
 // -- BARO RENDER (absorbed from barometro.js) --------------------------------
 function renderBaro() {
   var page=el('baro-page'); if (!page) return;
-  var rows=ADG.data;
+  var rows=getRows();
   if (!rows.length) {
     page.innerHTML='<div style="text-align:center;padding:60px;color:var(--text3)"><div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase">Sin datos para generar informe</div></div>';
     return;
@@ -480,12 +491,10 @@ function switchView(v) {
   document.querySelectorAll('[data-view]').forEach(function(btn) {
     btn.classList.toggle('active', btn.dataset.view === v);
   });
-  var lf=el('sv-lf'), sm=el('sv-summary'), body=el('sv-body'), baro=el('baro-page');
-  if (lf)   lf.classList.toggle('sv-baro-active', isBaro);
-  if (sm)   sm.style.display   = isBaro ? 'none' : '';
-  if (body) body.style.display  = isBaro ? 'none' : '';
-  if (baro) baro.hidden         = !isBaro;
-  if (isBaro) renderBaro(); else render();
+  var body=el('sv-body'), baro=el('baro-page');
+  if (body) body.hidden = isBaro;
+  if (baro) baro.hidden = !isBaro;
+  refreshActiveView();
 }
 document.addEventListener('DOMContentLoaded', async () => {
   initShared();
@@ -512,6 +521,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('[data-view]').forEach(function(b){b.addEventListener('click',function(){switchView(b.dataset.view);});});
   el('sv-year')?.addEventListener('change', e => { SV.year=e.target.value; refreshActiveView(); });
   el('sv-ccaa')?.addEventListener('change', e => { SV.ccaa=e.target.value; refreshActiveView(); });
+  document.querySelectorAll('[data-sv-quarter]').forEach(function(p) {
+    p.addEventListener('click', function() {
+      SV.quarter = p.dataset.svQuarter; syncQuarter(); refreshActiveView();
+    });
+  });
 
   document.addEventListener('adg:langchange', () => { applyI18n(); refreshActiveView(); updateStrip(); updateTicker(); });
   document.addEventListener('adg:themechange', () => { refreshActiveView(); });

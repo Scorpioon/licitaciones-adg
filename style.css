@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- style.css
- * b4.0 -- Mar 2026
+ * 0.4.3c -- Mar 2026
  * Role: Shared styles for all pages.
  *       Sections: tokens, shell, header, nav, stats-strip, filters,
  *       table, detail panel, pagination, modal, footer, home, responsive,
@@ -9,6 +9,7 @@
  *              ToggleSwitch, AlertasStub).
  *
  * CHANGELOG (newest first)
+ * 0.4.3c Mar 2026  Sidebar in .main shell; quarter filter; rail redesign.
  * b4.0  Mar 2026  Appended shared component styles (sh-ficha, sh-traffic,
  *                 sh-toggle, sh-alertas-stub).
  * b3.1  Mar 2026  Added F3, F4, F6 sections.

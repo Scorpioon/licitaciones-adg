@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- estadisticas.html | b4.0 Mar 2026 | Role: Statistics dashboard (absorbs barometro Phase 3) | Scripts: app.js shared.js estadisticas.js | CHANGELOG: b4.0 Mar 2026 -->
+<!-- ADG Plataforma Digital -- estadisticas.html | 0.4.3c Mar 2026 | Role: Statistics dashboard + Barometro | Scripts: app.js shared.js estadisticas.js | CHANGELOG: 0.4.3c Mar 2026 -- sidebar in .main, quarter filter, rail redesign -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -48,6 +48,7 @@
   </header>
 </div>
 
+<div class="main">
 <div class="sv-layout">
   <aside class="sv-sidebar">
     <div class="sv-view-toggle">
@@ -57,8 +58,9 @@
       </div>
     </div>
     <nav class="sv-lf" id="sv-lf" aria-label="Filtros">
+
       <div class="sv-lf-group">
-        <div class="sv-lf-group-lbl">A&ntilde;o</div>
+        <div class="sv-lf-group-lbl">Ano</div>
         <select id="sv-year">
           <option value="">Todos</option>
           <option value="2024">2024</option>
@@ -66,6 +68,20 @@
           <option value="2026">2026</option>
         </select>
       </div>
+
+      <div class="sv-lf-group">
+        <div class="sv-lf-group-lbl">Cuatrimestre</div>
+        <div class="sv-lf-pills sv-lf-pills--q">
+          <button class="pill active" data-sv-quarter="">Todo</button>
+          <button class="pill" data-sv-quarter="1">Q1</button>
+          <button class="pill" data-sv-quarter="2">Q2</button>
+          <button class="pill" data-sv-quarter="3">Q3</button>
+          <button class="pill" data-sv-quarter="4">Q4</button>
+        </div>
+      </div>
+
+      <div class="sv-lf-sep"></div>
+
       <div class="sv-lf-group">
         <div class="sv-lf-group-lbl">CCAA</div>
         <select id="sv-ccaa">
@@ -87,6 +103,9 @@
           <option value="ES">Estatal</option>
         </select>
       </div>
+
+      <div class="sv-lf-sep"></div>
+
       <div class="sv-lf-group">
         <div class="sv-lf-group-lbl">Estado</div>
         <div class="sv-lf-pills">
@@ -96,6 +115,9 @@
           <button class="pill" data-sv-estat="Desierta"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-des)"></i>Desierta</button>
         </div>
       </div>
+
+      <div class="sv-lf-sep"></div>
+
       <div class="sv-lf-group">
         <div class="sv-lf-group-lbl">Disciplina</div>
         <div class="sv-lf-pills">
@@ -105,13 +127,14 @@
           <button class="pill" data-sv-disc="web"><i class="bi bi-globe2"></i>Web</button>
           <button class="pill" data-sv-disc="uxui"><i class="bi bi-cursor"></i>UX&middot;UI</button>
           <button class="pill" data-sv-disc="publicitat"><i class="bi bi-megaphone"></i>Publicidad</button>
-          <button class="pill" data-sv-disc="senyaletica"><i class="bi bi-signpost-split"></i>Se&ntilde;al&eacute;tica</button>
-          <button class="pill" data-sv-disc="fotografia"><i class="bi bi-camera"></i>Fotograf&iacute;a</button>
+          <button class="pill" data-sv-disc="senyaletica"><i class="bi bi-signpost-split"></i>Senaletica</button>
+          <button class="pill" data-sv-disc="fotografia"><i class="bi bi-camera"></i>Fotografia</button>
           <button class="pill" data-sv-disc="audiovisual"><i class="bi bi-film"></i>Audiovisual</button>
-          <button class="pill" data-sv-disc="illustracio"><i class="bi bi-pen"></i>Ilustraci&oacute;n</button>
-          <button class="pill" data-sv-disc="impressio"><i class="bi bi-printer"></i>Impresi&oacute;n</button>
+          <button class="pill" data-sv-disc="illustracio"><i class="bi bi-pen"></i>Ilustracion</button>
+          <button class="pill" data-sv-disc="impressio"><i class="bi bi-printer"></i>Impresion</button>
         </div>
       </div>
+
     </nav>
     <div class="sv-summary" id="sv-summary"></div>
   </aside>
@@ -125,6 +148,7 @@
     </div>
     <div id="baro-page" class="baro-page" hidden></div>
   </div>
+</div>
 </div>
 
 <footer class="footer shell-foot" role="contentinfo">
