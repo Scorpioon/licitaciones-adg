@@ -1,99 +1,95 @@
 {
-  "generated_at": "2026-03-31T05:09:54Z",
+  "generated_at": "2026-04-01T05:25:29Z",
   "count": 3,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19360700",
-      "titol": "Servicio de conceptualización, diseño, edición y maquetación de materiales de diseño gráfico para comunicación, marketing y publicidad de ICEX.",
-      "organisme": "Consejo de Administración de ICEX España Exportación e Inversiones, E",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18956246",
+      "titol": "Suministro de programas, dípticos y trípticos para el Centro Cultural de Castrillón.",
+      "organisme": "Presidencia del Patronato Municipal de Actividades Culturales - PMAC",
       "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 999860.0,
+      "tipus": "Suministros",
+      "pressupost": 18181.82,
       "disciplines": [
-        "editorial",
-        "publicitat"
+        "editorial"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-30",
+      "data_pub": "2026-03-31",
       "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 45,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=CJworrUS83PIGlsa0Wad%2Bw%3D%3D",
+      "estat": "Adjudicado",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=iquVMQyPwwXjHF5qKI4aaw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "diseño gráfico",
-        "CPV:79340000",
-        "CPV:79822500"
+        "CPV:22100000",
+        "dípticos"
       ],
-      "cpv": "79822500, 79340000",
+      "cpv": "22100000",
       "historial": [
         {
-          "data": "2026-03-30",
-          "estat": "Vigente",
+          "data": "2026-03-31",
+          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19239564",
-      "titol": "Licitación para la contratación de los servicios de diseño gráfico, creatividad e imagen corporativa para la Fundación Donostia International Physics Center.",
-      "organisme": "",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19235662",
+      "titol": "El objeto del contrato es la adjudicación del Contrato del Servicio de Asistencia Técnica al Plan de Comunicación del Observatorio de Desarrollo Sostenible de Rota 2030, actuación subvencionada por resolución de 15 de noviembre de 2024 del Ministerio de Derechos Sociales, Consumo y Agenda 2030 en las Entidades Locales, correspondiente al año 2024.",
+      "organisme": "Alcaldía del Ayuntamiento de Rota",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 51398.5,
-      "disciplines": [
-        "branding"
-      ],
-      "ccaa": "PV",
-      "lloc": "País Vasco",
-      "data_pub": "2026-03-30",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 45,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso694375/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "diseño gráfico",
-        "CPV:79822500"
-      ],
-      "cpv": "79822500",
-      "historial": [
-        {
-          "data": "2026-03-30",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19183776",
-      "titol": "Contratación del servicio de maquetación, preparación, impresión, clasificación, empaquetado y etiquetado de exámenes para procesos selectivos en ofertas públicas de empleo de Osakidetza.",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 360000.0,
-      "disciplines": [
-        "editorial",
-        "impressio"
-      ],
+      "pressupost": 74339.26,
+      "disciplines": [],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-03-30",
+      "data_pub": "2026-03-31",
       "data_limit": "",
       "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/exposakisap2026000495/es_doc/index.html",
-      "font": "PLACSP-1044",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=xhslFVePp8gS7pcxhTeWOg%3D%3D",
+      "font": "PLACSP-643",
       "kw": [
-        "CPV:79800000",
-        "maquetación"
+        "CPV:79341000",
+        "plan de comunicación"
       ],
-      "cpv": "79800000",
+      "cpv": "79341000",
       "historial": [
         {
-          "data": "2026-03-30",
+          "data": "2026-03-31",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19371095",
+      "titol": "Servicio de difusión de la campaña publicitaria sobre el nuevo sistema de ayuda a la explotación e información al viajero y de un sistema de ticketing y monética",
+      "organisme": "Gerencia de la Empresa Municipal Autobuses de Córdoba S",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 48000.0,
+      "disciplines": [
+        "publicitat"
+      ],
+      "ccaa": "AN",
+      "lloc": "Andalucía",
+      "data_pub": "2026-03-31",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=usU85SP7v1SGCFcHcNGIlQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79341000",
+        "campaña publicitaria",
+        "CPV:79341400"
+      ],
+      "cpv": "79341000, 79341400, 79341200",
+      "historial": [
+        {
+          "data": "2026-03-31",
           "estat": "Vigente",
           "nota": "Publicación"
         }
