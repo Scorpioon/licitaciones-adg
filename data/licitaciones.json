@@ -1,281 +1,94 @@
 {
-  "generated_at": "2026-04-02T05:03:50Z",
-  "count": 9,
+  "generated_at": "2026-04-03T05:05:59Z",
+  "count": 3,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19379593",
-      "titol": "Servicio de producción audiovisual y reportaje fotográfico corporativo con destino Mutua Intercomarcal.",
-      "organisme": "Director Gerente de Mutua Intercomarcal MATEPSS Nº 39",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19386870",
+      "titol": "Servei permanent de producció audiovisual i fotografies adreçat als usuaris de l'Hospital Universitari Vall d'Hebron",
+      "organisme": "Institut Català de la Salut (ICS)",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 39600.0,
+      "pressupost": 69421.48,
       "disciplines": [
-        "audiovisual",
-        "fotografia"
+        "audiovisual"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-01",
+      "data_pub": "2026-04-02",
       "data_limit": "",
       "estat": "Vigente",
-      "rellevancia": 42,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=sIc%2BJHUBHlVrSd8H4b2soA%3D%3D",
-      "font": "PLACSP-643",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/a4aff17d-f06e-45fc-bed3-9746abcfb25b/300739421",
+      "font": "PLACSP-1044",
       "kw": [
-        "marca",
-        "producción audiovisual",
-        "CPV:79952000",
-        "CPV:92100000"
+        "producció audiovisual",
+        "CPV:79961300"
       ],
-      "cpv": "79952000, 32321200, 51313000",
+      "cpv": "79961300",
       "historial": [
         {
-          "data": "2026-04-01",
+          "data": "2026-04-02",
           "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19207424",
-      "titol": "Servicio de producción gráfica y audiovisual para el Consejo Superior de Deportes.",
-      "organisme": "Presidencia del Consejo Superior de Deportes",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19187669",
+      "titol": "Servicios de diseño, creación, instalación y desmontaje del Belén municipal en la Casa de Cultura de Calp (Alicante) y organización de una actividad lúdica para el público familiar. Lote 2: Actividad lúdica destinada al público familiar",
+      "organisme": "Alcaldía del Ajuntament de Calp",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 304060.35,
+      "pressupost": 5100.0,
       "disciplines": [],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-01",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TgTRsH1Fa6OExvMJXBMHHQ%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "producción gráfica",
-        "CPV:92100000"
-      ],
-      "cpv": "92100000",
-      "historial": [
-        {
-          "data": "2026-04-01",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18993651",
-      "titol": "Elaboración e impresión de certificados y acreditaciones de formación profesional de la Comunidad de Madrid",
-      "organisme": "Organismo Autónomo Mercantil Boletín Oficial de la Comunidad de Madrid",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 81480.1,
-      "disciplines": [
-        "impressio"
-      ],
-      "ccaa": "MD",
-      "lloc": "Madrid",
-      "data_pub": "2026-04-01",
+      "data_pub": "2026-04-02",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/elaboracion-e-impresion-certificados-acreditaciones-formacion-profesional",
-      "font": "PLACSP-1044",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=sE%2BkIhM3ARI36J9Lctlsuw%3D%3D",
+      "font": "PLACSP-643",
       "kw": [
-        "CPV:22450000",
-        "impresión de"
+        "CPV:92311000",
+        "servicios de diseño",
+        "CPV:92312000"
       ],
-      "cpv": "22450000",
+      "cpv": "92312000, 92311000, 37800000",
       "historial": [
         {
-          "data": "2026-04-01",
+          "data": "2026-04-02",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19217220",
-      "titol": "Servicio de buzoneo domiciliario del periódico de información municipal, así como de otros impresos o folletos municipales.",
-      "organisme": "Junta de Gobierno del Ayuntamiento de Leganés",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19125433",
+      "titol": "(AS-59/2025) Servicio de mantenimiento técnico, funcional i gráfico, así como de mejora y maquetación del conjunto de webs municipales del ayuntamiento de Hospitalet de Llobregat utilizando el gestor de contenidos (CMS) de desarrollo propio GAIA",
+      "organisme": "Ajuntament de l'Hospitalet de Llobregat",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 76320.0,
+      "pressupost": 137203.5,
       "disciplines": [
         "editorial"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-01",
+      "data_pub": "2026-04-02",
       "data_limit": "",
       "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=JW%2F2FVL79q1Whbmkna2nXQ%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79340000",
-        "folletos"
-      ],
-      "cpv": "79340000",
-      "historial": [
-        {
-          "data": "2026-04-01",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19221651",
-      "titol": "Servicio de planificación y gestión de medios para la campaña de publicidad de la temporada 45 de la programación cultural del Palacio de Congresos y Auditorio de La Rioja.",
-      "organisme": "Comunidad de La Rioja",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 66000.0,
-      "disciplines": [
-        "publicitat"
-      ],
-      "ccaa": "RI",
-      "lloc": "La Rioja",
-      "data_pub": "2026-04-01",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://www.larioja.org/contratacion-publica/es/licitaciones/consulta-expedientes?homepage=?p_colateral%3D60-7-9.01-0019%2F2026%26p_dia_ini%3D11%26p_mes_ini%3D03%26p_ano_ini%3D2026%26p_dia_fin%3D11%26p_mes_fin%3D03%26p_ano_fin%3D2026%26p_todas%3DN",
+      "rellevancia": 20,
+      "url": "https://contractaciopublica.cat/es/detall-publicacio/2eb8a4bf-a091-4eda-afe9-fc942556bf4c/300739478",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79341000",
-        "campaña de publicidad"
+        "maquetación"
       ],
-      "cpv": "79341000",
+      "cpv": "72413000",
       "historial": [
         {
-          "data": "2026-04-01",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/15597285",
-      "titol": "Servicios de diseño, ejecución y coordinación de talleres escolares, actividades y recursos didácticos para las exposiciones de la Red Itiner 2025",
-      "organisme": "Consejería de Cultura, Turismo y Deporte",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 49619.72,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-01",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/servicios-diseno-ejecucion-coordinacion-talleres-escolares-actividades-recursos-0",
-      "font": "PLACSP-1044",
-      "kw": [
-        "servicios de diseño",
-        "CPV:79952100"
-      ],
-      "cpv": "79952100",
-      "historial": [
-        {
-          "data": "2026-04-01",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19273343",
-      "titol": "Contrato administrativo de servicios de gestión de impresión del Ayuntamiento de Güímar.",
-      "organisme": "Alcaldía del Ayuntamiento de Güímar",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 33112.5,
-      "disciplines": [
-        "impressio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-01",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=0K0pPzaH71owYTJJ03sHog%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79521000",
-        "impresión de",
-        "CPV:79500000"
-      ],
-      "cpv": "50310000, 79521000, 79500000",
-      "historial": [
-        {
-          "data": "2026-04-01",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18912400",
-      "titol": "Serveis de producció, gravació i edició de càpsules audiovisuals en format vídeo i/o infografia animada o estàtica per anunciar i fer difusió de les activitats, projectes i serveis promoguts per l’Ajuntament de Roses. Es considera que la realització d’aquest servei és fonamental per a la difusió entre la ciutadania de l’activitat dels diferents àmbits i serveis municipals (cultural, patrimonial, e",
-      "organisme": "Ajuntament de Roses",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 31331.12,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-01",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/2e4ad16e-c9d8-47f6-9145-6f2097060c32/300736204",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:92111250",
-        "infografia"
-      ],
-      "cpv": "92111250",
-      "historial": [
-        {
-          "data": "2026-04-01",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19379587",
-      "titol": "Contratación de la rotulación del edificio de la Casa de la Juventud de Paterna: impresión y colocación de vinilos y lonas.",
-      "organisme": "Gestión y Servicios de Paterna S",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 7600.0,
-      "disciplines": [
-        "impressio",
-        "senyaletica"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-01",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=y7Dx5ydKKUaLAncw3qdZkA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79800000",
-        "rotulación"
-      ],
-      "cpv": "39174000, 79800000",
-      "historial": [
-        {
-          "data": "2026-04-01",
+          "data": "2026-04-02",
           "estat": "Vigente",
           "nota": "Publicación"
         }
