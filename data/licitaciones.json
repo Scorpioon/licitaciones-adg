@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-03T05:05:59Z",
+  "generated_at": "2026-04-04T04:51:05Z",
   "count": 3,
   "fetcher_version": "2.0",
   "data": [
@@ -22,8 +22,8 @@
       "url": "https://contractaciopublica.cat/ca/detall-publicacio/a4aff17d-f06e-45fc-bed3-9746abcfb25b/300739421",
       "font": "PLACSP-1044",
       "kw": [
-        "producció audiovisual",
-        "CPV:79961300"
+        "CPV:79961300",
+        "producció audiovisual"
       ],
       "cpv": "79961300",
       "historial": [
@@ -51,9 +51,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=sE%2BkIhM3ARI36J9Lctlsuw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
+        "CPV:92312000",
         "CPV:92311000",
-        "servicios de diseño",
-        "CPV:92312000"
+        "servicios de diseño"
       ],
       "cpv": "92312000, 92311000, 37800000",
       "historial": [
