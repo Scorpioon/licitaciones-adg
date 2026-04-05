@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-04T04:51:05Z",
+  "generated_at": "2026-04-05T05:12:51Z",
   "count": 3,
   "fetcher_version": "2.0",
   "data": [
@@ -22,8 +22,8 @@
       "url": "https://contractaciopublica.cat/ca/detall-publicacio/a4aff17d-f06e-45fc-bed3-9746abcfb25b/300739421",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79961300",
-        "producció audiovisual"
+        "producció audiovisual",
+        "CPV:79961300"
       ],
       "cpv": "79961300",
       "historial": [
