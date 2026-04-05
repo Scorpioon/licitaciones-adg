@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- style.css
- * 0.4.3c -- Mar 2026
+ * 0.4.3e -- Apr 2026
  * Role: Shared styles for all pages.
  *       Sections: tokens, shell, header, nav, stats-strip, filters,
  *       table, detail panel, pagination, modal, footer, home, responsive,
@@ -9,6 +9,7 @@
  *              ToggleSwitch, AlertasStub).
  *
  * CHANGELOG (newest first)
+ * 0.4.3e Apr 2026  Desktop shell fix: sv-layout fills .main; sv-main flex column; baro-page scroll.
  * 0.4.3c Mar 2026  Sidebar in .main shell; quarter filter; rail redesign.
  * b4.0  Mar 2026  Appended shared component styles (sh-ficha, sh-traffic,
  *                 sh-toggle, sh-alertas-stub).
@@ -532,7 +533,7 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 @media (max-width:860px) { .map-shell { flex-direction:column; } .map-sidebar { width:100%; max-height:200px; border-right:none; border-bottom:1px solid var(--border2); } .map-container { min-height:400px; } }
 
 /* ─── F6 · BARÓMETRO ──────────────────────────────────────────────────────── */
-.baro-page { padding:24px; max-width:1000px; margin:0 auto; }
+.baro-page { flex:1; overflow-y:auto; padding:24px; max-width:1000px; margin:0 auto; }
 .baro-header { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--border); }
 .baro-header-eyebrow { font-size:7.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--text3); margin-bottom:6px; }
 .baro-header-title { font-size:18px; font-weight:700; line-height:1.3; letter-spacing:-.01em; }
@@ -677,9 +678,9 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sh-alertas-modal__close { font-size:8.5px; letter-spacing:.12em; text-transform:uppercase; padding:8px 20px; border:1px solid var(--border2); border-radius:var(--radius); background:none; color:var(--text2); cursor:pointer; transition:all .1s; }
 .sh-alertas-modal__close:hover { border-color:var(--border); color:var(--text); }
 /* ---- Phase 3v2: sidebar layout ---------------------------------------- */
-.sv-layout { display:flex; align-items:flex-start; }
+.sv-layout { display:flex; flex:1; min-height:0; }
 .sv-sidebar { width:220px; flex-shrink:0; border-right:1px solid var(--border2); padding:14px 12px; display:flex; flex-direction:column; gap:12px; position:sticky; top:0; max-height:100vh; overflow-y:auto; box-sizing:border-box; background:var(--bg); }
-.sv-main { flex:1; min-width:0; padding:24px 28px; box-sizing:border-box; }
+.sv-main { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; padding:24px 28px; box-sizing:border-box; }
 .sv-view-toggle .sh-toggle { display:flex; width:100%; }
 .sv-view-toggle .sh-toggle__btn { flex:1; text-align:center; font-size:8px; padding:6px 4px; }
 .sv-lf { display:flex; flex-direction:column; gap:10px; }
