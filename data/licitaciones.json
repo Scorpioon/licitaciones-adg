@@ -1,127 +1,64 @@
 {
-  "generated_at": "2026-04-06T05:25:28Z",
-  "count": 4,
+  "generated_at": "2026-04-07T05:10:02Z",
+  "count": 2,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19172167",
-      "titol": "Contrato de suministro de impresión de dos revistas de la Tajea, 500 unidades por cada revista, y Cuadernillo histórico, 500 unidades de cada cuadernillo, a través del Sistema Dinámico de Adquisición de Suministros del Ilustre Ayuntamiento de San Miguel de Abona (expediente 4470/2025, categoría 3). Para poder licitar hay que estar previamente admitido en la categoria 3 (expediente 4470/2025)",
-      "organisme": "Alcaldía del Ayuntamiento de San Miguel de Abona",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18977106",
+      "titol": "servicios de asistencia técnica en consultoría legal y económica para servicios de diseño e implementación del alhambra living lab (c16r1 prtr)",
+      "organisme": "Sociedad Andaluza para el Desarrollo de las Telecomunicaciones, S",
       "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 9508.32,
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-06",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=901018",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79212000",
+        "servicios de diseño",
+        "CPV:79341200"
+      ],
+      "cpv": "79212000, 79341200, 79212400",
+      "historial": [
+        {
+          "data": "2026-04-06",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19393578",
+      "titol": "Servicios de impresión publicitaria actividades de la AAIICC 2026",
+      "organisme": "Agencia Andaluza de Instituciones Culturales",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
       "disciplines": [
-        "editorial",
         "impressio"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-05",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=cLd0HBGIgLmqb7rCcv76BA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:22000000",
-        "CPV:22200000",
-        "impresión de"
-      ],
-      "cpv": "22000000, 22200000",
-      "historial": [
-        {
-          "data": "2026-04-05",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19386870",
-      "titol": "Servei permanent de producció audiovisual i fotografies adreçat als usuaris de l'Hospital Universitari Vall d'Hebron",
-      "organisme": "Institut Català de la Salut (ICS)",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 69421.48,
-      "disciplines": [
-        "audiovisual"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-02",
+      "data_pub": "2026-04-06",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/a4aff17d-f06e-45fc-bed3-9746abcfb25b/300739421",
+      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=939711",
       "font": "PLACSP-1044",
       "kw": [
-        "producció audiovisual",
-        "CPV:79961300"
+        "CPV:79800000",
+        "servicios de impresión"
       ],
-      "cpv": "79961300",
+      "cpv": "79800000",
       "historial": [
         {
-          "data": "2026-04-02",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19187669",
-      "titol": "Servicios de diseño, creación, instalación y desmontaje del Belén municipal en la Casa de Cultura de Calp (Alicante) y organización de una actividad lúdica para el público familiar. Lote 2: Actividad lúdica destinada al público familiar",
-      "organisme": "Alcaldía del Ajuntament de Calp",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 5100.0,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-02",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=sE%2BkIhM3ARI36J9Lctlsuw%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:92312000",
-        "CPV:92311000",
-        "servicios de diseño"
-      ],
-      "cpv": "92312000, 92311000, 37800000",
-      "historial": [
-        {
-          "data": "2026-04-02",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19125433",
-      "titol": "(AS-59/2025) Servicio de mantenimiento técnico, funcional i gráfico, así como de mejora y maquetación del conjunto de webs municipales del ayuntamiento de Hospitalet de Llobregat utilizando el gestor de contenidos (CMS) de desarrollo propio GAIA",
-      "organisme": "Ajuntament de l'Hospitalet de Llobregat",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 137203.5,
-      "disciplines": [
-        "editorial"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-02",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 20,
-      "url": "https://contractaciopublica.cat/es/detall-publicacio/2eb8a4bf-a091-4eda-afe9-fc942556bf4c/300739478",
-      "font": "PLACSP-1044",
-      "kw": [
-        "maquetación"
-      ],
-      "cpv": "72413000",
-      "historial": [
-        {
-          "data": "2026-04-02",
+          "data": "2026-04-06",
           "estat": "Vigente",
           "nota": "Publicación"
         }
