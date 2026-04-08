@@ -1,42 +1,197 @@
 {
-  "generated_at": "2026-04-07T05:10:02Z",
-  "count": 2,
+  "generated_at": "2026-04-08T05:12:04Z",
+  "count": 7,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18977106",
-      "titol": "servicios de asistencia técnica en consultoría legal y económica para servicios de diseño e implementación del alhambra living lab (c16r1 prtr)",
-      "organisme": "Sociedad Andaluza para el Desarrollo de las Telecomunicaciones, S",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19183776",
+      "titol": "Contratación del servicio de maquetación, preparación, impresión, clasificación, empaquetado y etiquetado de exámenes para procesos selectivos en ofertas públicas de empleo de Osakidetza.",
+      "organisme": "",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": null,
+      "pressupost": 360000.0,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-07",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/exposakisap2026000495/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79800000",
+        "maquetación"
+      ],
+      "cpv": "79800000",
+      "historial": [
+        {
+          "data": "2026-04-07",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19030897",
+      "titol": "Servicio de maquetación y envío de newsletters",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 45000.0,
+      "disciplines": [
+        "editorial"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-07",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expgebizkaia3336211/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:22120000",
+        "maquetación"
+      ],
+      "cpv": "22120000",
+      "historial": [
+        {
+          "data": "2026-04-07",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19357482",
+      "titol": "Servicio de producción audiovisual para el Consorcio de la Zona Franca de Barcelona",
+      "organisme": "Consorcio de la Zona Franca de Barcelona",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 170000.0,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-04-07",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=PI8dDyIy4gQl5NjlNci%2BtA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79970000",
+        "producción audiovisual",
+        "CPV:92111200"
+      ],
+      "cpv": "79970000, 92111200",
+      "historial": [
+        {
+          "data": "2026-04-07",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19399517",
+      "titol": "Licitació per a la contractació dels serveis de comunicació digital, gestió i dinamització de les xarxes socialsde l’ajuntament de Begur.",
+      "organisme": "Ajuntament de Begur",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 100877.53,
       "disciplines": [],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-06",
+      "data_pub": "2026-04-07",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/edce734f-b6e7-485a-be41-1c5dd0fb4fa9/300734903",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79342200",
+        "serveis de comunicació",
+        "CPV:79340000"
+      ],
+      "cpv": "79340000, 79342200",
+      "historial": [
+        {
+          "data": "2026-04-07",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19396084",
+      "titol": "Suministro material promocional (merchandising corporativo) personalizado con la marca turística GRAN CANARIA.",
+      "organisme": "Presidencia de Turismo de Gran Canaria",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": 69940.0,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-07",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=L67DRa7moZbLIx6q1oPaMg%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "material promocional",
+        "CPV:22462000"
+      ],
+      "cpv": "22462000",
+      "historial": [
+        {
+          "data": "2026-04-07",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18798257",
+      "titol": "Servei de maquetació gràfica i adaptació de documents en format digital accessible de la Memòria anual del Servei Català de la Salut.",
+      "organisme": "Servei Català de la Salut (CatSalut)",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 21104.6,
+      "disciplines": [
+        "editorial"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-07",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=901018",
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/c7792123-c30c-44d5-a7aa-cb812b493c0c/300740989",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79212000",
-        "servicios de diseño",
-        "CPV:79341200"
+        "CPV:79822500",
+        "maquetació"
       ],
-      "cpv": "79212000, 79341200, 79212400",
+      "cpv": "79822500",
       "historial": [
         {
-          "data": "2026-04-06",
+          "data": "2026-04-07",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19393578",
-      "titol": "Servicios de impresión publicitaria actividades de la AAIICC 2026",
-      "organisme": "Agencia Andaluza de Instituciones Culturales",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/6000603",
+      "titol": "contratación de un servicio de impresión de cartas, plegado,ensobrado y d",
+      "organisme": "Consejería de Agricultura, Pesca, Agua y Desarrollo Rural",
       "adjudicatari": "",
       "tipus": "Servicios",
       "pressupost": null,
@@ -45,21 +200,21 @@
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-06",
+      "data_pub": "2026-04-07",
       "data_limit": "",
-      "estat": "Vigente",
+      "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=939711",
+      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=000000224333",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79800000",
-        "servicios de impresión"
+        "impresión de",
+        "CPV:79824000"
       ],
-      "cpv": "79800000",
+      "cpv": "79824000",
       "historial": [
         {
-          "data": "2026-04-06",
-          "estat": "Vigente",
+          "data": "2026-04-07",
+          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
