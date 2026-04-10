@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-09T05:10:25Z",
+  "generated_at": "2026-04-10T05:26:01Z",
   "count": 2,
   "fetcher_version": "2.0",
   "data": [
@@ -22,8 +22,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=W3S3NF9%2F5%2Fk36J9Lctlsuw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "campaña de publicidad",
-        "CPV:79341400"
+        "CPV:79341400",
+        "campaña de publicidad"
       ],
       "cpv": "79341400",
       "historial": [
