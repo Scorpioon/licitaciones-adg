@@ -1,6 +1,228 @@
 {
-  "generated_at": "2026-04-15T05:24:59Z",
-  "count": 0,
+  "generated_at": "2026-04-16T05:31:52Z",
+  "count": 7,
   "fetcher_version": "2.0",
-  "data": []
+  "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19490905",
+      "titol": "L’objecte del contracte comprèn servei d’impressió, enquadernació i lliurament de la publicació turística “OH!Garrotxa, la guia” la prestació és integral comprèn els serveis necessaris per a la impressió i lliurament de la publicació, incloent la revisió tècnica prèvia dels arxius, la seva eventual adaptació al procés d’impressió, la impressió mitjançant el sistema més adequat segons les caracterí",
+      "organisme": "Consell Comarcal de la Garrotxa",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": 47739.45,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-15",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 42,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/6912293f-ec27-495a-bbb6-62c1f7be0c86/300747452",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:22100000",
+        "disseny gràfic",
+        "CPV:79810000",
+        "marca"
+      ],
+      "cpv": "79810000, 22100000, 79823000",
+      "historial": [
+        {
+          "data": "2026-04-15",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19490872",
+      "titol": "Servicio de diseño, maquetación, impresión y distribución de una revista mensual de información general y de la agenda cultural trimestral",
+      "organisme": "Ayuntamiento de Sopela-Alcaldía",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 101375.28,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-15",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso701955/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79800000",
+        "maquetación"
+      ],
+      "cpv": "79800000",
+      "historial": [
+        {
+          "data": "2026-04-15",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19383147",
+      "titol": "Servicios de diseño, creatividad, construcción, montaje, desmontaje, mantenimiento, traslado y almacenamiento del stand de Euskadi para diversas ferias agroalimentarias organizadas por el Gobierno Vasco y Fundación HAZI durante el segundo semestre de 2026 y los años 2027 y 2028.",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 975200.66,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-15",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso700976/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "servicios de diseño",
+        "CPV:79950000"
+      ],
+      "cpv": "79950000",
+      "historial": [
+        {
+          "data": "2026-04-15",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19490888",
+      "titol": "L’objecte del present contracte és la provisió d’un servei suport especialitzat en tres línies de projectes concrets del màrqueting digital d’ACCIÓ: \n•\tProjectes de mail màrqueting, amb una alta especialització en maquetació de continguts optimitzada per ser visualitzada i efectiva en programes de correu electrònic de qualsevol suport. \n•\tProjectes d’accessibilitat web i posicionament en cercadors",
+      "organisme": "Agència per a la Competitivitat de l’Empresa",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 345000.0,
+      "disciplines": [
+        "editorial",
+        "publicitat"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-15",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/9a4b276f-596c-4d30-b2b5-c1dcccb01dd5/300749107",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79340000",
+        "maquetació"
+      ],
+      "cpv": "79340000",
+      "historial": [
+        {
+          "data": "2026-04-15",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19352397",
+      "titol": "Contratación de los servicios de impresión, montaje, desmontaje y retirada de elementos, así como del suministro de diferentes soportes gráficos y de comunicación vinculados con la actividad de Fomento de San Sebastián, S.A.",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": 71052.11,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-15",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso700423/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "servicios de impresión",
+        "CPV:79810000"
+      ],
+      "cpv": "79810000",
+      "historial": [
+        {
+          "data": "2026-04-15",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19490889",
+      "titol": "Servei de distribució de material de comunicació de les activitats dels diferents departaments i serveis municipals dependents de l’Ajuntament de Vilanova i la Geltrú; en concret, aquest servei engloba tasques com l’enganxada de cartells, entrega de fullets, bustiades no nominatives, col·locació d’avisos d’anul·lació de parades d’autobús i col·locació dels avisos anomenats “Ajuntament informa”.",
+      "organisme": "Ajuntament de Vilanova i la Geltrú",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 39355.37,
+      "disciplines": [
+        "editorial"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-15",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/334674be-fd3f-4f93-a4f4-930116b2e71d/300748919",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79824000",
+        "CPV:79341400",
+        "fullets"
+      ],
+      "cpv": "79824000, 79341400",
+      "historial": [
+        {
+          "data": "2026-04-15",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19375425",
+      "titol": "contratación del servicio consistente en la impresión de publicaciones en diferentes idiomas y modelos.",
+      "organisme": "Empresa Pública para la Gestión del Turismo y el Deporte de Andalucía, S",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": null,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "AN",
+      "lloc": "Andalucía",
+      "data_pub": "2026-04-15",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=939393",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:22100000",
+        "impresión de"
+      ],
+      "cpv": "22100000",
+      "historial": [
+        {
+          "data": "2026-04-15",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    }
+  ]
 }
