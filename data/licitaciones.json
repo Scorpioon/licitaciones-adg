@@ -1,71 +1,8 @@
 {
-  "generated_at": "2026-04-18T05:07:33Z",
-  "count": 4,
+  "generated_at": "2026-04-19T05:30:05Z",
+  "count": 2,
   "fetcher_version": "2.0",
   "data": [
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19008873",
-      "titol": "Servicio de diseño, instalación y producción audiovisual así como, suministro del equipamiento técnico de sala inmersiva para la Fundación del Teatro Real, F.S.P.",
-      "organisme": "Dirección General de la Fundación del Teatro Real",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 104000.0,
-      "disciplines": [
-        "audiovisual"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-17",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=S1D7Eeub4XmKeVWTb9Scog%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "producción audiovisual",
-        "CPV:92000000"
-      ],
-      "cpv": "92000000",
-      "historial": [
-        {
-          "data": "2026-04-17",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19512121",
-      "titol": "El servicio objeto de contratación es la planificación y compra de espacios publicitarios en aeropuertos para la difusión de lacampaña publicitaria",
-      "organisme": "Dirección General de Emergencias de la Consejería de Política Territorial, Cohesión Territorial y Seguridad del Gobierno de Canarias",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 56074.0,
-      "disciplines": [
-        "publicitat"
-      ],
-      "ccaa": "CN",
-      "lloc": "Canarias",
-      "data_pub": "2026-04-17",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Y9YdaZFrnbi9Hd5zqvq9cg%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79341400",
-        "CPV:79340000",
-        "campaña publicitaria"
-      ],
-      "cpv": "79340000, 79341400, 79341100",
-      "historial": [
-        {
-          "data": "2026-04-17",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
     {
       "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19269880",
       "titol": "Contratación de los servicios de diseño, construcción, montaje, mantenimiento y desmontaje del stand de Euskadi Basque Country para la feria Food 4 Future 2026, incluyendo la creatividad, ejecución técnica, transporte y gestión integral del stand, conforme a los pliegos administrativos y técnicos.",
@@ -83,8 +20,8 @@
       "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso697107/es_doc/index.html",
       "font": "PLACSP-1044",
       "kw": [
-        "servicios de diseño",
-        "CPV:79950000"
+        "CPV:79950000",
+        "servicios de diseño"
       ],
       "cpv": "79950000",
       "historial": [
