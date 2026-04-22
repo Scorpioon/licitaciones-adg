@@ -1,70 +1,36 @@
 {
-  "generated_at": "2026-04-21T05:28:13Z",
-  "count": 10,
+  "generated_at": "2026-04-22T05:26:39Z",
+  "count": 11,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19076510",
-      "titol": "El servicio objeto del presente contrato consiste en la prestación de asistencia técnica integral para la creación deimagen institucional, diseño gráfico, maquetación y producción de soportes físicos (cartelería, papelería técnica,señalética de gran formato y material promocional) destinados a los Concursos Oficiales \"Agrocanarias 2026\"",
-      "organisme": "Instituto Canario de Calidad Agroalimentaria - ICCA",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/16815198",
+      "titol": "Servicios de diseño gráfico, maquetación y artefinalización de piezas de comunicación para el Palau de Les Arts \"Reina Sofía\"",
+      "organisme": "Dirección General de la Fundación Palau de Les Arts Reina Sofía",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 43230.7,
+      "pressupost": 60000.0,
       "disciplines": [
-        "editorial",
-        "senyaletica"
+        "editorial"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-20",
+      "data_pub": "2026-04-21",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 50,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=VKYOSAyrCtQS7pcxhTeWOg%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=cUsOAwwkXDHjHF5qKI4aaw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79822500",
+        "CPV:79415200",
         "diseño gráfico",
-        "CPV:79800000"
+        "CPV:79822500"
       ],
-      "cpv": "79800000, 79822500",
+      "cpv": "79415200, 79822500",
       "historial": [
         {
-          "data": "2026-04-20",
+          "data": "2026-04-21",
           "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19360700",
-      "titol": "Servicio de conceptualización, diseño, edición y maquetación de materiales de diseño gráfico para comunicación, marketing y publicidad de ICEX.",
-      "organisme": "Consejo de Administración de ICEX España Exportación e Inversiones, E",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 999860.0,
-      "disciplines": [
-        "editorial",
-        "publicitat"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-20",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 45,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=CJworrUS83PIGlsa0Wad%2Bw%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79340000",
-        "CPV:79822500",
-        "diseño gráfico"
-      ],
-      "cpv": "79822500, 79340000",
-      "historial": [
-        {
-          "data": "2026-04-20",
-          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
@@ -81,239 +47,297 @@
       ],
       "ccaa": "PV",
       "lloc": "País Vasco",
-      "data_pub": "2026-04-20",
+      "data_pub": "2026-04-21",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 45,
       "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso694375/es_doc/index.html",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79822500",
-        "diseño gráfico"
+        "diseño gráfico",
+        "CPV:79822500"
       ],
       "cpv": "79822500",
       "historial": [
         {
-          "data": "2026-04-20",
+          "data": "2026-04-21",
           "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19525543",
-      "titol": "Contratación del servicio de impresión de material serigrafiado (camisetas y gorras) con la mascota y los logotipos del Geoparque Mundial de la UNESCO Villuercas-Ibores-Jara para la Geoconvivencia 2026. Según  se especificará en el pliego.",
-      "organisme": "Presidencia de la Diputación Provincial de Cáceres",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19534060",
+      "titol": "Contratación de soportes y espacios de difusión de la imagen de la Diputación provincial de A Coruña en jornadas de juego, partidos, del primer equipo del Racing Club de Ferrol Sociedad Anónima Deportiva a través del lema “O deporte fainos grandes” junto al logotipo de la\r\ninstitución. Código Expediente PCO.001.2025.00567",
+      "organisme": "Presidencia de la Diputación Provincial de A Coruña",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 10000.0,
+      "pressupost": 206611.57,
       "disciplines": [
-        "branding",
-        "impressio"
+        "branding"
       ],
-      "ccaa": "EX",
-      "lloc": "Extremadura",
-      "data_pub": "2026-04-20",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 45,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=SD3yknQZZ%2B14zIRvjBVCSw%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79800000",
-        "logotipo"
-      ],
-      "cpv": "79800000",
-      "historial": [
-        {
-          "data": "2026-04-20",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18882836",
-      "titol": "Diseño, maquetación, edición e impresión en formato digital y papel de las publicaciones de la Institución del Ararteko y su posterior distribución.",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 148812.0,
-      "disciplines": [
-        "editorial",
-        "impressio"
-      ],
-      "ccaa": "PV",
-      "lloc": "País Vasco",
-      "data_pub": "2026-04-20",
+      "ccaa": "GA",
+      "lloc": "Galicia",
+      "data_pub": "2026-04-21",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 40,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso672691/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:79822500",
-        "maquetación"
-      ],
-      "cpv": "79822500",
-      "historial": [
-        {
-          "data": "2026-04-20",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19525533",
-      "titol": "Prórroga del expediente 252908PAS002 - Servicio de apoyo técnico para la Secretaría General de Consumo y Juego en materia de planificación de la estrategia de comunicación, creación de contenido audiovisual, infografías y diseños, y manejo de perfiles de redes sociales",
-      "organisme": "Subdirección General de la Oficina Presupuestaria y Gestión Económica",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 34800.0,
-      "disciplines": [
-        "editorial"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-20",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 40,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=2QlsXzaFP6R%2FP7lJ7Fu0SA%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=NWMjMdaXwKTzAq95uGTrDQ%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "infografía",
+        "logotipo",
         "CPV:79341000"
       ],
       "cpv": "79341000",
       "historial": [
         {
-          "data": "2026-04-20",
+          "data": "2026-04-21",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19352421",
-      "titol": "L’objecte de la present contractació és la prestació dels serveis d’impressió i lliurament de l’agenda d’activitats mensual, el programa de la Festa Major de la Minerva i el butlletí municipal de l’Ajuntament de Calella.\nL’execució del contracte consisteix en la impressió i lliurament dels treballs objecte d’aquesta contractació d’acord amb les característiques tècniques indicades i recollides en ",
-      "organisme": "Ajuntament de Calella",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19534070",
+      "titol": "Contratación de soportes y espacios de difusión de la imagen de la Diputación provincial de A Coruña en jornadas de juego, partidos, del primer equipo del Club Basquet Coruña Sociedad Anónima Deportiva a través del lema “O deporte fainos grandes” junto al logotipo de la\r\ninstitución. Código Expediente PCO.001.2025.00566",
+      "organisme": "Presidencia de la Diputación Provincial de A Coruña",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 35850.0,
+      "pressupost": 123966.94,
       "disciplines": [
-        "editorial",
+        "branding"
+      ],
+      "ccaa": "GA",
+      "lloc": "Galicia",
+      "data_pub": "2026-04-21",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=%2BDXLpq3Wv1tVkTabT%2FRM8A%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "logotipo",
+        "CPV:79341000"
+      ],
+      "cpv": "79341000",
+      "historial": [
+        {
+          "data": "2026-04-21",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19534080",
+      "titol": "Contratación de soportes y espacios de difusión de la imagen de la Diputación provincial de A Coruña en jornadas de juego, partidos, del primer equipo del Obradoiro Club de Amigos del Baloncesto Sociedad Anónima Deportiva a través del lema “O deporte fainos grandes”\r\njunto al logotipo de la institución. Código Expediente PCO.001.2025.00565",
+      "organisme": "Presidencia de la Diputación Provincial de A Coruña",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 123966.94,
+      "disciplines": [
+        "branding"
+      ],
+      "ccaa": "GA",
+      "lloc": "Galicia",
+      "data_pub": "2026-04-21",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=cHQ7Zr0xJpgadbH3CysQuQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "logotipo",
+        "CPV:79341000"
+      ],
+      "cpv": "79341000",
+      "historial": [
+        {
+          "data": "2026-04-21",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/17942125",
+      "titol": "Servicio de seguridad integral en las instalaciones y dependencias del centro de producción audiovisual Gran Canaria Platós.",
+      "organisme": "Consejo de Administración de la Sociedad de Promoción Económica de Gran Canaria, S",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 229339.86,
+      "disciplines": [
+        "audiovisual",
+        "publicitat"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-21",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=3BVoXNzgIcnN3k3tjedSGw%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79710000",
+        "producción audiovisual"
+      ],
+      "cpv": "79710000",
+      "historial": [
+        {
+          "data": "2026-04-21",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19111332",
+      "titol": "Servicio de campaña de comunicación sobre la recogida separada de la fracción orgánica y el uso del quinto contenedor para el ayuntamiento de Jerez de la Frontera. \"Plan de Recuperación, Transformación y Resiliencia - financiado por la Unión Europea – Nextgeneration EU",
+      "organisme": "Junta de Gobierno Local del Ayuntamiento de Jerez",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 49342.98,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-21",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=WeTakECI1Wg7u6%2B%2FR7DUoA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79341200",
+        "campaña de comunicación",
+        "CPV:79341400"
+      ],
+      "cpv": "79341400, 79341200, 79341000",
+      "historial": [
+        {
+          "data": "2026-04-21",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19371191",
+      "titol": "Servicios de diseño, producción, realización, grabación y emisión en streaming para dos galas del Organismo Autónomo Municipal Fundación Deportiva Municipal.",
+      "organisme": "Presidencia de la Fundación Deportiva Municipal de València",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 39952.0,
+      "disciplines": [],
+      "ccaa": "VC",
+      "lloc": "C. Valenciana",
+      "data_pub": "2026-04-21",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=05XYqobfKP9LAIVZdUs8KA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:92370000",
+        "servicios de diseño"
+      ],
+      "cpv": "64228100, 51100000, 92370000",
+      "historial": [
+        {
+          "data": "2026-04-21",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19430353",
+      "titol": "Servicio de compra de espacios en medios de comunicación y demás soportes publicitarios para la difusión de la campaña de publicidad institucional denominada \"Actualizada de la Confederación Hidrográfica del Cantábrico\" (2026)",
+      "organisme": "Presidencia de la Confederación Hidrográfica del Cantábrico",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 35500.0,
+      "disciplines": [
+        "publicitat"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-21",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=iYH%2B4%2F2QqdgwYTJJ03sHog%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79341400",
+        "campaña de publicidad"
+      ],
+      "cpv": "79341400",
+      "historial": [
+        {
+          "data": "2026-04-21",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19347133",
+      "titol": "Servicios de diseño, construcción, montaje, desmontaje, equipamiento y servicios asociados de un stand para la presencia de CASA 47 en el Salón inmobiliario SIMA 2026.",
+      "organisme": "Consejo Rector de CASA 47 Entidad Pública Empresarial",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 30482.0,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-21",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=RzR3D%2Ft4PXZLAIVZdUs8KA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79950000",
+        "servicios de diseño"
+      ],
+      "cpv": "79950000",
+      "historial": [
+        {
+          "data": "2026-04-21",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19100904",
+      "titol": "Suministro e impresión de la agenda municipal del Ayuntamiento de Yaiza",
+      "organisme": "Alcaldía del Ayuntamiento de Yaiza",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": 22091.55,
+      "disciplines": [
         "impressio"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-20",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/ca84c69d-83aa-4774-ada3-9a4b02fba819/300753159",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:79810000",
-        "maquetació"
-      ],
-      "cpv": "79810000",
-      "historial": [
-        {
-          "data": "2026-04-20",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19261767",
-      "titol": "En data 13 de setembre de 2024 el COPATE va presentar una sol·licitud de subvenció directa a càrrec del Fons de Transició Nuclear (FTN), en la qual es van presentar dues propostes independents: el Pla d’actuacions per impulsar la Reserva de la Biosfera de les Terres de l’Ebre, i l’Smart Rural Ebreterritori – Electromobilitat.\nPosteriorment, el 23 de desembre de 2024, el Govern autoritza la concess",
-      "organisme": "Consorci de Polítiques Ambientals de les Terres de l'Ebre (COPATE)",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 34976.48,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-20",
+      "data_pub": "2026-04-21",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/55c22c6e-b6d4-410c-a7b7-7ed488067bbe/300752890",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:79933000",
-        "CPV:79930000",
-        "pla de comunicació"
-      ],
-      "cpv": "79933000, 79930000",
-      "historial": [
-        {
-          "data": "2026-04-20",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19525549",
-      "titol": "Realizar una campaña de publicidad en la emisora  Cadena Cope y Cadena 100 para la programación del Área de Promoción Cultural de la Diputación Provincial de Cáceres.",
-      "organisme": "Presidencia de la Diputación Provincial de Cáceres",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 11542.44,
-      "disciplines": [
-        "publicitat"
-      ],
-      "ccaa": "EX",
-      "lloc": "Extremadura",
-      "data_pub": "2026-04-20",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=y0QJDgJVN2d9PLkba5eRog%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=7xUA7NNxVhDE6P%2FuLemXRw%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "campaña de publicidad",
-        "CPV:79340000"
+        "impresión de",
+        "CPV:22000000",
+        "CPV:79823000"
       ],
-      "cpv": "79340000",
+      "cpv": "22000000, 79823000, 22900000",
       "historial": [
         {
-          "data": "2026-04-20",
+          "data": "2026-04-21",
           "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19347352",
-      "titol": "Servicios de comunicación digital y gestión integral de redes sociales de la Carrera 10K Alboraya contra el Cáncer",
-      "organisme": "Junta de Gobierno del Ayuntamiento de Alboraya",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 7851.24,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-20",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=D7GqEiZ%2BkhNVYjgxA4nMUw%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79340000",
-        "CPV:79341400",
-        "servicios de comunicación"
-      ],
-      "cpv": "79340000, 72413000, 79341400",
-      "historial": [
-        {
-          "data": "2026-04-20",
-          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
