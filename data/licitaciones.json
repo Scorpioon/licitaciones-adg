@@ -1,125 +1,67 @@
 {
-  "generated_at": "2026-04-23T05:31:18Z",
-  "count": 4,
+  "generated_at": "2026-04-24T05:36:02Z",
+  "count": 2,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19017220",
-      "titol": "Servicio de impartición de determinadas acciones formativas Lote 1: Cursos de edición de imagenes, diseño y maquetación y Lote 2: Cursos de diseño gráfico animado y de edición de video para el personal laboral de la sociedad mercantil municipal Madrid Destino, Cultura, Turismo y Negocio S.A.",
-      "organisme": "Madrid Destino Cultura Turismo y Negocio, S",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18868642",
+      "titol": "És objecte del Plec la contractació dels serveis professionals de gestió integral del butlletí municipal, que comprenen: consultoria, i assessorament de continguts, gestió, coordinació, redacció, maquetació i impressió, concretament:\n\n• Servei de consultoria\n• Assessorament de continguts\n• Establiment i manteniment de dinàmica interna per a la producció i difusió de\nnotícies municipals\n• Seguiment",
+      "organisme": "Ajuntament de Sant Vicenç de Montalt",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 16480.21,
+      "pressupost": 44000.0,
       "disciplines": [
-        "editorial"
-      ],
-      "ccaa": "MD",
-      "lloc": "Madrid",
-      "data_pub": "2026-04-22",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 50,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=n7drgoqipJkeIBJRHQiPkQ%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "diseño gráfico",
-        "CPV:79632000"
-      ],
-      "cpv": "79632000",
-      "historial": [
-        {
-          "data": "2026-04-22",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19542440",
-      "titol": "Servicios de impresión, ensobrado y transporte a las oficinas de Correos de los sobres correspondientes al primer envío del voto CERA para las elecciones al Parlamento de Andalucía de 17 de mayo de 2026 de los electores incluidos en los consulados con 500 electores o más, de las provincias de Almería, Cádiz, Córdoba, Granada, Málaga y Sevilla",
-      "organisme": "Instituto Nacional de Estadística INE",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 117642.0,
-      "disciplines": [
+        "editorial",
         "impressio"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-22",
+      "data_pub": "2026-04-23",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=C0qjxgiJUl0UqXM96WStVA%3D%3D",
-      "font": "PLACSP-643",
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e8f34d87-9078-488e-924b-eed395143964/300756844",
+      "font": "PLACSP-1044",
       "kw": [
-        "CPV:79824000",
-        "servicios de impresión"
+        "maquetació",
+        "CPV:79970000",
+        "CPV:92400000"
       ],
-      "cpv": "79824000, 30199230, 30199710",
+      "cpv": "79970000, 92400000, 79800000",
       "historial": [
         {
-          "data": "2026-04-22",
+          "data": "2026-04-23",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19371191",
-      "titol": "Servicios de diseño, producción, realización, grabación y emisión en streaming para dos galas del Organismo Autónomo Municipal Fundación Deportiva Municipal.",
-      "organisme": "Presidencia de la Fundación Deportiva Municipal de València",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19375425",
+      "titol": "contratación del servicio consistente en la impresión de publicaciones en diferentes idiomas y modelos.",
+      "organisme": "Empresa Pública para la Gestión del Turismo y el Deporte de Andalucía, S",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 39952.0,
-      "disciplines": [],
-      "ccaa": "VC",
-      "lloc": "C. Valenciana",
-      "data_pub": "2026-04-22",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=05XYqobfKP9LAIVZdUs8KA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "servicios de diseño",
-        "CPV:92370000"
-      ],
-      "cpv": "64228100, 51100000, 92370000",
-      "historial": [
-        {
-          "data": "2026-04-22",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19430353",
-      "titol": "Servicio de compra de espacios en medios de comunicación y demás soportes publicitarios para la difusión de la campaña de publicidad institucional denominada \"Actualizada de la Confederación Hidrográfica del Cantábrico\" (2026)",
-      "organisme": "Presidencia de la Confederación Hidrográfica del Cantábrico",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 35500.0,
+      "pressupost": null,
       "disciplines": [
-        "publicitat"
+        "impressio"
       ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-04-22",
+      "ccaa": "AN",
+      "lloc": "Andalucía",
+      "data_pub": "2026-04-23",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=iYH%2B4%2F2QqdgwYTJJ03sHog%3D%3D",
-      "font": "PLACSP-643",
+      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=939393",
+      "font": "PLACSP-1044",
       "kw": [
-        "campaña de publicidad",
-        "CPV:79341400"
+        "impresión de",
+        "CPV:22100000"
       ],
-      "cpv": "79341400",
+      "cpv": "22100000",
       "historial": [
         {
-          "data": "2026-04-22",
+          "data": "2026-04-23",
           "estat": "Vigente",
           "nota": "Publicación"
         }
