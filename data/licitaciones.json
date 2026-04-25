@@ -1,67 +1,311 @@
 {
-  "generated_at": "2026-04-24T05:36:02Z",
-  "count": 2,
+  "generated_at": "2026-04-25T05:12:30Z",
+  "count": 10,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18868642",
-      "titol": "És objecte del Plec la contractació dels serveis professionals de gestió integral del butlletí municipal, que comprenen: consultoria, i assessorament de continguts, gestió, coordinació, redacció, maquetació i impressió, concretament:\n\n• Servei de consultoria\n• Assessorament de continguts\n• Establiment i manteniment de dinàmica interna per a la producció i difusió de\nnotícies municipals\n• Seguiment",
-      "organisme": "Ajuntament de Sant Vicenç de Montalt",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/17235417",
+      "titol": "Servei de disseny gràfic i maquetació per al desenvolupament de materials editorials i comunicatius vinculats a l’activitat del Gran Teatre del Liceu.",
+      "organisme": "Fundació del Gran Teatre del Liceu",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 44000.0,
+      "pressupost": 77900.0,
       "disciplines": [
-        "editorial",
-        "impressio"
+        "editorial"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-04-23",
+      "data_pub": "2026-04-24",
       "data_limit": "",
       "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e8f34d87-9078-488e-924b-eed395143964/300756844",
+      "rellevancia": 40,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/fbb79a0f-0550-472e-8fa1-4d76f598a408/300752652",
       "font": "PLACSP-1044",
       "kw": [
-        "maquetació",
-        "CPV:79970000",
-        "CPV:92400000"
+        "CPV:79822500",
+        "disseny gràfic"
       ],
-      "cpv": "79970000, 92400000, 79800000",
+      "cpv": "79822500",
       "historial": [
         {
-          "data": "2026-04-23",
+          "data": "2026-04-24",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19375425",
-      "titol": "contratación del servicio consistente en la impresión de publicaciones en diferentes idiomas y modelos.",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19116537",
+      "titol": "Serveis per dur a terme la producció audiovisual de la Sala 0 (espai d’acollida), de la Sala 2 final (sala immersiva) i de la producció sonora de la planta baixa, corresponent al Projecte de Museogràfic de l’Adoberia de Cal Granotes (Museu de la Pell d’Igualada i Comarcal de l’Anoia) finançat per la Unió Europea – Next Generation EU, en el Marc del Pla de Recuperació, Transformació i Resiliència",
+      "organisme": "Ajuntament d'Igualada",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 82050.5,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e259f0db-76e5-4bf9-ac6e-8291b71ba0f3/300757830",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:92100000",
+        "producció audiovisual"
+      ],
+      "cpv": "92100000",
+      "historial": [
+        {
+          "data": "2026-04-24",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19386870",
+      "titol": "Servei permanent de producció audiovisual i fotografies adreçat als usuaris de l'Hospital Universitari Vall d'Hebron",
+      "organisme": "ICS - Gerència de compres",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 69421.48,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/a4aff17d-f06e-45fc-bed3-9746abcfb25b/300758028",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79961300",
+        "producció audiovisual"
+      ],
+      "cpv": "79961300",
+      "historial": [
+        {
+          "data": "2026-04-24",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19279551",
+      "titol": "servicios de diseño, promoción y desarrollo de una agenda \nde eventos y actividades para la promoción del consumo de proximidad en los territorios \nturísticos rurales MADRURAL",
+      "organisme": "Presidente de la Asociación de Desarrollo Sierra de Guadarrama",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 58480.05,
+      "disciplines": [
+        "publicitat"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=1eu3vfuC4UeExvMJXBMHHQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "servicios de diseño",
+        "CPV:79950000",
+        "CPV:79952100"
+      ],
+      "cpv": "79950000, 79952100",
+      "historial": [
+        {
+          "data": "2026-04-24",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19472511",
+      "titol": "Contractació del servei de preimpressió, impressió, manipulació, empaquetat, transport i si s’escau, emmagatzematge, instal·lació i retirada del material comunicatiu per a la difusió dels programes formatius i/o la marca de la Fundació Institut de Formació Contínua de la Universitat de Barcelona (IL3-UB)",
+      "organisme": "Fundació Privada Institut de Formació Contínua de la Universitat de Barcelona (IL3-UB)(M",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 49620.5,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/374075b6-d441-47fd-a808-294b456f6122/300758072",
+      "font": "PLACSP-1044",
+      "kw": [
+        "material comunicatiu",
+        "CPV:79920000",
+        "CPV:79800000"
+      ],
+      "cpv": "79800000, 79920000",
+      "historial": [
+        {
+          "data": "2026-04-24",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/18169308",
+      "titol": "Prestación de servicios de diseño, construcción, montaje y desmontaje y transporte de materiales del stand del port de Barcelona para la feria breakbulk europe, edición 2026”",
+      "organisme": "Presidencia del Consejo de Administración de la Autoridad Portuaria de Barcelona (PORT DE BARCELONA)",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 43000.0,
+      "disciplines": [],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=XsiCf4dRaXXjHF5qKI4aaw%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "servicios de diseño",
+        "CPV:79950000"
+      ],
+      "cpv": "79950000",
+      "historial": [
+        {
+          "data": "2026-04-24",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19561977",
+      "titol": "Servei de maquetació, impressió, enquadernació dels calendaris de sobretaula de l'Ajuntament de les Franqueses del Vallès",
+      "organisme": "Ajuntament de les Franqueses del Vallès",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 7055.0,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/75202216-7f89-4d4d-bdd3-0719ca2bcf12/300756567",
+      "font": "PLACSP-1044",
+      "kw": [
+        "maquetació",
+        "CPV:79824000"
+      ],
+      "cpv": "79824000",
+      "historial": [
+        {
+          "data": "2026-04-24",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19562014",
+      "titol": "suministro de material promocional para la san diego comic-con málaga 2026",
       "organisme": "Empresa Pública para la Gestión del Turismo y el Deporte de Andalucía, S",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": null,
+      "disciplines": [],
+      "ccaa": "AN",
+      "lloc": "Andalucía",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=945887",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:22462000",
+        "material promocional"
+      ],
+      "cpv": "22462000",
+      "historial": [
+        {
+          "data": "2026-04-24",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19562018",
+      "titol": "cbam 27, lote 8, am 639/2022, actualización y unificación del sistema de señalética e información visual según el manual de identidad corporativa del sas en el hospital\r\ncomarcal de baza, ute instalaciones y mantenimiento de gestiones energéticas, s.a. y salas durán construcciones, s.l.",
+      "organisme": "Servicio Andaluz de Salud",
       "adjudicatari": "",
       "tipus": "Servicios",
       "pressupost": null,
       "disciplines": [
-        "impressio"
+        "branding",
+        "senyaletica"
       ],
-      "ccaa": "AN",
-      "lloc": "Andalucía",
-      "data_pub": "2026-04-23",
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-24",
       "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=939393",
+      "estat": "Adjudicado",
+      "rellevancia": 25,
+      "url": "https://www.juntadeandalucia.es/haciendayadministracionpublica/apl/pdc_sirec/perfiles-licitaciones/detalle-licitacion.jsf?idExpediente=939912",
       "font": "PLACSP-1044",
       "kw": [
-        "impresión de",
-        "CPV:22100000"
+        "identidad corporativa"
       ],
-      "cpv": "22100000",
+      "cpv": "45200000",
       "historial": [
         {
-          "data": "2026-04-23",
+          "data": "2026-04-24",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19125433",
+      "titol": "(AS-59/2025) Servicio de mantenimiento técnico, funcional i gráfico, así como de mejora y maquetación del conjunto de webs municipales del ayuntamiento de Hospitalet de Llobregat utilizando el gestor de contenidos (CMS) de desarrollo propio GAIA",
+      "organisme": "Ajuntament de l'Hospitalet de Llobregat",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 137203.5,
+      "disciplines": [
+        "editorial"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-24",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 20,
+      "url": "https://contractaciopublica.cat/es/detall-publicacio/2eb8a4bf-a091-4eda-afe9-fc942556bf4c/300746834",
+      "font": "PLACSP-1044",
+      "kw": [
+        "maquetación"
+      ],
+      "cpv": "72413000",
+      "historial": [
+        {
+          "data": "2026-04-24",
           "estat": "Vigente",
           "nota": "Publicación"
         }
