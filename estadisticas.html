@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- estadisticas.html | 0.4.3c Mar 2026 | Role: Statistics dashboard + Barometro | Scripts: app.js shared.js estadisticas.js | CHANGELOG: 0.4.3c Mar 2026 -- sidebar in .main, quarter filter, rail redesign -->
+<!-- ADG Plataforma Digital -- estadisticas.html | 0.4.3k Apr 2026 | Role: Statistics dashboard + Barometro | Scripts: app.js shared.js estadisticas.js | CHANGELOG: 0.4.3k Apr 2026 -- runtime version badge hook (data-adg-version) -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -57,6 +57,7 @@
         <button class="sh-toggle__btn" data-view="baro" data-i18n="sw_barometro">Barometro</button>
       </div>
     </div>
+    <button class="sv-lf-toggle" id="sv-lf-toggle" aria-expanded="false" aria-controls="sv-lf"><i class="bi bi-sliders"></i><span>Filtros</span><i class="bi bi-chevron-down sv-lf-toggle-chevron"></i></button>
     <nav class="sv-lf" id="sv-lf" aria-label="Filtros">
 
       <div class="sv-lf-group">
@@ -173,7 +174,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span>b4.0</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.4.3k</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
