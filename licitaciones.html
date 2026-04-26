@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- licitaciones.html | 0.4.3k Apr 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.4.3k Apr 2026 -- runtime version badge hook (data-adg-version) -->
+<!-- ADG Plataforma Digital -- licitaciones.html | 0.4.3l Apr 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.4.3l Apr 2026 -- responsive shell: lic-page + lic-main scoped mobile page-scroll contract -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="./style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
-<body>
+<body class="lic-page">
 <div class="shell-top">
   <div class="ticker" aria-hidden="true">
     <div class="ticker-track">
@@ -124,7 +124,7 @@
   <div class="notice" id="notice"><i class="bi bi-check-circle-fill" style="color:var(--s-ok);font-size:13px"></i><span id="notice-text"></span></div>
 </div>
 
-<main class="main">
+<main class="main lic-main">
   <div class="list-col" id="list-col">
     <table id="main-table">
       <thead><tr>
