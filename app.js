@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.4.3k -- Apr 2026
+ * 0.4.3l -- Apr 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,7 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.4.3l Apr 2026  Version bump for licitaciones responsive shell lane.
  * 0.4.3k Apr 2026  Shared runtime version constant ADG.version; initShared syncs [data-adg-version] nodes.
  * b4.0  Mar 2026  Added I18N keys for shared components (FichaPanel,
  *                 TrafficLight, ToggleSwitch, AlertasStub, Alertas nav).
@@ -310,7 +311,7 @@ ADG.generatedAt = null;
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.4.3k';
+ADG.version = '0.4.3l';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);

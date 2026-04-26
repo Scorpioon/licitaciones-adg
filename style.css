@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- style.css
- * 0.4.3f -- Apr 2026
+ * 0.4.3l -- Apr 2026
  * Role: Shared styles for all pages.
  *       Sections: tokens, shell, header, nav, stats-strip, filters,
  *       table, detail panel, pagination, modal, footer, home, responsive,
@@ -9,6 +9,10 @@
  *              ToggleSwitch, AlertasStub).
  *
  * CHANGELOG (newest first)
+ * 0.4.3l Apr 2026  Licitaciones responsive shell: body.lic-page height:auto + min-height:100vh at <=860px; .lic-main flex:none. Scoped to licitaciones only.
+ * 0.4.3j Apr 2026  Licitaciones detail panel: overflow:hidden on .detail-col.open.
+ * 0.4.3i Apr 2026  Licitaciones shell fix: list-col min-height:0.
+ * 0.4.3h Apr 2026  Mobile rail collapse: toggle button; collapsed default at <=768px; JS class toggle.
  * 0.4.3f Apr 2026  Rail desktop fix: cancel old sv-lf bleed; spacing; sep rule; pill override.
  * 0.4.3e Apr 2026  Desktop shell fix: sv-layout fills .main; sv-main flex column; baro-page scroll.
  * 0.4.3c Mar 2026  Sidebar in .main shell; quarter filter; rail redesign.
@@ -168,7 +172,7 @@ i.bi { font-style:normal; line-height:1; display:inline-flex; align-items:center
 .notice.show { display:flex; }
 
 /* ─── TABLE ───────────────────────────────────────────────────────────────── */
-.list-col { flex:1; min-width:0; position:relative; overflow-y:auto; overflow-x:auto; border-right:1px solid var(--border2); }
+.list-col { flex:1; min-width:0; min-height:0; position:relative; overflow-y:auto; overflow-x:auto; border-right:1px solid var(--border2); }
 table { width:100%; border-collapse:collapse; }
 thead th { position:sticky; top:0; z-index:3; font-size:7.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--text3); font-weight:400; padding:7px 10px; text-align:left; background:var(--bg2); border-bottom:1px solid var(--border2); white-space:nowrap; user-select:none; }
 thead th:first-child { padding-left:20px; }
@@ -243,7 +247,7 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 
 /* ─── DETAIL PANEL ────────────────────────────────────────────────────────── */
 .detail-col { width:520px; flex-shrink:0; overflow-y:auto; display:none; animation:slide-in .14s ease; border-left:1px solid var(--border2); }
-.detail-col.open { display:flex; flex-direction:column; }
+.detail-col.open { display:flex; flex-direction:column; overflow:hidden; }
 @keyframes slide-in { from { opacity:0; transform:translateX(8px); } }
 .dp-head { padding:10px 14px; border-bottom:1px solid var(--border2); background:var(--bg2); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; position:sticky; top:0; z-index:2; }
 .dp-eyebrow { font-size:7.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); }
@@ -452,6 +456,7 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 @media (max-width:1100px) { .sv-grid { grid-template-columns:1fr 1fr; } }
 @media (max-width:900px)  { .header { flex-wrap:wrap; row-gap:6px; } .htbtn span { display:none; } .htbtn { padding:0 9px; } .nav-tab span { display:none; } }
 @media (max-width:860px)  { .sv-bignums { grid-template-columns:1fr 1fr; } .sv-grid { grid-template-columns:1fr; } .detail-col { display:none!important; } .main { flex-direction:column; height:auto; overflow:visible; } .list-col { height:auto; overflow:visible; } }
+@media (max-width:860px)  { body.lic-page { height:auto; min-height:100vh; } body.lic-page .lic-main { flex:none; } }
 @media (max-width:800px)  { td:nth-child(4),th:nth-child(4) { display:none; } }
 @media (max-width:640px)  { td:nth-child(3),th:nth-child(3),td:nth-child(6),th:nth-child(6) { display:none; } .adj-wrap { display:none; } .home-grid { grid-template-columns:1fr; } }
 @media (max-width:600px)  { .sv-lf { padding:10px 14px; } .sv-summary { padding:6px 14px; } .sv-body { padding:14px 14px 30px; } .home-hero-title { font-size:18px; } }
@@ -692,4 +697,5 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sv-summary { font-size:8px; color:var(--text3); line-height:1.65; border-top:1px solid var(--border3); padding:10px 0 0; border-bottom:none; background:transparent; }
 .sv-lf-sep { height:1px; background:var(--border3); margin:4px 0; }
 .sv-lf .pill { padding:3px 9px; }
-@media (max-width:768px) { .sv-layout { flex-direction:column; } .sv-sidebar { width:100%; max-height:none; position:static; border-right:none; border-bottom:1px solid var(--border2); } .sv-main { padding:14px 16px; } }
+.sv-lf-toggle { display:none; } /* 0.4.3h: hidden at desktop */
+@media (max-width:768px) { .sv-layout { flex-direction:column; } .sv-sidebar { width:100%; max-height:none; position:static; border-right:none; border-bottom:1px solid var(--border2); } .sv-main { padding:14px 16px; } .sv-lf-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:8px 10px; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text2); cursor:pointer; } .sv-lf-toggle-chevron { margin-left:auto; transition:transform .2s; font-size:10px; } .sv-sidebar.sv-lf--open .sv-lf-toggle-chevron { transform:rotate(180deg); } .sv-lf { display:none; } .sv-sidebar.sv-lf--open .sv-lf { display:flex; } }
