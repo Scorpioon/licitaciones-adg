@@ -1,6 +1,129 @@
 {
-  "generated_at": "2026-04-27T05:55:40Z",
-  "count": 0,
+  "generated_at": "2026-04-28T06:08:06Z",
+  "count": 4,
   "fetcher_version": "2.0",
-  "data": []
+  "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19574639",
+      "titol": "Contrato de servicios de asistencia a trabajos de diseño, redacción, maquetación, edición e impresión del Boletín Informativo Municipal Bidezarra y de gestión de las Redes Sociales del Ayuntamiento del Valle de Elorz / Elortzibarko Udada",
+      "organisme": "Ayuntamiento del Valle de Elorz",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 39950.0,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-28",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 45,
+      "url": "https://hacienda.navarra.es/sicpportal/mtoAnunciosModalidad.aspx?cod=260427132640A0801A12",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79800000",
+        "CPV:79416000",
+        "maquetación"
+      ],
+      "cpv": "79416000, 79800000, 72413000",
+      "historial": [
+        {
+          "data": "2026-04-28",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19239564",
+      "titol": "Licitación para la contratación de los servicios de diseño gráfico, creatividad e imagen corporativa para la Fundación Donostia International Physics Center.",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 51398.5,
+      "disciplines": [
+        "branding"
+      ],
+      "ccaa": "PV",
+      "lloc": "País Vasco",
+      "data_pub": "2026-04-27",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 45,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso694375/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "diseño gráfico",
+        "CPV:79822500"
+      ],
+      "cpv": "79822500",
+      "historial": [
+        {
+          "data": "2026-04-27",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19207424",
+      "titol": "Servicio de producción gráfica y audiovisual para el Consejo Superior de Deportes.",
+      "organisme": "Presidencia del Consejo Superior de Deportes",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 304060.35,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-27",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TgTRsH1Fa6OExvMJXBMHHQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:92100000",
+        "producción gráfica"
+      ],
+      "cpv": "92100000",
+      "historial": [
+        {
+          "data": "2026-04-27",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18938259",
+      "titol": "Prestació dels serveis de comunicació i gestió de xarxes socials de l’Ajuntament d’Hostalric. Les principals tasques a desenvolupar es troben detallades en el Plec de prescripcions tècniques.",
+      "organisme": "Ajuntament d'Hostalric",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 16500.0,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-27",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e477b028-270e-4207-b883-b1fa4867977d/300751292",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79342200",
+        "serveis de comunicació"
+      ],
+      "cpv": "79342200",
+      "historial": [
+        {
+          "data": "2026-04-27",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    }
+  ]
 }
