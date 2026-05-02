@@ -1,6 +1,136 @@
 {
-  "generated_at": "2026-05-01T06:16:57Z",
-  "count": 0,
+  "generated_at": "2026-05-02T05:38:13Z",
+  "count": 4,
   "fetcher_version": "2.0",
-  "data": []
+  "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19490872",
+      "titol": "Servicio de diseño, maquetación, impresión y distribución de una revista mensual de información general y de la agenda cultural trimestral",
+      "organisme": "Ayuntamiento de Sopela-Alcaldía",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 101375.28,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-01",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso701955/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79800000",
+        "maquetación"
+      ],
+      "cpv": "79800000",
+      "historial": [
+        {
+          "data": "2026-05-01",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19192387",
+      "titol": "L'objecte d'aquesta licitació és un contracte mixt que comprèn el subministrament, la impressió digital, la instal·lació i el desmuntatge de diversos elements de senyalística i retolació per als centres de la UOC. La prestació principal consisteix en el subministrament dels materials, essent la instal·lació una prestació accessòria i instrumental.",
+      "organisme": "Fundació per a la Universitat Oberta de Catalunya",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": 65100.0,
+      "disciplines": [
+        "impressio",
+        "senyaletica"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-04-30",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e569d894-0009-462b-a900-119e677c9bbc/300763376",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79811000",
+        "retolació",
+        "CPV:79810000"
+      ],
+      "cpv": "79810000, 34928470, 45300000",
+      "historial": [
+        {
+          "data": "2026-04-30",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19472511",
+      "titol": "Contractació del servei de preimpressió, impressió, manipulació, empaquetat, transport i si s’escau, emmagatzematge, instal·lació i retirada del material comunicatiu per a la difusió dels programes formatius i/o la marca de la Fundació Institut de Formació Contínua de la Universitat de Barcelona (IL3-UB)",
+      "organisme": "Fundació Privada Institut de Formació Contínua de la Universitat de Barcelona (IL3-UB)(M",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 49620.5,
+      "disciplines": [
+        "impressio"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-04-30",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/374075b6-d441-47fd-a808-294b456f6122/300763700",
+      "font": "PLACSP-1044",
+      "kw": [
+        "material comunicatiu",
+        "CPV:79800000",
+        "CPV:79920000"
+      ],
+      "cpv": "79800000, 79920000",
+      "historial": [
+        {
+          "data": "2026-04-30",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19352421",
+      "titol": "L’objecte de la present contractació és la prestació dels serveis d’impressió i lliurament de l’agenda d’activitats mensual, el programa de la Festa Major de la Minerva i el butlletí municipal de l’Ajuntament de Calella.\nL’execució del contracte consisteix en la impressió i lliurament dels treballs objecte d’aquesta contractació d’acord amb les característiques tècniques indicades i recollides en ",
+      "organisme": "Ajuntament de Calella",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 35850.0,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-04-30",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/ca84c69d-83aa-4774-ada3-9a4b02fba819/300763425",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79810000",
+        "maquetació"
+      ],
+      "cpv": "79810000",
+      "historial": [
+        {
+          "data": "2026-04-30",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    }
+  ]
 }
