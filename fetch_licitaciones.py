@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# b4.0 -- Mar 2026
+# 0.4.4c -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.4c May 2026  load_previous() hard-fail safety fix: abort on corrupt output JSON instead of returning empty dict.
 # b4.0  Mar 2026  Header updated. Fetch path bug fix and multi-stage
 #                 pipeline pending (Phase 7).
 # v2.0  Mar 2026  Incremental merge, ZIP support, enrichment, progress bar.
@@ -637,8 +638,8 @@ def load_previous(path: Path) -> dict:
             raw = json.load(f)
         items = raw if isinstance(raw, list) else raw.get("data", [])
         return {item["id"]: item for item in items if "id" in item}
-    except Exception:
-        return {}
+    except Exception as e:
+        sys.exit(f"[FATAL] No se puede leer {path}: {e}\nHaz backup y verifica el JSON antes de continuar.")
 
 
 def make_history_entry(date_str: str, estat: str, nota: str) -> dict:
