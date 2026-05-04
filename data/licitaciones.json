@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-03T06:05:59Z",
+  "generated_at": "2026-05-04T06:14:29Z",
   "count": 1,
   "fetcher_version": "2.0",
   "data": [
@@ -24,8 +24,8 @@
       "font": "PLACSP-643",
       "kw": [
         "CPV:79810000",
-        "maquetación",
-        "CPV:79820000"
+        "CPV:79820000",
+        "maquetación"
       ],
       "cpv": "79820000, 79810000",
       "historial": [
