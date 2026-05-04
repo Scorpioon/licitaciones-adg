@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.4c -- May 2026
+# 0.4.4d -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.4d May 2026  Progress telemetry: ETA, rejected counts per source, merge new/updated/preserved stats, --quiet/--no-progress flags.
 # 0.4.4c May 2026  load_previous() hard-fail safety fix: abort on corrupt output JSON instead of returning empty dict.
 # b4.0  Mar 2026  Header updated. Fetch path bug fix and multi-stage
 #                 pipeline pending (Phase 7).
@@ -184,6 +185,9 @@ _BOILERPLATE_FRAGS = [
     "objeto del contrato", "plazo de ejecución", "criterios de adjudicación",
 ]
 
+_QUIET = False        # set by --quiet in main()
+_NO_PROGRESS = False  # set by --no-progress in main()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PROGRESS HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -208,6 +212,20 @@ def elapsed(start: float) -> str:
     if s < 60:
         return f"{s:.1f}s"
     return f"{int(s//60)}m {int(s%60)}s"
+
+
+def eta(current: int, total: int, start: float) -> str:
+    """Estimated time remaining, or '—' when total unknown or no progress yet."""
+    if current <= 0 or total <= 0 or current >= total:
+        return "—"
+    elapsed_s = time.time() - start
+    rate = current / elapsed_s if elapsed_s > 0 else 0
+    if rate <= 0:
+        return "—"
+    remaining = (total - current) / rate
+    if remaining < 60:
+        return f"{remaining:.0f}s"
+    return f"{int(remaining//60)}m {int(remaining%60)}s"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -646,8 +664,10 @@ def make_history_entry(date_str: str, estat: str, nota: str) -> dict:
     return {"data": date_str, "estat": estat, "nota": nota}
 
 
-def merge_master(new_items: list, previous: dict, today: str) -> list:
+def merge_master(new_items: list, previous: dict, today: str) -> tuple:
     merged = dict(previous)
+    new_count = 0
+    updated_count = 0
 
     for item in new_items:
         iid = item["id"]
@@ -677,13 +697,17 @@ def merge_master(new_items: list, previous: dict, today: str) -> list:
 
             item["historial"] = historial
             merged[iid] = item
+            updated_count += 1
         else:
             item["historial"] = [
                 make_history_entry(item.get("data_pub", today), item.get("estat", "Vigente"), "Publicación")
             ]
             merged[iid] = item
+            new_count += 1
 
-    return list(merged.values())
+    preserved_count = len(previous) - updated_count
+    stats = {"new": new_count, "updated": updated_count, "preserved": preserved_count}
+    return list(merged.values()), stats
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -783,8 +807,9 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     while url and pages_done < max_pages:
-        page_label = f"p{pages_done + 1}" if max_pages > 1 else ""
-        pprint(f"    {url[:90]}{'…' if len(url) > 90 else ''} {page_label}")
+        if not _QUIET:
+            page_label = f"p{pages_done + 1}" if max_pages > 1 else ""
+            pprint(f"    {url[:90]}{'…' if len(url) > 90 else ''} {page_label}")
 
         try:
             r = session.get(url, timeout=TIMEOUT)
@@ -805,15 +830,17 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
             break
 
         entries = parse_atom_entries(root)
-        pprint(f"    → {len(entries)} entries")
+        if not _QUIET:
+            pprint(f"    → {len(entries)} entries")
 
         page_results, discarded = _process_entries(entries, src_ccaa, name, seen_ids, today, min_score)
-        dup_info = f" dup={discarded['dup']}" if discarded["dup"] else ""
-        pprint(
-            f"    → {len(page_results)} relevantes | "
-            f"gate={discarded['title_gate']} score={discarded['low_score']} "
-            f"notitle={discarded['no_title']}{dup_info}"
-        )
+        if not _QUIET:
+            dup_info = f" dup={discarded['dup']}" if discarded["dup"] else ""
+            pprint(
+                f"    → {len(page_results)} relevantes | "
+                f"gate={discarded['title_gate']} score={discarded['low_score']} "
+                f"notitle={discarded['no_title']}{dup_info}"
+            )
 
         all_results.extend(page_results)
         pages_done += 1
@@ -822,8 +849,8 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
         if url and pages_done < max_pages:
             time.sleep(0.4)
 
-    if pages_done > 1:
-        pprint(f"    ── {pages_done} páginas, {len(all_results)} relevantes en total")
+    if pages_done > 1 or _QUIET:
+        pprint(f"    ── {pages_done} página(s), {len(all_results)} relevantes en total")
 
     return all_results
 
@@ -847,6 +874,7 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
     today       = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     processed_atom = 0
     processed_zip_members = 0
+    total_rejected = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
 
     # ── .atom sueltos ──────────────────────────────────────────────────────
     if atom_files:
@@ -855,16 +883,19 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
             try:
                 root = ET.parse(atom_file).getroot()
                 entries = parse_atom_entries(root)
-                page_results, _ = _process_entries(entries, None, "LOCAL", seen_ids, today, min_score)
+                page_results, discarded = _process_entries(entries, None, "LOCAL", seen_ids, today, min_score)
                 all_results.extend(page_results)
+                for k in total_rejected:
+                    total_rejected[k] += discarded[k]
                 processed_atom += 1
             except ET.ParseError as e:
                 pprint(f"    [!] XML parse error en {atom_file.name}: {e}")
             except Exception as e:
                 pprint(f"    [!] error en {atom_file.name}: {e}")
 
-            if i % 100 == 0 or i == len(atom_files):
-                pprint(progress_bar(i, len(atom_files), prefix=f"    .atom: ") + f"  [{elapsed(t_start)}]")
+            if not _QUIET and (i % 100 == 0 or i == len(atom_files)):
+                bar = progress_bar(i, len(atom_files), prefix="    .atom: ")
+                pprint(f"{bar}  [{elapsed(t_start)} / ETA {eta(i, len(atom_files), t_start)}]")
 
     # ── ZIPs ───────────────────────────────────────────────────────────────
     for zip_idx, zip_path in enumerate(zip_files, 1):
@@ -874,38 +905,56 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
                 pprint(f"\n    [{zip_idx}/{len(zip_files)}] {zip_path.name}: {len(atom_names)} .atom")
 
                 zip_relevant_before = len(all_results)
+                zip_rejected = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
 
                 for i, member in enumerate(atom_names, 1):
                     try:
                         with zf.open(member) as fh:
                             root = ET.parse(BytesIO(fh.read())).getroot()
                         entries = parse_atom_entries(root)
-                        page_results, _ = _process_entries(entries, None, "LOCAL-ZIP", seen_ids, today, min_score)
+                        page_results, discarded = _process_entries(entries, None, "LOCAL-ZIP", seen_ids, today, min_score)
                         all_results.extend(page_results)
                         processed_zip_members += 1
+                        for k in zip_rejected:
+                            zip_rejected[k] += discarded[k]
+                            total_rejected[k] += discarded[k]
                     except ET.ParseError:
                         pass
                     except Exception as e:
                         pprint(f"    [!] {Path(member).name}: {e}")
 
-                    # Actualizar barra cada 10 atoms o al final
-                    if i % 10 == 0 or i == len(atom_names):
+                    if not _QUIET and (i % 10 == 0 or i == len(atom_names)):
                         encontrados = len(all_results) - zip_relevant_before
-                        pprint(
-                            progress_bar(i, len(atom_names), prefix="      ") +
-                            f"  {encontrados} relevantes  [{elapsed(t_start)}]",
-                            end="\r"
-                        )
+                        gate = zip_rejected["title_gate"]
+                        score = zip_rejected["low_score"]
+                        bar = progress_bar(i, len(atom_names), prefix="      ")
+                        line = (f"{bar}  {encontrados} rel  "
+                                f"gate={gate} score={score}  "
+                                f"[{elapsed(t_start)} / ETA {eta(i, len(atom_names), t_start)}]")
+                        if _NO_PROGRESS:
+                            pprint(line)
+                        else:
+                            pprint(line, end="\r")
 
-                pprint("")  # newline
+                if not _QUIET:
+                    pprint("")  # newline after \r bar
                 zip_relevant = len(all_results) - zip_relevant_before
-                pprint(f"    ✓ {zip_path.name}: {zip_relevant} relevantes")
+                gate = zip_rejected["title_gate"]
+                score = zip_rejected["low_score"]
+                notitle = zip_rejected["no_title"]
+                pprint(f"    ✓ {zip_path.name}: {zip_relevant} relevantes | "
+                       f"gate={gate} score={score} notitle={notitle}  [{elapsed(t_start)}]")
 
         except Exception as e:
             pprint(f"    [!] No se pudo abrir {zip_path.name}: {e}")
 
+    gate_t = total_rejected["title_gate"]
+    score_t = total_rejected["low_score"]
+    notitle_t = total_rejected["no_title"]
+    dup_t = total_rejected["dup"]
     pprint(f"\n    ── local: {processed_atom} .atom sueltos + {processed_zip_members} .atom en ZIP")
-    pprint(f"    ── local: {len(all_results)} relevantes en total  [{elapsed(t_start)}]")
+    pprint(f"    ── local: {len(all_results)} relevantes  [{elapsed(t_start)}]")
+    pprint(f"    ── rechazados: gate={gate_t} score={score_t} notitle={notitle_t} dup={dup_t}")
     return all_results
 
 
@@ -935,15 +984,24 @@ def main():
     ap.add_argument("--stats",     action="store_true", help="Solo estadísticas, no guardar.")
     ap.add_argument("--max-items", type=int, default=MAX_ITEMS_DEFAULT,
                     help="Límite del maestro (0 = sin límite, default: 0).")
+    ap.add_argument("--quiet",       action="store_true", help="Minimal output: phase labels + final stats only.")
+    ap.add_argument("--no-progress", action="store_true", help="No \\r bars; plain log output for CI/pipe.")
     args = ap.parse_args()
+
+    global _QUIET, _NO_PROGRESS
+    _QUIET = args.quiet
+    _NO_PROGRESS = args.no_progress
 
     t_start = time.time()
     today   = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     out_path = Path(args.output)
+    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    mode = "ZIP_BACKFILL" if args.local_dir else "LIVE_FEED"
 
     pprint(f"\n{'═'*60}")
-    pprint(f"  ADG Licitaciones Fetcher v2.0")
+    pprint(f"  ADG Licitaciones Fetcher v2.0  [run: {run_id}]")
+    pprint(f"  Mode: {mode}")
     pprint(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
     pprint(f"  Min score:  {args.min_score}  |  Páginas: {args.pages}")
     pprint(f"  Enrich:     {'SÍ (lento)' if args.enrich else 'NO'}")
@@ -974,8 +1032,11 @@ def main():
         key = item["id"]
         if key not in dedup_new or item["rellevancia"] > dedup_new[key]["rellevancia"]:
             dedup_new[key] = item
+    dedup_removed = len(all_new_items) - len(dedup_new)
+    if dedup_removed:
+        pprint(f"  → {dedup_removed} duplicados eliminados en esta corrida → {len(dedup_new)} únicos")
 
-    merged = merge_master(list(dedup_new.values()), previous, today)
+    merged, merge_stats = merge_master(list(dedup_new.values()), previous, today)
 
     if args.enrich:
         pprint("\n  ── Enriqueciendo adjudicatarios (--enrich) ──")
@@ -997,6 +1058,9 @@ def main():
 
     pprint(f"\n{'─'*50}")
     pprint(f"  Items finales:      {len(merged)}")
+    pprint(f"  Nuevos:             {merge_stats['new']}")
+    pprint(f"  Actualizados:       {merge_stats['updated']}")
+    pprint(f"  Preservados:        {merge_stats['preserved']}")
     pprint(f"  Vigentes:           {vigentes}")
     pprint(f"  Adjudicados:        {adjudicados}")
     pprint(f"  Con presupuesto:    {con_ppto} ({100 * con_ppto // max(len(merged), 1)}%)")
