@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.4d -- May 2026
+# 0.4.4e -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.4e May 2026  Smoke controls: --max-local-atoms early parser cap; compact \r bar (≤74 chars); --no-progress blank-line fix.
 # 0.4.4d May 2026  Progress telemetry: ETA, rejected counts per source, merge new/updated/preserved stats, --quiet/--no-progress flags.
 # 0.4.4c May 2026  load_previous() hard-fail safety fix: abort on corrupt output JSON instead of returning empty dict.
 # b4.0  Mar 2026  Header updated. Fetch path bug fix and multi-stage
@@ -859,7 +860,8 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
 # FETCH: LOCAL (atoms sueltos + ZIPs)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
+def fetch_local_dir(local_dir: Path, min_score: int, t_start: float,
+                    max_local_atoms: int = 0) -> list:
     pprint(f"  ↓ LOCAL  [{local_dir}]")
     if not local_dir.exists():
         pprint("    [!] La carpeta no existe")
@@ -875,6 +877,8 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
     processed_atom = 0
     processed_zip_members = 0
     total_rejected = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
+    atoms_done  = 0
+    cap_reached = False
 
     # ── .atom sueltos ──────────────────────────────────────────────────────
     if atom_files:
@@ -893,60 +897,77 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
             except Exception as e:
                 pprint(f"    [!] error en {atom_file.name}: {e}")
 
+            atoms_done += 1
             if not _QUIET and (i % 100 == 0 or i == len(atom_files)):
                 bar = progress_bar(i, len(atom_files), prefix="    .atom: ")
-                pprint(f"{bar}  [{elapsed(t_start)} / ETA {eta(i, len(atom_files), t_start)}]")
+                pprint(f"{bar}  [{elapsed(t_start)}/ETA {eta(i, len(atom_files), t_start)}]")
+
+            if max_local_atoms > 0 and atoms_done >= max_local_atoms:
+                cap_reached = True
+                break
 
     # ── ZIPs ───────────────────────────────────────────────────────────────
-    for zip_idx, zip_path in enumerate(zip_files, 1):
-        try:
-            with zipfile.ZipFile(zip_path) as zf:
-                atom_names = [n for n in zf.namelist() if n.lower().endswith(".atom")]
-                pprint(f"\n    [{zip_idx}/{len(zip_files)}] {zip_path.name}: {len(atom_names)} .atom")
+    if not cap_reached:
+        for zip_idx, zip_path in enumerate(zip_files, 1):
+            try:
+                with zipfile.ZipFile(zip_path) as zf:
+                    atom_names = [n for n in zf.namelist() if n.lower().endswith(".atom")]
+                    pprint(f"\n    [{zip_idx}/{len(zip_files)}] {zip_path.name}: {len(atom_names)} .atom")
 
-                zip_relevant_before = len(all_results)
-                zip_rejected = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
+                    zip_relevant_before = len(all_results)
+                    zip_rejected = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
 
-                for i, member in enumerate(atom_names, 1):
-                    try:
-                        with zf.open(member) as fh:
-                            root = ET.parse(BytesIO(fh.read())).getroot()
-                        entries = parse_atom_entries(root)
-                        page_results, discarded = _process_entries(entries, None, "LOCAL-ZIP", seen_ids, today, min_score)
-                        all_results.extend(page_results)
-                        processed_zip_members += 1
-                        for k in zip_rejected:
-                            zip_rejected[k] += discarded[k]
-                            total_rejected[k] += discarded[k]
-                    except ET.ParseError:
-                        pass
-                    except Exception as e:
-                        pprint(f"    [!] {Path(member).name}: {e}")
+                    for i, member in enumerate(atom_names, 1):
+                        try:
+                            with zf.open(member) as fh:
+                                root = ET.parse(BytesIO(fh.read())).getroot()
+                            entries = parse_atom_entries(root)
+                            page_results, discarded = _process_entries(entries, None, "LOCAL-ZIP", seen_ids, today, min_score)
+                            all_results.extend(page_results)
+                            processed_zip_members += 1
+                            for k in zip_rejected:
+                                zip_rejected[k] += discarded[k]
+                                total_rejected[k] += discarded[k]
+                        except ET.ParseError:
+                            pass
+                        except Exception as e:
+                            pprint(f"    [!] {Path(member).name}: {e}")
 
-                    if not _QUIET and (i % 10 == 0 or i == len(atom_names)):
-                        encontrados = len(all_results) - zip_relevant_before
-                        gate = zip_rejected["title_gate"]
-                        score = zip_rejected["low_score"]
-                        bar = progress_bar(i, len(atom_names), prefix="      ")
-                        line = (f"{bar}  {encontrados} rel  "
-                                f"gate={gate} score={score}  "
-                                f"[{elapsed(t_start)} / ETA {eta(i, len(atom_names), t_start)}]")
-                        if _NO_PROGRESS:
-                            pprint(line)
-                        else:
-                            pprint(line, end="\r")
+                        atoms_done += 1
 
-                if not _QUIET:
-                    pprint("")  # newline after \r bar
-                zip_relevant = len(all_results) - zip_relevant_before
-                gate = zip_rejected["title_gate"]
-                score = zip_rejected["low_score"]
-                notitle = zip_rejected["no_title"]
-                pprint(f"    ✓ {zip_path.name}: {zip_relevant} relevantes | "
-                       f"gate={gate} score={score} notitle={notitle}  [{elapsed(t_start)}]")
+                        if not _QUIET and (i % 10 == 0 or i == len(atom_names)):
+                            encontrados = len(all_results) - zip_relevant_before
+                            gate = zip_rejected["title_gate"]
+                            score = zip_rejected["low_score"]
+                            pct = int(100 * i / len(atom_names)) if atom_names else 0
+                            filled = int(16 * i / len(atom_names)) if atom_names else 0
+                            bar_str = "█" * filled + "░" * (16 - filled)
+                            line = (f"    [{bar_str}] {pct}%"
+                                    f"  rel={encontrados} gt={gate} sc={score}"
+                                    f"  [{elapsed(t_start)}/ETA {eta(i, len(atom_names), t_start)}]")
+                            if _NO_PROGRESS:
+                                pprint(line)
+                            else:
+                                pprint(line, end="\r")
 
-        except Exception as e:
-            pprint(f"    [!] No se pudo abrir {zip_path.name}: {e}")
+                        if max_local_atoms > 0 and atoms_done >= max_local_atoms:
+                            cap_reached = True
+                            break  # inner member loop; cap message printed in final summary
+
+                    if not _QUIET and not _NO_PROGRESS:
+                        pprint("")  # newline after \r bar
+                    zip_relevant = len(all_results) - zip_relevant_before
+                    gate = zip_rejected["title_gate"]
+                    score = zip_rejected["low_score"]
+                    notitle = zip_rejected["no_title"]
+                    pprint(f"    ✓ {zip_path.name}: {zip_relevant} relevantes | "
+                           f"gate={gate} score={score} notitle={notitle}  [{elapsed(t_start)}]")
+
+                    if cap_reached:
+                        break  # outer ZIP loop; cap message printed in final summary
+
+            except Exception as e:
+                pprint(f"    [!] No se pudo abrir {zip_path.name}: {e}")
 
     gate_t = total_rejected["title_gate"]
     score_t = total_rejected["low_score"]
@@ -955,6 +976,8 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float) -> list:
     pprint(f"\n    ── local: {processed_atom} .atom sueltos + {processed_zip_members} .atom en ZIP")
     pprint(f"    ── local: {len(all_results)} relevantes  [{elapsed(t_start)}]")
     pprint(f"    ── rechazados: gate={gate_t} score={score_t} notitle={notitle_t} dup={dup_t}")
+    if cap_reached:
+        pprint(f"    [cap] Detenido tras {atoms_done} .atom (--max-local-atoms {max_local_atoms})")
     return all_results
 
 
@@ -984,8 +1007,10 @@ def main():
     ap.add_argument("--stats",     action="store_true", help="Solo estadísticas, no guardar.")
     ap.add_argument("--max-items", type=int, default=MAX_ITEMS_DEFAULT,
                     help="Límite del maestro (0 = sin límite, default: 0).")
-    ap.add_argument("--quiet",       action="store_true", help="Minimal output: phase labels + final stats only.")
-    ap.add_argument("--no-progress", action="store_true", help="No \\r bars; plain log output for CI/pipe.")
+    ap.add_argument("--quiet",            action="store_true", help="Minimal output: phase labels + final stats only.")
+    ap.add_argument("--no-progress",      action="store_true", help="No \\r bars; plain log output for CI/pipe.")
+    ap.add_argument("--max-local-atoms",  type=int, default=0,
+                    help="Stop local .atom processing after N files (smoke test only, 0 = no cap).")
     args = ap.parse_args()
 
     global _QUIET, _NO_PROGRESS
@@ -1007,6 +1032,8 @@ def main():
     pprint(f"  Enrich:     {'SÍ (lento)' if args.enrich else 'NO'}")
     pprint(f"  Local dir:  {args.local_dir or 'NO'}")
     pprint(f"  Max items:  {'sin límite' if not args.max_items else args.max_items}")
+    if args.max_local_atoms:
+        pprint(f"  Atom cap:   {args.max_local_atoms} .atom (smoke, --max-local-atoms)")
     pprint(f"  Output:     {out_path}")
     pprint(f"{'═'*60}\n")
 
@@ -1016,7 +1043,8 @@ def main():
     all_new_items = []
 
     if args.local_dir:
-        all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score, t_start))
+        all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score, t_start,
+                                              max_local_atoms=args.max_local_atoms))
         pprint("")
         session = build_session() if args.enrich else None
     else:
