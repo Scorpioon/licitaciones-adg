@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.4.3m -- Apr 2026
+ * 0.4.3n -- Apr 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,7 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.4.3n Apr 2026  Version bump for stats/barometro responsive scroll lane.
  * 0.4.3m Apr 2026  Version bump for licitaciones detail internal-scroll lane.
  * 0.4.3l Apr 2026  Version bump for licitaciones responsive shell lane.
  * 0.4.3k Apr 2026  Shared runtime version constant ADG.version; initShared syncs [data-adg-version] nodes.
@@ -312,7 +313,7 @@ ADG.generatedAt = null;
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.4.3m';
+ADG.version = '0.4.3n';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
