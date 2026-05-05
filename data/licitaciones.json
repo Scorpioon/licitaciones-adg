@@ -1,8 +1,102 @@
 {
-  "generated_at": "2026-05-04T06:14:29Z",
-  "count": 1,
+  "generated_at": "2026-05-05T05:44:24Z",
+  "count": 4,
   "fetcher_version": "2.0",
   "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19399517",
+      "titol": "Licitació per a la contractació dels serveis de comunicació digital, gestió i dinamització de les xarxes socialsde l’ajuntament de Begur.",
+      "organisme": "Ajuntament de Begur",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 100877.53,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-04",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/edce734f-b6e7-485a-be41-1c5dd0fb4fa9/300764860",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79342200",
+        "CPV:79340000",
+        "serveis de comunicació"
+      ],
+      "cpv": "79340000, 79342200",
+      "historial": [
+        {
+          "data": "2026-05-04",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18815647",
+      "titol": "Contractació dels serveis d'assistència tècnica per a la comunicació corporativa de 2026, és a dir el desenvolupament i el manteniment de la pàgina web (www.medwaves-centre.org), el disseny i maquetació de diferents materials de comunicació, la gestió i l'edició de les xarxes socials així com l'assessorament de l'estratègia de comunicació per les campanyes del Centre.",
+      "organisme": "Agència de Residus de Catalunya",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 93100.0,
+      "disciplines": [
+        "editorial",
+        "web"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-05-04",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/d64e94cb-e879-4f10-820e-34d77d5e4520/300764826",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79340000",
+        "maquetació",
+        "CPV:79822500"
+      ],
+      "cpv": "79340000, 72212224, 79822500",
+      "historial": [
+        {
+          "data": "2026-05-04",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19116537",
+      "titol": "Serveis per dur a terme la producció audiovisual de la Sala 0 (espai d’acollida), de la Sala 2 final (sala immersiva) i de la producció sonora de la planta baixa, corresponent al Projecte de Museogràfic de l’Adoberia de Cal Granotes (Museu de la Pell d’Igualada i Comarcal de l’Anoia) finançat per la Unió Europea – Next Generation EU, en el Marc del Pla de Recuperació, Transformació i Resiliència",
+      "organisme": "Ajuntament d'Igualada",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 82050.5,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-04",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e259f0db-76e5-4bf9-ac6e-8291b71ba0f3/300765076",
+      "font": "PLACSP-1044",
+      "kw": [
+        "producció audiovisual",
+        "CPV:92100000"
+      ],
+      "cpv": "92100000",
+      "historial": [
+        {
+          "data": "2026-05-04",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
     {
       "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19607418",
       "titol": "La prestación de los servicios de maquetación y de impresión y manipulación de las colecciones y revistas de la IFC y de los Centros asociados",
@@ -23,9 +117,9 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=p6IpOZjQKN%2B9Hd5zqvq9cg%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79810000",
+        "maquetación",
         "CPV:79820000",
-        "maquetación"
+        "CPV:79810000"
       ],
       "cpv": "79820000, 79810000",
       "historial": [
