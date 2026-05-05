@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.4e -- May 2026
+# 0.4.4g -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.4g May 2026  UBL extractor fix: ubl_find_text() resolves ContractFolderStatus root; TypeCode -> tipus.
+# 0.4.4f May 2026  (audit + diagnostic only -- no code changes).
 # 0.4.4e May 2026  Smoke controls: --max-local-atoms early parser cap; compact \r bar (≤74 chars); --no-progress blank-line fix.
 # 0.4.4d May 2026  Progress telemetry: ETA, rejected counts per source, merge new/updated/preserved stats, --quiet/--no-progress flags.
 # 0.4.4c May 2026  load_previous() hard-fail safety fix: abort on corrupt output JSON instead of returning empty dict.
@@ -334,6 +336,12 @@ def _local(tag: str) -> str:
 
 
 def ubl_find_text(entry, *local_path: str) -> str:
+    ubl_root = entry
+    for child in entry:
+        if "contractfolderstatus" in _local(child.tag).lower():
+            ubl_root = child
+            break
+
     def _walk(el, path, depth=0):
         if depth >= len(path):
             return (el.text or "").strip()
@@ -344,7 +352,7 @@ def ubl_find_text(entry, *local_path: str) -> str:
                 if result:
                     return result
         return ""
-    return _walk(entry, [p.lower() for p in local_path])
+    return _walk(ubl_root, [p.lower() for p in local_path])
 
 
 def extract_winning_party_xml(entry) -> str:
@@ -432,6 +440,8 @@ _STATUS_CODES = {
     "ADJ": "Adjudicado", "RES": "Adjudicado", "FOR": "Adjudicado",
     "ANU": "Desierta", "DES": "Desierta", "SUS": "Desierta", "ANUL": "Desierta",
 }
+
+_CONTRACT_TYPES = {"1": "Suministros", "2": "Servicios", "3": "Obras"}
 
 
 def extract_estat_xml(entry) -> str:
@@ -764,7 +774,10 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
 
             item_ccaa = detect_ccaa(src_ccaa, organisme, content)
             lloc = TERR.get(item_ccaa, "")
-            tipus = "Suministros" if re.search(r"\bsuministro\b|\bsubministrament\b", norm(titulo)) else "Servicios"
+            _tc = ubl_find_text(entry, "ProcurementProject", "TypeCode")
+            tipus = _CONTRACT_TYPES.get(_tc) or (
+                "Suministros" if re.search(r"\bsuministro\b|\bsubministrament\b", norm(titulo)) else "Servicios"
+            )
 
             page_results.append({
                 "id": item_id[:120],
