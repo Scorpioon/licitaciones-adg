@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.4.4g -- May 2026
+ * 0.4.4i -- May 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,8 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.4.4i May 2026  Version bump for fetcher estat_raw provenance field.
+ * 0.4.4h May 2026  (status/date semantics audit only -- no code changes).
  * 0.4.4g May 2026  Version bump for UBL extractor fix + TypeCode -> tipus lane.
  * 0.4.4f May 2026  (audit + diagnostic only -- no code changes).
  * 0.4.4e May 2026  Version bump for fetcher smoke controls + PowerShell readability lane.
@@ -319,7 +321,7 @@ ADG.generatedAt = null;
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.4.4g';
+ADG.version = '0.4.4i';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
