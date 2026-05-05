@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.4g -- May 2026
+# 0.4.4i -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.4i May 2026  Add estat_raw provenance field preserving raw ContractFolderStatusCode for future status semantics.
+# 0.4.4h May 2026  (status/date semantics audit only -- no code changes).
 # 0.4.4g May 2026  UBL extractor fix: ubl_find_text() resolves ContractFolderStatus root; TypeCode -> tipus.
 # 0.4.4f May 2026  (audit + diagnostic only -- no code changes).
 # 0.4.4e May 2026  Smoke controls: --max-local-atoms early parser cap; compact \r bar (≤74 chars); --no-progress blank-line fix.
@@ -459,6 +461,13 @@ def extract_estat_xml(entry) -> str:
     return ""
 
 
+def extract_estat_raw_xml(entry) -> str:
+    for el in entry.iter():
+        if _local(el.tag) == "ContractFolderStatusCode":
+            return (el.text or "").strip().upper()
+    return ""
+
+
 def parse_atom_entries(root):
     entries = root.findall(f"{{{NS_ATOM}}}entry")
     if entries:
@@ -765,6 +774,7 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
             pressupost = extract_budget_xml(entry) or extract_budget(content)
             fecha_limit = extract_deadline_xml(entry) or extract_deadline(content)
             estat = extract_estat_xml(entry) or extract_estat(content)
+            estat_raw = extract_estat_raw_xml(entry)
             adjudicatari = extract_winning_party_xml(entry) if estat == "Adjudicado" else ""
 
             score, discs, kws = score_item(titulo, content, cpv_codes, min_score)
@@ -792,6 +802,7 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
                 "data_pub": fecha_pub,
                 "data_limit": fecha_limit,
                 "estat": estat,
+                "estat_raw": estat_raw,
                 "rellevancia": score,
                 "url": url_item[:300],
                 "font": source_name,
