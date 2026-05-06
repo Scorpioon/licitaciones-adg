@@ -1,130 +1,282 @@
 {
-  "generated_at": "2026-05-05T05:44:24Z",
-  "count": 4,
+  "generated_at": "2026-05-06T06:06:22Z",
+  "count": 9,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19399517",
-      "titol": "Licitació per a la contractació dels serveis de comunicació digital, gestió i dinamització de les xarxes socialsde l’ajuntament de Begur.",
-      "organisme": "Ajuntament de Begur",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19529743",
+      "titol": "Material promocional para la difusión de las acciones de Formación Profesional, promovidas por la Dirección General de Educación Secundaria, Formación Profesional y Régimen Especial de la Consejería de Educación, Ciencia y universidades",
+      "organisme": "Consejería de Educación, Ciencia y Universidades",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 100877.53,
+      "pressupost": 28766.02,
       "disciplines": [],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-05-04",
+      "data_pub": "2026-05-06",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/edce734f-b6e7-485a-be41-1c5dd0fb4fa9/300764860",
+      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/material-promocional-difusion-acciones-formacion-profesional-promovidas-direccion",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79342200",
-        "CPV:79340000",
-        "serveis de comunicació"
+        "material promocional",
+        "CPV:22462000"
       ],
-      "cpv": "79340000, 79342200",
+      "cpv": "22462000",
       "historial": [
         {
-          "data": "2026-05-04",
+          "data": "2026-05-06",
           "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18815647",
-      "titol": "Contractació dels serveis d'assistència tècnica per a la comunicació corporativa de 2026, és a dir el desenvolupament i el manteniment de la pàgina web (www.medwaves-centre.org), el disseny i maquetació de diferents materials de comunicació, la gestió i l'edició de les xarxes socials així com l'assessorament de l'estratègia de comunicació per les campanyes del Centre.",
-      "organisme": "Agència de Residus de Catalunya",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19337441",
+      "titol": "Servicios de redacción, maquetación e impresión de la revista Alberic Informa BIM",
+      "organisme": "Alcaldía del Ayuntamiento de Alberic",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 93100.0,
-      "disciplines": [
-        "editorial",
-        "web"
-      ],
-      "ccaa": "CT",
-      "lloc": "Catalunya",
-      "data_pub": "2026-05-04",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/d64e94cb-e879-4f10-820e-34d77d5e4520/300764826",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:79340000",
-        "maquetació",
-        "CPV:79822500"
-      ],
-      "cpv": "79340000, 72212224, 79822500",
-      "historial": [
-        {
-          "data": "2026-05-04",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19116537",
-      "titol": "Serveis per dur a terme la producció audiovisual de la Sala 0 (espai d’acollida), de la Sala 2 final (sala immersiva) i de la producció sonora de la planta baixa, corresponent al Projecte de Museogràfic de l’Adoberia de Cal Granotes (Museu de la Pell d’Igualada i Comarcal de l’Anoia) finançat per la Unió Europea – Next Generation EU, en el Marc del Pla de Recuperació, Transformació i Resiliència",
-      "organisme": "Ajuntament d'Igualada",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 82050.5,
-      "disciplines": [
-        "audiovisual"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-04",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e259f0db-76e5-4bf9-ac6e-8291b71ba0f3/300765076",
-      "font": "PLACSP-1044",
-      "kw": [
-        "producció audiovisual",
-        "CPV:92100000"
-      ],
-      "cpv": "92100000",
-      "historial": [
-        {
-          "data": "2026-05-04",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19607418",
-      "titol": "La prestación de los servicios de maquetación y de impresión y manipulación de las colecciones y revistas de la IFC y de los Centros asociados",
-      "organisme": "Institución Fernando el Católico",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 1403652.4,
+      "pressupost": 20610.8,
       "disciplines": [
         "editorial",
         "impressio"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-05-02",
+      "data_pub": "2026-05-05",
       "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=p6IpOZjQKN%2B9Hd5zqvq9cg%3D%3D",
+      "estat": "Adjudicado",
+      "rellevancia": 45,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=FifkJJiAYhl%2FR5QFTlaM4A%3D%3D",
       "font": "PLACSP-643",
       "kw": [
         "maquetación",
-        "CPV:79820000",
-        "CPV:79810000"
+        "CPV:79824000",
+        "CPV:79970000"
       ],
-      "cpv": "79820000, 79810000",
+      "cpv": "79970000, 79824000, 79800000",
       "historial": [
         {
-          "data": "2026-05-02",
+          "data": "2026-05-05",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19472551",
+      "titol": "Servicio integral de creación de contenidos, diseño, maquetación, impresión y distribución de una revista comarcal de Montaña Alavesa incluyendo formato digital, página Web, redes sociales y comunicación externa",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 161983.46,
+      "disciplines": [
+        "editorial",
+        "impressio",
+        "web"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-05",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso704450/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "maquetación",
+        "CPV:79970000"
+      ],
+      "cpv": "79970000",
+      "historial": [
+        {
+          "data": "2026-05-05",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/17603322",
+      "titol": "servicio de apoyo en la cobertura de eventos y su organización, servicio de creatividad y diseño gráfico, actualización de contenidos de páginas web, creación de contenidos audiovisuales y realización de eventos en directo.",
+      "organisme": "Dirección General de Comunicación, Diplomacia Pública y Redes",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 325856.62,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-05",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 39,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=QjxzWgH4VzEeC9GJQOEBkQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "comunicación",
+        "diseño gráfico",
+        "CPV:79415200",
+        "comunicació"
+      ],
+      "cpv": "79415200",
+      "historial": [
+        {
+          "data": "2026-05-05",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19207424",
+      "titol": "Servicio de producción gráfica y audiovisual para el Consejo Superior de Deportes.",
+      "organisme": "Presidencia del Consejo Superior de Deportes",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 304060.35,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-05",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TgTRsH1Fa6OExvMJXBMHHQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "producción gráfica",
+        "CPV:92100000"
+      ],
+      "cpv": "92100000",
+      "historial": [
+        {
+          "data": "2026-05-05",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19379816",
+      "titol": "Servicio de diseño, desarrollo, ejecución, producción de materiales, producción audiovisual e implementación de la celebración de la Semana Europea del Deporte de 2026, SED-26, y de 2027, SEDSEDI-27: SED-26 27",
+      "organisme": "Presidencia del Consejo Superior de Deportes",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 284000.0,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-05",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Ain3n1R0VK%2BTylGzYmBF9Q%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "producción audiovisual",
+        "CPV:92100000",
+        "CPV:92622000"
+      ],
+      "cpv": "92100000, 92622000",
+      "historial": [
+        {
+          "data": "2026-05-05",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19357482",
+      "titol": "Servicio de producción audiovisual para el Consorcio de la Zona Franca de Barcelona",
+      "organisme": "Consorcio de la Zona Franca de Barcelona",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 170000.0,
+      "disciplines": [
+        "audiovisual"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-05-05",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=PI8dDyIy4gQl5NjlNci%2BtA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:92111200",
+        "producción audiovisual",
+        "CPV:79970000"
+      ],
+      "cpv": "79970000, 92111200",
+      "historial": [
+        {
+          "data": "2026-05-05",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19616129",
+      "titol": "Servicio para la realización de la creatividad, diseño y produccion de la campaña de publicidad institucional sobre la evidencia científica aplicada a la salud, dirigida a la población general, del Ministerio de Sanidad y la Agencia Española de Medicamentos y Productos Sanitarios",
+      "organisme": "Secretaría General de la Agencia Española de Medicamentos y Productos Sanitarios",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 98309.25,
+      "disciplines": [
+        "publicitat"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-05",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=4u0wbB0yv%2FF%2FP7lJ7Fu0SA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "campaña de publicidad",
+        "CPV:79341400"
+      ],
+      "cpv": "79341400",
+      "historial": [
+        {
+          "data": "2026-05-05",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18596946",
+      "titol": "L’objecte d’aquest contracte és el servei de desplegament d’un projecte integral d’assessorament i execució en matèria de comunicació i comercial, amb les següents fases: Fase 1: planificació estratègica del pla de comunicació i promoció externa, Fase 2: desenvolupament del referit pla, disseny i execució de les accions del pla d’acció i Fase 3: seguiment i avaluació; tot això, d’acord amb els obj",
+      "organisme": "Centre d'Iniciatives per a la Reinserció",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 49494.57,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-05",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/7fd417ef-16a0-41d0-8267-3f4d4b00323f/300766301",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79410000",
+        "pla de comunicació"
+      ],
+      "cpv": "79410000",
+      "historial": [
+        {
+          "data": "2026-05-05",
           "estat": "Vigente",
           "nota": "Publicación"
         }
