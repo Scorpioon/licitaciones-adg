@@ -82,17 +82,19 @@ function TrafficLight(r) {
 // D9 approved beta-v1 rules. Computed client-side, not stored in JSON.
 
 function computeAdvisory(r) {
-  var days   = daysTo(r.data_limit);
-  var budget = r.pressupost || 0;
-  var estat  = r.estat || '';
-  var hasAdj = !!(r.adjudicatari && r.adjudicatari.trim());
+  var days      = daysTo(r.data_limit);
+  var budget    = r.pressupost || 0;
+  var estat     = r.estat || '';
+  var estatRaw  = r.estat_raw || '';
+  var hasAdj    = !!(r.adjudicatari && r.adjudicatari.trim());
   var tips = [], warns = [], notes = [];
 
   if (days !== null && days >= 20)       tips.push('Plazo generoso. Tiempo para preparar una propuesta de calidad.');
   else if (days !== null && days >= 10)  tips.push('Plazo razonable. Organiza la documentacion con antelacion.');
   if (budget >= 50000)                   tips.push('Presupuesto significativo. Vale la pena una propuesta solida.');
   else if (budget >= 10000)              tips.push('Presupuesto dentro del rango profesional habitual.');
-  if (estat === 'Vigente' && !hasAdj)    tips.push('Licitacion activa y sin adjudicatario. Oportunidad real.');
+  if (estat === 'Vigente' && !hasAdj && estatRaw !== 'EV' && estatRaw !== 'PRE' && !(days !== null && days < 0))
+    tips.push('Licitacion activa y sin adjudicatario. Oportunidad real.');
 
   if (budget > 0 && budget < 3000)               warns.push('Presupuesto por debajo del umbral minimo recomendado por ADG-FAD.');
   if (days !== null && days >= 0 && days < 10)    warns.push('Plazo muy ajustado -- verifica si puedes cumplir los requisitos.');
@@ -104,6 +106,7 @@ function computeAdvisory(r) {
   if ((r.historial || []).length > 1) notes.push('Esta licitacion tiene historial de cambios de estado.');
   var cpvs = cpvArray(r.cpv);
   if (cpvs.some(function(c){ return c.indexOf('79') === 0; })) notes.push('CPV 79: servicios empresariales y creativos.');
+  if (estatRaw === 'EV' || estatRaw === 'PRE')    notes.push('En evaluacion / seguimiento. Revisar estado oficial.');
 
   return { tips: tips, warns: warns, notes: notes };
 }
@@ -143,32 +146,48 @@ function fichaHTML(r) {
   var days    = daysTo(r.data_limit);
   var dClass  = (days !== null && days >= 0 && days <= 7) ? 'date-warn' : (days !== null && days > 7 ? 'date-ok' : '');
   var langStr = (ADG.lang || 'es') + '-ES';
-  var dlStr   = r.data_limit
-    ? '<span class="' + dClass + '">' + new Date(r.data_limit).toLocaleDateString(langStr, { weekday:'long', day:'numeric', month:'long', year:'numeric' }) + '</span>'
-    : '&mdash;';
+  var dlFact          = r.data_limit ? new Date(r.data_limit).toLocaleDateString(langStr, { day:'numeric', month:'short', year:'2-digit' }) : '&mdash;';
+  var pubFact         = r.data_pub   ? new Date(r.data_pub).toLocaleDateString(langStr,   { day:'numeric', month:'short', year:'2-digit' }) : '&mdash;';
+  var deadlineFactClass = (days !== null && days >= 0 && days <= 7) ? ' sh-ficha__fact--warn' : '';
 
-  var dataRowDefs = [
-    ['fp_organism',  esc(r.organisme || '&mdash;')],
-    ['fp_budget',    '<span class="sh-ficha__val--amt">' + fmtFull(r.pressupost) + '</span>'],
-    ['fp_deadline',  dlStr],
-    ['fp_published', r.data_pub ? new Date(r.data_pub).toLocaleDateString(langStr, { day:'numeric', month:'long', year:'numeric' }) : '&mdash;'],
-    ['fp_type',      esc(r.tipus || '&mdash;')]
-  ];
-  if (r.adjudicatari) dataRowDefs.push(['fp_adjudicado_a', '<strong>' + esc(r.adjudicatari) + '</strong>']);
-  if (r.cpv) dataRowDefs.push(['fp_cpv', cpvArray(r.cpv).map(function(c){ return '<span class="sh-ficha__chip">' + esc(c) + '</span>'; }).join('')]);
-  dataRowDefs.push(['fp_source', '<span class="sh-ficha__chip">' + esc(r.font || 'PLACSP') + '</span>']);
-
-  var rowsHTML = dataRowDefs.map(function(pair){
-    return '<div class="sh-ficha__row"><div class="sh-ficha__key">' + esc(t(pair[0])) + '</div><div class="sh-ficha__val">' + pair[1] + '</div></div>';
-  }).join('');
+  var factsHTML =
+    '<div class="sh-ficha__facts">' +
+      '<div class="sh-ficha__fact">' +
+        '<div class="sh-ficha__fact-key">' + esc(t('fp_budget')) + '</div>' +
+        '<div class="sh-ficha__fact-val sh-ficha__fact-val--amt">' + fmtFull(r.pressupost) + '</div>' +
+      '</div>' +
+      '<div class="sh-ficha__fact' + deadlineFactClass + '">' +
+        '<div class="sh-ficha__fact-key">' + esc(t('fp_deadline')) + '</div>' +
+        '<div class="sh-ficha__fact-val">' + dlFact + '</div>' +
+      '</div>' +
+      '<div class="sh-ficha__fact sh-ficha__fact--wide">' +
+        '<div class="sh-ficha__fact-key">' + esc(t('fp_organism')) + '</div>' +
+        '<div class="sh-ficha__fact-val">' + esc(r.organisme || '&mdash;') + '</div>' +
+      '</div>' +
+      '<div class="sh-ficha__fact">' +
+        '<div class="sh-ficha__fact-key">' + esc(t('fp_type')) + '</div>' +
+        '<div class="sh-ficha__fact-val">' + esc(r.tipus || '&mdash;') + '</div>' +
+      '</div>' +
+      '<div class="sh-ficha__fact">' +
+        '<div class="sh-ficha__fact-key">' + esc(t('fp_published')) + '</div>' +
+        '<div class="sh-ficha__fact-val">' + pubFact + '</div>' +
+      '</div>' +
+      (r.adjudicatari ?
+        '<div class="sh-ficha__fact sh-ficha__fact--wide">' +
+          '<div class="sh-ficha__fact-key">' + esc(t('fp_adjudicado_a')) + '</div>' +
+          '<div class="sh-ficha__fact-val">' + esc(r.adjudicatari) + '</div>' +
+        '</div>'
+      : '') +
+    '</div>';
 
   var discHTML = (r.disciplines || []).length
     ? (r.disciplines || []).map(function(d){ return discTag(d,'9px'); }).join('')
     : '<span class="sh-ficha__empty">&mdash;</span>';
 
-  var kwHTML = (r.kw || []).length
-    ? (r.kw || []).map(function(k){ return '<span class="sh-ficha__chip"><i class="bi bi-tag"></i>' + esc(k) + '</span>'; }).join('')
-    : '<span class="sh-ficha__empty">&mdash;</span>';
+  var kwChips = (r.kw || []).map(function(k){ return '<span class="sh-ficha__chip"><i class="bi bi-tag"></i>' + esc(k) + '</span>'; });
+  if (r.cpv) cpvArray(r.cpv).slice(0, 3).forEach(function(c){ kwChips.push('<span class="sh-ficha__chip"><i class="bi bi-upc"></i>' + esc(c) + '</span>'); });
+  kwChips.push('<span class="sh-ficha__chip sh-ficha__chip--src"><i class="bi bi-database"></i>' + esc(r.font || 'PLACSP') + '</span>');
+  var kwHTML = kwChips.join('');
 
   var docs    = r.documents || [];
   var docsHTML = docs.length
@@ -214,14 +233,15 @@ function fichaHTML(r) {
       TrafficLight(r) +
       '<div class="sh-ficha__title">' + esc(r.titol || '&mdash;') + '</div>' +
       '<div class="sh-ficha__badges">' + badgesHTML + '</div>' +
-      '<div class="sh-ficha__rows">' + rowsHTML + '</div>' +
+      factsHTML +
       advisoryHTML(r) +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_disciplines')) + '</div><div class="sh-ficha__chips">' + discHTML + '</div></div>' +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_keywords'))    + '</div><div class="sh-ficha__chips">' + kwHTML   + '</div></div>' +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_documents'))   + '</div><div class="sh-ficha__docs">'  + docsHTML + '</div></div>' +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_history'))     + '</div>' + histHTML + '</div>' +
       relsSection +
-      '<hr class="sh-ficha__divider">' +
+    '</div>' +
+    '<div class="sh-ficha__footer">' +
       '<div class="sh-ficha__actions">' +
         '<a class="sh-ficha__cta" href="' + esc(ctaHref) + '" target="_blank" rel="noopener">' +
           '<i class="bi bi-box-arrow-up-right"></i> ' + esc(t('fp_view_official')) +
