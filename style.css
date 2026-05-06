@@ -194,7 +194,8 @@ tbody tr.sel .disc-tag { border-color:rgba(255,255,255,.2)!important; color:rgba
 td { padding:9px 10px; vertical-align:middle; font-size:11.5px; line-height:1.35; color:var(--text); }
 td:first-child { padding-left:20px; }
 td:last-child { padding-right:20px; }
-.tc-name { font-weight:400; line-height:1.4; }
+body.lic-page .list-col td { padding:7px 10px; }
+.tc-name { font-weight:400; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .tc-tags { margin-top:3px; display:flex; flex-wrap:wrap; gap:3px; }
 .disc-tag { display:inline-flex; align-items:center; gap:3px; font-size:8px; letter-spacing:.06em; text-transform:uppercase; padding:2px 5px; border-radius:2px; border:1px solid; white-space:nowrap; }
 .disc-tag i.bi { font-size:8.5px; }
@@ -594,8 +595,10 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sh-ficha__eyebrow { font-size:7.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--text3); }
 .sh-ficha__close { width:22px; height:22px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border2); border-radius:var(--radius); background:none; color:var(--text2); cursor:pointer; font-size:14px; transition:all .1s; }
 .sh-ficha__close:hover { border-color:var(--border); color:var(--text); }
-.sh-ficha__body { flex:1; min-height:0; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:12px; }
-.sh-ficha__title { font-size:12px; font-weight:700; line-height:1.45; letter-spacing:-.01em; color:var(--text); }
+.sh-ficha__body { flex:1; min-height:0; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:12px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+.sh-ficha__body::-webkit-scrollbar { display:block; width:3px; }
+.sh-ficha__body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+.sh-ficha__title { font-size:12px; font-weight:700; line-height:1.45; letter-spacing:-.01em; color:var(--text); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .sh-ficha__badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
 .sh-ficha__rows { display:flex; flex-direction:column; gap:0; border:1px solid var(--border2); border-radius:var(--radius); overflow:hidden; }
 .sh-ficha__row { display:flex; gap:0; border-bottom:1px solid var(--border3); }
@@ -603,6 +606,14 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sh-ficha__key { font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:7px 10px; min-width:100px; flex-shrink:0; background:var(--bg2); display:flex; align-items:center; }
 .sh-ficha__val { font-size:10.5px; color:var(--text); padding:7px 10px; flex:1; line-height:1.5; display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
 .sh-ficha__val--amt { font-size:13px; font-weight:700; letter-spacing:-.02em; }
+.sh-ficha__facts { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border2); border:1px solid var(--border2); border-radius:var(--radius); overflow:hidden; }
+.sh-ficha__fact { background:var(--bg); padding:5px 8px; }
+.sh-ficha__fact--wide { grid-column:1 / -1; }
+.sh-ficha__fact--warn { background:var(--s-warn-bg); }
+.sh-ficha__fact-key { font-size:7.5px; letter-spacing:.15em; text-transform:uppercase; color:var(--text3); margin-bottom:2px; }
+.sh-ficha__fact-val { font-size:10px; font-weight:600; color:var(--text); line-height:1.3; }
+.sh-ficha__fact-val--amt { font-size:12px; font-weight:700; letter-spacing:-.02em; }
+.sh-ficha__chip--src { color:var(--text3); border-color:var(--border2); font-size:8px; opacity:.7; }
 .sh-ficha__section { display:flex; flex-direction:column; gap:6px; }
 .sh-ficha__lbl { font-size:7.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); }
 .sh-ficha__chips { display:flex; flex-wrap:wrap; gap:4px; }
@@ -625,6 +636,8 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sh-ficha__share { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border2); border-radius:var(--radius); background:none; color:var(--text2); cursor:pointer; font-size:13px; transition:all .1s; }
 .sh-ficha__share:hover { border-color:var(--border); color:var(--text); }
 .sh-ficha__cta-note { font-size:8.5px; color:var(--text3); text-align:center; }
+.sh-ficha__footer { flex-shrink:0; padding:7px 12px; border-top:1px solid var(--border2); background:var(--bg); }
+.sh-ficha__footer .sh-ficha__actions { margin-top:0; }
 @media (max-width:860px) {
   .sh-ficha--overlay .sh-ficha__wrap { width:100vw; max-height:100dvh; border-radius:0; }
   .sh-ficha__key { min-width:80px; }
@@ -645,11 +658,11 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sh-traffic--unknown .sh-traffic__dot { background:var(--text3); }
 
 /* -- Advisory layer ---------------------------------------------------------- */
-.sh-advisory { display:flex; flex-direction:column; gap:4px; }
-.sh-advisory__item { display:flex; align-items:flex-start; gap:7px; font-size:9.5px; color:var(--text2); background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:7px 10px; line-height:1.6; }
+.sh-advisory { display:flex; flex-direction:column; gap:3px; }
+.sh-advisory__item { display:flex; align-items:flex-start; gap:6px; font-size:9px; color:var(--text2); background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:5px 8px; line-height:1.4; }
 .sh-advisory__item i.bi { font-size:11px; flex-shrink:0; margin-top:1px; }
-.sh-advisory__item--tip  { border-color:var(--s-ok);   color:var(--s-ok);   background:var(--s-ok-bg); }
-.sh-advisory__item--warn { border-color:var(--s-warn); color:var(--s-warn); background:var(--s-warn-bg); }
+.sh-advisory__item--tip  { border-color:var(--s-ok);   color:var(--s-ok);   background:none; }
+.sh-advisory__item--warn { border-color:var(--s-warn); color:var(--s-warn); background:none; }
 .sh-advisory__item--note { border-color:var(--border2); color:var(--text3); }
 
 /* -- ToggleSwitch ------------------------------------------------------------- */
