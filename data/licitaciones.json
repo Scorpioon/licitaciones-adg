@@ -1,29 +1,30 @@
 {
-  "generated_at": "2026-05-06T06:06:22Z",
-  "count": 9,
+  "generated_at": "2026-05-07T06:11:44Z",
+  "count": 3,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19529743",
-      "titol": "Material promocional para la difusión de las acciones de Formación Profesional, promovidas por la Dirección General de Educación Secundaria, Formación Profesional y Régimen Especial de la Consejería de Educación, Ciencia y universidades",
-      "organisme": "Consejería de Educación, Ciencia y Universidades",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19627251",
+      "titol": "AM Servicio de asesoría en comunicación externa y planificación del plan de comunicación para la Armada",
+      "organisme": "Intendencia de Madrid",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 28766.02,
+      "pressupost": 2038287.0,
       "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
+      "ccaa": "MD",
+      "lloc": "Madrid",
       "data_pub": "2026-05-06",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/material-promocional-difusion-acciones-formacion-profesional-promovidas-direccion",
-      "font": "PLACSP-1044",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=ppXiJUll%2FM6AAM7L03kM8A%3D%3D",
+      "font": "PLACSP-643",
       "kw": [
-        "material promocional",
-        "CPV:22462000"
+        "CPV:79411000",
+        "CPV:79416200",
+        "plan de comunicación"
       ],
-      "cpv": "22462000",
+      "cpv": "79416200, 72224000, 79411000",
       "historial": [
         {
           "data": "2026-05-06",
@@ -33,251 +34,61 @@
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19337441",
-      "titol": "Servicios de redacción, maquetación e impresión de la revista Alberic Informa BIM",
-      "organisme": "Alcaldía del Ayuntamiento de Alberic",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19627246",
+      "titol": "Suministro de  material promocional merchandisin",
+      "organisme": "Presidencia de la Diputación Provincial de Sevilla",
       "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 20610.8,
-      "disciplines": [
-        "editorial",
-        "impressio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-05",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 45,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=FifkJJiAYhl%2FR5QFTlaM4A%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "maquetación",
-        "CPV:79824000",
-        "CPV:79970000"
-      ],
-      "cpv": "79970000, 79824000, 79800000",
-      "historial": [
-        {
-          "data": "2026-05-05",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19472551",
-      "titol": "Servicio integral de creación de contenidos, diseño, maquetación, impresión y distribución de una revista comarcal de Montaña Alavesa incluyendo formato digital, página Web, redes sociales y comunicación externa",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 161983.46,
-      "disciplines": [
-        "editorial",
-        "impressio",
-        "web"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-05",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso704450/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "maquetación",
-        "CPV:79970000"
-      ],
-      "cpv": "79970000",
-      "historial": [
-        {
-          "data": "2026-05-05",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/17603322",
-      "titol": "servicio de apoyo en la cobertura de eventos y su organización, servicio de creatividad y diseño gráfico, actualización de contenidos de páginas web, creación de contenidos audiovisuales y realización de eventos en directo.",
-      "organisme": "Dirección General de Comunicación, Diplomacia Pública y Redes",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 325856.62,
+      "tipus": "Suministros",
+      "pressupost": 44000.0,
       "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-05",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 39,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=QjxzWgH4VzEeC9GJQOEBkQ%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "comunicación",
-        "diseño gráfico",
-        "CPV:79415200",
-        "comunicació"
-      ],
-      "cpv": "79415200",
-      "historial": [
-        {
-          "data": "2026-05-05",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19207424",
-      "titol": "Servicio de producción gráfica y audiovisual para el Consejo Superior de Deportes.",
-      "organisme": "Presidencia del Consejo Superior de Deportes",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 304060.35,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-05",
+      "ccaa": "AN",
+      "lloc": "Andalucía",
+      "data_pub": "2026-05-06",
       "data_limit": "",
       "estat": "Vigente",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TgTRsH1Fa6OExvMJXBMHHQ%3D%3D",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kun8Ov2G0azVGIpKDxgsAQ%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "producción gráfica",
-        "CPV:92100000"
+        "material promocional",
+        "CPV:22462000"
       ],
-      "cpv": "92100000",
+      "cpv": "22462000, 39298700, 39294100",
       "historial": [
         {
-          "data": "2026-05-05",
+          "data": "2026-05-06",
           "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19379816",
-      "titol": "Servicio de diseño, desarrollo, ejecución, producción de materiales, producción audiovisual e implementación de la celebración de la Semana Europea del Deporte de 2026, SED-26, y de 2027, SEDSEDI-27: SED-26 27",
-      "organisme": "Presidencia del Consejo Superior de Deportes",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19276549",
+      "titol": "Prestació d’un servei integral de coordinació, producció audiovisual, fotografia institucional i edició de continguts (vídeo i foto) per a la cobertura dels diferents actes, visites, esdeveniments i actuacions d’interès per a l’Ajuntament de l’Ametlla del Vallès i per als mitjans de comunicació municipals, així com per a la confecció de peces i campanyes comunicatives municipals que requereixin un",
+      "organisme": "Ajuntament de l'Ametlla del Vallès",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 284000.0,
+      "pressupost": 17500.0,
       "disciplines": [
         "audiovisual"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-05-05",
+      "data_pub": "2026-05-06",
       "data_limit": "",
-      "estat": "Vigente",
+      "estat": "Adjudicado",
       "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Ain3n1R0VK%2BTylGzYmBF9Q%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "producción audiovisual",
-        "CPV:92100000",
-        "CPV:92622000"
-      ],
-      "cpv": "92100000, 92622000",
-      "historial": [
-        {
-          "data": "2026-05-05",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19357482",
-      "titol": "Servicio de producción audiovisual para el Consorcio de la Zona Franca de Barcelona",
-      "organisme": "Consorcio de la Zona Franca de Barcelona",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 170000.0,
-      "disciplines": [
-        "audiovisual"
-      ],
-      "ccaa": "CT",
-      "lloc": "Catalunya",
-      "data_pub": "2026-05-05",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=PI8dDyIy4gQl5NjlNci%2BtA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:92111200",
-        "producción audiovisual",
-        "CPV:79970000"
-      ],
-      "cpv": "79970000, 92111200",
-      "historial": [
-        {
-          "data": "2026-05-05",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19616129",
-      "titol": "Servicio para la realización de la creatividad, diseño y produccion de la campaña de publicidad institucional sobre la evidencia científica aplicada a la salud, dirigida a la población general, del Ministerio de Sanidad y la Agencia Española de Medicamentos y Productos Sanitarios",
-      "organisme": "Secretaría General de la Agencia Española de Medicamentos y Productos Sanitarios",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 98309.25,
-      "disciplines": [
-        "publicitat"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-05",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=4u0wbB0yv%2FF%2FP7lJ7Fu0SA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "campaña de publicidad",
-        "CPV:79341400"
-      ],
-      "cpv": "79341400",
-      "historial": [
-        {
-          "data": "2026-05-05",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/18596946",
-      "titol": "L’objecte d’aquest contracte és el servei de desplegament d’un projecte integral d’assessorament i execució en matèria de comunicació i comercial, amb les següents fases: Fase 1: planificació estratègica del pla de comunicació i promoció externa, Fase 2: desenvolupament del referit pla, disseny i execució de les accions del pla d’acció i Fase 3: seguiment i avaluació; tot això, d’acord amb els obj",
-      "organisme": "Centre d'Iniciatives per a la Reinserció",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 49494.57,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-05",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/7fd417ef-16a0-41d0-8267-3f4d4b00323f/300766301",
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e87b7c08-ab99-4d79-9d5d-4977b9c71960/300767875",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79410000",
-        "pla de comunicació"
+        "CPV:79961000",
+        "producció audiovisual"
       ],
-      "cpv": "79410000",
+      "cpv": "79961000",
       "historial": [
         {
-          "data": "2026-05-05",
-          "estat": "Vigente",
+          "data": "2026-05-06",
+          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
