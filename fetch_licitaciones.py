@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.4n -- May 2026
+# 0.4.4o -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.4o May 2026  Per-page retry/backoff for transient SSL/network failures in fetch_source().
 # 0.4.4n May 2026  Live fetch reliability metadata, partial-run detection, and production write guard.
 # 0.4.4i May 2026  Add estat_raw provenance field preserving raw ContractFolderStatusCode for future status semantics.
 # 0.4.4h May 2026  (status/date semantics audit only -- no code changes).
@@ -22,6 +23,7 @@ import argparse
 import hashlib
 import html as html_mod
 import json
+import random
 import re
 import sys
 import time
@@ -822,9 +824,26 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
 # FETCH: ONLINE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_source(session, source: dict, max_pages: int, min_score: int) -> dict:
-    """Returns dict: {results, pages_done, had_error, error_msg}.
-    had_error is True only on an actual failure (SSL/HTTP/parse), not on a clean feed end."""
+def is_retryable_fetch_error(exc) -> bool:
+    """True for transient SSL/network errors that warrant per-page retry."""
+    return isinstance(exc, (
+        requests.exceptions.SSLError,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        requests.exceptions.ChunkedEncodingError,
+    ))
+
+
+def retry_sleep(attempt: int, retry_delay: float, retry_backoff: float) -> float:
+    """Exponential backoff with ±20% jitter. attempt starts at 1 for first retry."""
+    base = retry_delay * (retry_backoff ** (attempt - 1))
+    return base * random.uniform(0.8, 1.2)
+
+
+def fetch_source(session, source: dict, max_pages: int, min_score: int,
+                 retries: int = 3, retry_delay: float = 2.0, retry_backoff: float = 2.0) -> dict:
+    """Returns dict: {results, pages_done, had_error, error_msg, retry_count, retried_pages, retry_errors}.
+    had_error is True only after all retry attempts are exhausted on an actual failure."""
     name = source["name"]
     src_ccaa = source.get("ccaa")
     url = source["url"]
@@ -835,35 +854,76 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> dict:
     pages_done = 0
     had_error = False
     error_msg = None
+    retry_count = 0
+    retried_pages = []
+    retry_errors = []
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     while url and pages_done < max_pages:
+        page_num = pages_done + 1
+        page_label_str = f"p{page_num}"
         if not _QUIET:
-            page_label = f"p{pages_done + 1}" if max_pages > 1 else ""
+            page_label = page_label_str if max_pages > 1 else ""
             pprint(f"    {url[:90]}{'…' if len(url) > 90 else ''} {page_label}")
 
-        try:
-            r = session.get(url, timeout=TIMEOUT)
-            r.raise_for_status()
-        except Exception as e:
-            pprint(f"    [!] {e}")
-            had_error = True
-            error_msg = f"p{pages_done + 1}: {e}"
-            break
+        page_retry_errs = []
+        root = None
+        hard_fail = False
 
-        head = r.content[:3000].lower()
-        if b"<feed" not in head and b"<entry" not in head:
-            pprint("    [!] Respuesta no parece Atom")
-            had_error = True
-            error_msg = f"p{pages_done + 1}: non-Atom response"
-            break
+        for attempt in range(retries + 1):
+            if attempt > 0:
+                secs = retry_sleep(attempt, retry_delay, retry_backoff)
+                pprint(f"    [retry {attempt}/{retries} in {secs:.1f}s] {page_retry_errs[-1]}")
+                time.sleep(secs)
+                retry_count += 1
+                if page_num not in retried_pages:
+                    retried_pages.append(page_num)
 
-        try:
-            root = ET.fromstring(r.content)
-        except ET.ParseError as e:
-            pprint(f"    [!] XML parse error: {e}")
-            had_error = True
-            error_msg = f"p{pages_done + 1}: XML parse error: {e}"
+            try:
+                r = session.get(url, timeout=TIMEOUT)
+                r.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code < 500 and e.response.status_code != 429:
+                    pprint(f"    [!] {e}")
+                    had_error = True
+                    error_msg = f"{page_label_str}: {e}"
+                    hard_fail = True
+                    break
+                page_retry_errs.append(str(e))
+            except Exception as e:
+                if is_retryable_fetch_error(e):
+                    page_retry_errs.append(str(e))
+                else:
+                    pprint(f"    [!] {e}")
+                    had_error = True
+                    error_msg = f"{page_label_str}: {e}"
+                    hard_fail = True
+                    break
+            else:
+                head = r.content[:3000].lower()
+                if b"<feed" not in head and b"<entry" not in head:
+                    page_retry_errs.append("non-Atom response")
+                else:
+                    try:
+                        root = ET.fromstring(r.content)
+                    except ET.ParseError as e:
+                        page_retry_errs.append(f"XML parse error: {e}")
+                    else:
+                        if page_retry_errs:
+                            pprint(f"    [retry OK {page_label_str} after {attempt} attempt(s)]")
+                            retry_errors.extend(f"{page_label_str}: {err}" for err in page_retry_errs)
+                        break  # success
+
+            if attempt == retries:
+                last_err = page_retry_errs[-1] if page_retry_errs else "unknown error"
+                pprint(f"    [!] {page_label_str} failed after {retries} retries: {last_err}")
+                had_error = True
+                error_msg = f"{page_label_str}: {last_err}"
+                retry_errors.extend(f"{page_label_str}: {err}" for err in page_retry_errs)
+                hard_fail = True
+                break
+
+        if hard_fail:
             break
 
         entries = parse_atom_entries(root)
@@ -889,7 +949,15 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> dict:
     if pages_done > 1 or _QUIET:
         pprint(f"    ── {pages_done} página(s), {len(all_results)} relevantes en total")
 
-    return {"results": all_results, "pages_done": pages_done, "had_error": had_error, "error_msg": error_msg}
+    return {
+        "results": all_results,
+        "pages_done": pages_done,
+        "had_error": had_error,
+        "error_msg": error_msg,
+        "retry_count": retry_count,
+        "retried_pages": retried_pages,
+        "retry_errors": retry_errors,
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1049,6 +1117,9 @@ def main():
                     help="Stop local .atom processing after N files (smoke test only, 0 = no cap).")
     ap.add_argument("--allow-partial-production-write", action="store_true",
                     help="Allow writing a partial live run result to the production path. Use with caution.")
+    ap.add_argument("--retries",       type=int,   default=3,   help="Per-page retry attempts after first failure (default: 3).")
+    ap.add_argument("--retry-delay",   type=float, default=2.0, help="Initial retry delay in seconds (default: 2.0).")
+    ap.add_argument("--retry-backoff", type=float, default=2.0, help="Exponential backoff multiplier (default: 2.0).")
     args = ap.parse_args()
 
     global _QUIET, _NO_PROGRESS
@@ -1067,6 +1138,8 @@ def main():
     pprint(f"  Mode: {mode}")
     pprint(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
     pprint(f"  Min score:  {args.min_score}  |  Páginas: {args.pages}")
+    if not args.local_dir:
+        pprint(f"  Retries:    {args.retries} (delay={args.retry_delay}s, backoff={args.retry_backoff}×)")
     pprint(f"  Enrich:     {'SÍ (lento)' if args.enrich else 'NO'}")
     pprint(f"  Local dir:  {args.local_dir or 'NO'}")
     pprint(f"  Max items:  {'sin límite' if not args.max_items else args.max_items}")
@@ -1087,6 +1160,9 @@ def main():
     failed_sources: list = []
     completed_sources: list = []
     requested_sources: list = []
+    retry_counts_by_source: dict = {}
+    retried_pages_by_source: dict = {}
+    retry_errors_by_source: dict = {}
 
     if args.local_dir:
         all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score, t_start,
@@ -1098,10 +1174,17 @@ def main():
         active_sources = SOURCES if args.source == "all" else [s for s in SOURCES if args.source in s["name"]]
         requested_sources = [s["name"] for s in active_sources]
         for src in active_sources:
-            src_result = fetch_source(session, src, args.pages, args.min_score)
+            src_result = fetch_source(session, src, args.pages, args.min_score,
+                                      retries=args.retries, retry_delay=args.retry_delay,
+                                      retry_backoff=args.retry_backoff)
             all_new_items.extend(src_result["results"])
             sname = src["name"]
             completed_pages_by_source[sname] = src_result["pages_done"]
+            retry_counts_by_source[sname] = src_result["retry_count"]
+            if src_result["retried_pages"]:
+                retried_pages_by_source[sname] = src_result["retried_pages"]
+            if src_result["retry_errors"]:
+                retry_errors_by_source[sname] = src_result["retry_errors"]
             if src_result["had_error"]:
                 failed_pages_by_source[sname] = 1
                 source_errors[sname] = src_result["error_msg"]
@@ -1227,6 +1310,10 @@ def main():
         envelope["failed_pages_by_source"]    = failed_pages_by_source
         envelope["source_errors"]             = source_errors
         envelope["operator_warning"]          = operator_warning
+        envelope["retry_policy"]              = {"retries": args.retries, "delay": args.retry_delay, "backoff": args.retry_backoff}
+        envelope["retry_counts_by_source"]    = retry_counts_by_source
+        envelope["retried_pages_by_source"]   = retried_pages_by_source
+        envelope["retry_errors_by_source"]    = retry_errors_by_source
 
     envelope["data"] = merged
 
