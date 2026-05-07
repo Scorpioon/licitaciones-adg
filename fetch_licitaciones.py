@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.4i -- May 2026
+# 0.4.4n -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.4n May 2026  Live fetch reliability metadata, partial-run detection, and production write guard.
 # 0.4.4i May 2026  Add estat_raw provenance field preserving raw ContractFolderStatusCode for future status semantics.
 # 0.4.4h May 2026  (status/date semantics audit only -- no code changes).
 # 0.4.4g May 2026  UBL extractor fix: ubl_find_text() resolves ContractFolderStatus root; TypeCode -> tipus.
@@ -38,11 +39,12 @@ try:
 except ImportError:
     sys.exit("Instala requests: pip install requests --break-system-packages")
 
-OUTPUT_FILE  = Path("data.json")
+OUTPUT_FILE       = Path("data.json")
 MIN_SCORE_DEFAULT = 20
 MAX_ITEMS_DEFAULT = 0        # 0 = sin límite
-TIMEOUT      = 45
-ENRICH_DELAY = 0.8
+TIMEOUT           = 45
+ENRICH_DELAY      = 0.8
+_PRODUCTION_PATH  = Path("data/licitaciones.json")
 
 HEADERS = {
     "User-Agent": "ADG-Licitaciones/2.0 (+https://adg-fad.org)",
@@ -820,7 +822,9 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
 # FETCH: ONLINE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
+def fetch_source(session, source: dict, max_pages: int, min_score: int) -> dict:
+    """Returns dict: {results, pages_done, had_error, error_msg}.
+    had_error is True only on an actual failure (SSL/HTTP/parse), not on a clean feed end."""
     name = source["name"]
     src_ccaa = source.get("ccaa")
     url = source["url"]
@@ -829,6 +833,8 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
     all_results = []
     seen_ids = set()
     pages_done = 0
+    had_error = False
+    error_msg = None
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     while url and pages_done < max_pages:
@@ -841,17 +847,23 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
             r.raise_for_status()
         except Exception as e:
             pprint(f"    [!] {e}")
+            had_error = True
+            error_msg = f"p{pages_done + 1}: {e}"
             break
 
         head = r.content[:3000].lower()
         if b"<feed" not in head and b"<entry" not in head:
             pprint("    [!] Respuesta no parece Atom")
+            had_error = True
+            error_msg = f"p{pages_done + 1}: non-Atom response"
             break
 
         try:
             root = ET.fromstring(r.content)
         except ET.ParseError as e:
             pprint(f"    [!] XML parse error: {e}")
+            had_error = True
+            error_msg = f"p{pages_done + 1}: XML parse error: {e}"
             break
 
         entries = parse_atom_entries(root)
@@ -877,7 +889,7 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int) -> list:
     if pages_done > 1 or _QUIET:
         pprint(f"    ── {pages_done} página(s), {len(all_results)} relevantes en total")
 
-    return all_results
+    return {"results": all_results, "pages_done": pages_done, "had_error": had_error, "error_msg": error_msg}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1035,6 +1047,8 @@ def main():
     ap.add_argument("--no-progress",      action="store_true", help="No \\r bars; plain log output for CI/pipe.")
     ap.add_argument("--max-local-atoms",  type=int, default=0,
                     help="Stop local .atom processing after N files (smoke test only, 0 = no cap).")
+    ap.add_argument("--allow-partial-production-write", action="store_true",
+                    help="Allow writing a partial live run result to the production path. Use with caution.")
     args = ap.parse_args()
 
     global _QUIET, _NO_PROGRESS
@@ -1066,6 +1080,14 @@ def main():
 
     all_new_items = []
 
+    # Run-level tracking (live mode only)
+    completed_pages_by_source: dict = {}
+    failed_pages_by_source: dict = {}
+    source_errors: dict = {}
+    failed_sources: list = []
+    completed_sources: list = []
+    requested_sources: list = []
+
     if args.local_dir:
         all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score, t_start,
                                               max_local_atoms=args.max_local_atoms))
@@ -1074,8 +1096,19 @@ def main():
     else:
         session = build_session()
         active_sources = SOURCES if args.source == "all" else [s for s in SOURCES if args.source in s["name"]]
+        requested_sources = [s["name"] for s in active_sources]
         for src in active_sources:
-            all_new_items.extend(fetch_source(session, src, args.pages, args.min_score))
+            src_result = fetch_source(session, src, args.pages, args.min_score)
+            all_new_items.extend(src_result["results"])
+            sname = src["name"]
+            completed_pages_by_source[sname] = src_result["pages_done"]
+            if src_result["had_error"]:
+                failed_pages_by_source[sname] = 1
+                source_errors[sname] = src_result["error_msg"]
+                failed_sources.append(sname)
+            else:
+                failed_pages_by_source[sname] = 0
+                completed_sources.append(sname)
             pprint("")
 
     # Dedup dentro de la corrida actual (mayor relevancia gana)
@@ -1134,6 +1167,26 @@ def main():
     pprint(f"  Tiempo total:       {elapsed(t_start)}")
     pprint(f"{'─'*50}\n")
 
+    # ── Run status (live mode only; local mode is always FULL_SUCCESS) ────────
+    is_partial = False
+    run_status = "FULL_SUCCESS"
+    operator_warning = None
+
+    if not args.local_dir:
+        is_partial = len(failed_sources) > 0
+        if failed_sources:
+            run_status = "PARTIAL_SUCCESS" if all_new_items else "EMPTY_FAILURE"
+            operator_warning = (
+                f"PARTIAL RUN — failed sources: {', '.join(failed_sources)}. "
+                "Do not promote to production without --allow-partial-production-write."
+            )
+            pprint(f"\n  [PARTIAL RUN] failed_sources: {failed_sources}")
+            if source_errors:
+                for sname, err in source_errors.items():
+                    pprint(f"    {sname}: {err}")
+        elif not all_new_items:
+            run_status = "EMPTY_SUCCESS"
+
     if args.stats or args.dry_run:
         if args.dry_run:
             for x in merged[:20]:
@@ -1141,18 +1194,49 @@ def main():
         pprint("  (--stats/--dry-run: no se guarda)")
         return
 
+    # ── Production guard ──────────────────────────────────────────────────────
+    if not args.local_dir and is_partial:
+        try:
+            is_prod = out_path.resolve() == _PRODUCTION_PATH.resolve()
+        except OSError:
+            is_prod = out_path == _PRODUCTION_PATH
+        if is_prod and not args.allow_partial_production_write:
+            pprint(f"\n  [BLOCKED] Partial live run refused for production path: {out_path}")
+            pprint(f"  failed_sources: {failed_sources}")
+            pprint("  Use --allow-partial-production-write to override.")
+            sys.exit(1)
+        elif is_prod:
+            pprint("  [WARNING] --allow-partial-production-write active. Writing partial run to production.")
+
+    # ── Build envelope ────────────────────────────────────────────────────────
     envelope = {
         "generated_at":    now_iso,
         "count":           len(merged),
         "fetcher_version": "2.0",
-        "data":            merged,
+        "run_status":      run_status,
+        "run_mode":        "ZIP_BACKFILL" if args.local_dir else "LIVE_FEED",
+        "is_partial":      is_partial,
     }
+
+    if not args.local_dir:
+        envelope["requested_sources"]         = requested_sources
+        envelope["completed_sources"]         = completed_sources
+        envelope["failed_sources"]            = failed_sources
+        envelope["requested_pages"]           = args.pages
+        envelope["completed_pages_by_source"] = completed_pages_by_source
+        envelope["failed_pages_by_source"]    = failed_pages_by_source
+        envelope["source_errors"]             = source_errors
+        envelope["operator_warning"]          = operator_warning
+
+    envelope["data"] = merged
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(envelope, f, ensure_ascii=False, indent=2)
 
     size_kb = out_path.stat().st_size // 1024
     pprint(f"  ✅ Guardado en {out_path} ({size_kb} KB)  [{elapsed(t_start)}]")
+    if is_partial:
+        pprint(f"  ⚠  is_partial=true — output contains partial run results.")
 
 
 if __name__ == "__main__":
