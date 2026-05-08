@@ -1,94 +1,66 @@
 {
-  "generated_at": "2026-05-07T06:11:44Z",
-  "count": 3,
+  "generated_at": "2026-05-08T05:31:14Z",
+  "count": 2,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19627251",
-      "titol": "AM Servicio de asesoría en comunicación externa y planificación del plan de comunicación para la Armada",
-      "organisme": "Intendencia de Madrid",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/17892950",
+      "titol": "Acord Marc dels serveis de museografia i de disseny gràfic per a les exposicions organitzades per la Direcció General de Difusió, del Departament de la Presidència, dividit en 4 lots. Té com a finalitats:\n-Determinar les condicions generals a les que haurà d’ajustar-se la contractació basada dels serveis de museografia i dels serveis de disseny gràfic de les exposicions organitzades per la DGD i d",
+      "organisme": "Departament de la Presidència",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 2038287.0,
+      "pressupost": 1006567.5,
       "disciplines": [],
-      "ccaa": "MD",
-      "lloc": "Madrid",
-      "data_pub": "2026-05-06",
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-07",
       "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=ppXiJUll%2FM6AAM7L03kM8A%3D%3D",
-      "font": "PLACSP-643",
+      "estat": "Adjudicado",
+      "rellevancia": 45,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/1c698887-97f6-4043-a78e-eca8ff00310b/300768935",
+      "font": "PLACSP-1044",
       "kw": [
-        "CPV:79411000",
-        "CPV:79416200",
-        "plan de comunicación"
+        "CPV:79950000",
+        "CPV:79956000",
+        "disseny gràfic"
       ],
-      "cpv": "79416200, 72224000, 79411000",
+      "cpv": "79950000, 79956000",
       "historial": [
         {
-          "data": "2026-05-06",
-          "estat": "Vigente",
+          "data": "2026-05-07",
+          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19627246",
-      "titol": "Suministro de  material promocional merchandisin",
-      "organisme": "Presidencia de la Diputación Provincial de Sevilla",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 44000.0,
-      "disciplines": [],
-      "ccaa": "AN",
-      "lloc": "Andalucía",
-      "data_pub": "2026-05-06",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kun8Ov2G0azVGIpKDxgsAQ%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "material promocional",
-        "CPV:22462000"
-      ],
-      "cpv": "22462000, 39298700, 39294100",
-      "historial": [
-        {
-          "data": "2026-05-06",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19276549",
-      "titol": "Prestació d’un servei integral de coordinació, producció audiovisual, fotografia institucional i edició de continguts (vídeo i foto) per a la cobertura dels diferents actes, visites, esdeveniments i actuacions d’interès per a l’Ajuntament de l’Ametlla del Vallès i per als mitjans de comunicació municipals, així com per a la confecció de peces i campanyes comunicatives municipals que requereixin un",
-      "organisme": "Ajuntament de l'Ametlla del Vallès",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19534144",
+      "titol": "Servicio de diseño, producción audiovisual y ejecución de la campaña de comunicación institucional de la Mancomunidad de O Salnés, en el marco del proyecto “DTI Salnés: Nodo de Integración PID y Análisis de Datos Turísticos”",
+      "organisme": "Presidencia de la Mancomunidade do Salnés",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 17500.0,
+      "pressupost": 24793.39,
       "disciplines": [
         "audiovisual"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-05-06",
+      "data_pub": "2026-05-07",
       "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e87b7c08-ab99-4d79-9d5d-4977b9c71960/300767875",
-      "font": "PLACSP-1044",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=blHMLRPeDIH5Rey58Yagpg%3D%3D",
+      "font": "PLACSP-643",
       "kw": [
-        "CPV:79961000",
-        "producció audiovisual"
+        "campaña de comunicación",
+        "CPV:79340000",
+        "CPV:79341400"
       ],
-      "cpv": "79961000",
+      "cpv": "79340000, 79341400, 79822500",
       "historial": [
         {
-          "data": "2026-05-06",
-          "estat": "Adjudicado",
+          "data": "2026-05-07",
+          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
