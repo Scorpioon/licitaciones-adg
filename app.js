@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.4.4i -- May 2026
+ * 0.4.4q -- May 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,7 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.4.4q May 2026  Runtime display status: getDisplayStatus, isOpenOpportunity, stateBadgeRow. Honest open-opportunity filtering/badges.
  * 0.4.4i May 2026  Version bump for fetcher estat_raw provenance field.
  * 0.4.4h May 2026  (status/date semantics audit only -- no code changes).
  * 0.4.4g May 2026  Version bump for UBL extractor fix + TypeCode -> tipus lane.
@@ -73,12 +74,13 @@ const I18N = {
     btn_alerts:'Alertas', btn_csv:'CSV', btn_close:'Cerrar ✕',
     nav_list:'Licitaciones', nav_stats:'Estadísticas', nav_about:'Acerca de', nav_home:'Inicio',
     nav_recursos:'Recursos', nav_mapa:'Mapa',
-    st_total:'licitaciones', st_vigent:'vigentes', st_vol:'volumen €',
+    st_total:'licitaciones', st_vigent:'abiertas', st_vol:'volumen €',
     st_week:'vencen esta semana', st_new:'nuevas hoy', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de muestra',
     fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca', fl_all_terr:'Todo el territorio',
     fl_status:'Estado', fl_disc:'Disciplina', fl_all:'Todas',
     s_vigente:'Vigente', s_adjudicado:'Adjudicado', s_desierta:'Desierta',
+    s_open:'Abiertas', s_open_badge:'Abierta', s_expired:'Vencida', s_ev:'En evaluación', s_pre:'Pre-adj.',
     sort_rel:'↓ Relevancia', sort_ppto:'↓ Presupuesto',
     sort_vence:'↑ Vence antes', sort_recent:'↓ Más reciente',
     col_licit:'Licitación', col_org:'Organismo', col_ppto:'Presupuesto',
@@ -137,12 +139,13 @@ const I18N = {
     btn_alerts:'Alertes', btn_csv:'CSV', btn_close:'Tancar ✕',
     nav_list:'Licitacions', nav_stats:'Estadístiques', nav_about:'Sobre nosaltres', nav_home:'Inici',
     nav_recursos:'Recursos', nav_mapa:'Mapa',
-    st_total:'licitacions', st_vigent:'vigents', st_vol:'volum €',
+    st_total:'licitacions', st_vigent:'obertes', st_vol:'volum €',
     st_week:'vencen aviat', st_new:'noves avui', st_loading:'Carregant…',
     st_updated:'Actualitzat', st_sample:'Dades de mostra',
     fl_ccaa:'CCAA', fl_comarca:'Província / Comarca', fl_all_terr:'Tot el territori',
     fl_status:'Estat', fl_disc:'Disciplina', fl_all:'Totes',
     s_vigente:'Vigent', s_adjudicado:'Adjudicat', s_desierta:'Deserta',
+    s_open:'Obertes', s_open_badge:'Oberta', s_expired:'Vençuda', s_ev:'En avaluació', s_pre:'Pre-adj.',
     sort_rel:'↓ Rellevància', sort_ppto:'↓ Pressupost',
     sort_vence:'↑ Venç aviat', sort_recent:'↓ Més recent',
     col_licit:'Licitació', col_org:'Organisme', col_ppto:'Pressupost',
@@ -201,12 +204,13 @@ const I18N = {
     btn_alerts:'Alertak', btn_csv:'CSV', btn_close:'Itxi ✕',
     nav_list:'Lizitazioak', nav_stats:'Estatistikak', nav_about:'Informazioa', nav_home:'Hasiera',
     nav_recursos:'Baliabideak', nav_mapa:'Mapa',
-    st_total:'lizitazioak', st_vigent:'indarrean', st_vol:'bolumena €',
+    st_total:'lizitazioak', st_vigent:'irekiak', st_vol:'bolumena €',
     st_week:'laster iraungitzen', st_new:'gaur berriak', st_loading:'Kargatzen…',
     st_updated:'Eguneratua', st_sample:'Lagin datuak',
     fl_ccaa:'AA EE', fl_comarca:'Probintzia / Eskualdea', fl_all_terr:'Lurralde osoa',
     fl_status:'Egoera', fl_disc:'Diziplina', fl_all:'Denak',
     s_vigente:'Indarrean', s_adjudicado:'Esleituta', s_desierta:'Hutsik',
+    s_open:'Irekiak', s_open_badge:'Irekia', s_expired:'Iraungita', s_ev:'Ebaluazioan', s_pre:'Pre-adj.',
     sort_rel:'↓ Garrantzia', sort_ppto:'↓ Aurrekontua',
     sort_vence:'↑ Laster iraungitzen', sort_recent:'↓ Berriena',
     col_licit:'Lizitazioa', col_org:'Erakundea', col_ppto:'Aurrekontua',
@@ -242,12 +246,13 @@ const I18N = {
     btn_alerts:'Alertas', btn_csv:'CSV', btn_close:'Pechar ✕',
     nav_list:'Licitacións', nav_stats:'Estatísticas', nav_about:'Sobre nós', nav_home:'Inicio',
     nav_recursos:'Recursos', nav_mapa:'Mapa',
-    st_total:'licitacións', st_vigent:'vixentes', st_vol:'volume €',
+    st_total:'licitacións', st_vigent:'abertas', st_vol:'volume €',
     st_week:'vencen axiña', st_new:'novas hoxe', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de mostra',
     fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca', fl_all_terr:'Todo o territorio',
     fl_status:'Estado', fl_disc:'Disciplina', fl_all:'Todas',
     s_vigente:'Vixente', s_adjudicado:'Adxudicado', s_desierta:'Deserta',
+    s_open:'Abertas', s_open_badge:'Aberta', s_expired:'Vencida', s_ev:'En avaliación', s_pre:'Pre-adj.',
     sort_rel:'↓ Relevancia', sort_ppto:'↓ Orzamento',
     sort_vence:'↑ Vence antes', sort_recent:'↓ Máis recente',
     col_licit:'Licitación', col_org:'Organismo', col_ppto:'Orzamento',
@@ -321,7 +326,7 @@ ADG.generatedAt = null;
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.4.4l';
+ADG.version = '0.4.4q';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -377,6 +382,36 @@ function stateBadge(estat) {
   return `<span class="badge">${estat}</span>`;
 }
 
+function getDisplayStatus(row) {
+  const raw  = (row.estat_raw || '').toUpperCase();
+  const days = daysTo(row.data_limit);
+  if (raw === 'PUB') {
+    return (days === null || days >= 0)
+      ? { key:'open',       label:t('s_open_badge'), cssClass:'b-ok',   icon:'bi-circle-fill'    }
+      : { key:'expired',    label:t('s_expired'),    cssClass:'b-warn', icon:'bi-clock'           };
+  }
+  if (raw === 'EV')  return { key:'ev',         label:t('s_ev'),         cssClass:'b-warn', icon:'bi-hourglass-split' };
+  if (raw === 'PRE') return { key:'pre',        label:t('s_pre'),        cssClass:'b-warn', icon:'bi-hourglass-split' };
+  if (raw === 'ADJ' || raw === 'RES') return { key:'adjudicado', label:t('s_adjudicado'), cssClass:'b-adj', icon:'bi-flag-fill'     };
+  if (raw === 'ANUL') return { key:'desierta',  label:t('s_desierta'),   cssClass:'b-des',  icon:'bi-x-circle-fill'  };
+  // Fallback: derive from stored estat (covers sample data without estat_raw)
+  const estat = row.estat || '';
+  if (estat === 'Adjudicado') return { key:'adjudicado', label:t('s_adjudicado'), cssClass:'b-adj', icon:'bi-flag-fill'    };
+  if (estat === 'Desierta')   return { key:'desierta',   label:t('s_desierta'),   cssClass:'b-des', icon:'bi-x-circle-fill' };
+  if (estat === 'Vigente')    return { key:'open',       label:t('s_open_badge'), cssClass:'b-ok',  icon:'bi-circle-fill'  };
+  return { key:'unknown', label:estat || '?', cssClass:'', icon:'' };
+}
+
+function isOpenOpportunity(row) {
+  return getDisplayStatus(row).key === 'open';
+}
+
+function stateBadgeRow(row) {
+  const ds = getDisplayStatus(row);
+  if (!ds.cssClass) return `<span class="badge">${ds.label || '?'}</span>`;
+  return `<span class="badge ${ds.cssClass}"><i class="bi ${ds.icon}" style="font-size:6px"></i>${ds.label}</span>`;
+}
+
 function applyI18n() {
   document.documentElement.lang = ADG.lang;
   document.querySelectorAll("[data-i18n]").forEach(node => {
@@ -389,7 +424,7 @@ function applyI18n() {
     if (val) opt.textContent = val;
   });
   document.querySelectorAll("[data-estat]").forEach(btn => {
-    const map = {"":"fl_all","Vigente":"s_vigente","Adjudicado":"s_adjudicado","Desierta":"s_desierta"};
+    const map = {"":"fl_all","open":"s_open","adjudicado":"s_adjudicado","desierta":"s_desierta"};
     const key = map[btn.dataset.estat];
     if (!key) return;
     const val = t(key);
@@ -486,9 +521,9 @@ function updateStrip() {
   const d = ADG.data;
   const setEl = (id, val) => { const e = el(id); if (e) e.textContent = val; };
   setEl('s-total',  d.length);
-  setEl('s-vigent', d.filter(r => r.estat === 'Vigente').length);
+  setEl('s-vigent', d.filter(r => isOpenOpportunity(r)).length);
   setEl('s-vol',    fmt(d.reduce((s,r) => s + (r.pressupost||0), 0)));
-  setEl('s-warn',   d.filter(r => { const n = daysTo(r.data_limit); return r.estat === 'Vigente' && n !== null && n >= 0 && n <= 7; }).length);
+  setEl('s-warn',   d.filter(r => { const n = daysTo(r.data_limit); return isOpenOpportunity(r) && n !== null && n >= 0 && n <= 7; }).length);
   setEl('s-new',    d.filter(isNew).length);
   const uEl = el('s-update');
   if (!uEl) return;
@@ -524,7 +559,7 @@ function initModal() {
   });
 }
 
-window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON };
+window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON };
 
 async function loadJSON(path, timeoutMs) {
   try {

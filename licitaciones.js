@@ -8,6 +8,8 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.4.4q May 2026  Runtime status keys: getDisplayStatus/isOpenOpportunity/stateBadgeRow.
+ *                   Honest filter, sort tier, and chip color using canonical lowercase keys.
  * b4.0  Mar 2026  Header updated. Stale copy string fixed.
  *                 Phase 2: FichaPanel wired. Status-tier sort. openDetail/closeDetail replaced.
  * v2.1  Mar 2026  IIFE wrap -- fix 'el' already declared.
@@ -17,6 +19,7 @@
 "use strict";
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge,
+        getDisplayStatus, isOpenOpportunity, stateBadgeRow,
         applyI18n, updateStrip, updateTicker, initShared, initModal, loadData } = ADG_Utils;
 
 // ── STATE ─────────────────────────────────────────────────────────────────
@@ -38,7 +41,7 @@ const S = {
 // ── FILTERING ─────────────────────────────────────────────────────────────
 function getFiltered() {
   let rows = ADG.data;
-  if (S.estat)   rows = rows.filter(r => r.estat === S.estat);
+  if (S.estat)   rows = rows.filter(r => getDisplayStatus(r).key === S.estat);
   if (S.ccaa)    rows = rows.filter(r => r.ccaa === S.ccaa);
   if (S.year)    rows = rows.filter(r => (r.data_pub||'').startsWith(S.year));
   if (S.discs.size) rows = rows.filter(r => (r.disciplines||[]).some(d => S.discs.has(d)));
@@ -58,7 +61,7 @@ function getFiltered() {
 }
 
 function getSorted(rows) {
-  var statusTier = function(r) { return r.estat === 'Vigente' ? 0 : 1; };
+  var statusTier = function(r) { return isOpenOpportunity(r) ? 0 : 1; };
   return [...rows].sort((a,b) => {
     var ta = statusTier(a), tb = statusTier(b);
     if (ta !== tb) return ta - tb;
@@ -145,7 +148,7 @@ function rowHTML(r) {
         <span class="rel-num">${r.rellevancia||0}</span>
       </div>
     </td>
-    <td>${stateBadge(r.estat)}</td>
+    <td>${stateBadgeRow(r)}</td>
     <td><div class="tc-date ${dateClass}">${dateStr}</div></td>
     <td class="tc-bell"><button class="bell-btn ${bellClass}" aria-label="Notificación"><i class="bi bi-bell${bellClass?'-fill':''}"></i></button></td>
   </tr>`;
@@ -217,9 +220,10 @@ function renderFilterChips() {
   const chips = [];
 
   if (S.estat) {
-    const colors = { Vigente:'var(--s-ok)', Adjudicado:'var(--s-adj)', Desierta:'var(--s-des)' };
+    const colors = { open:'var(--s-ok)', adjudicado:'var(--s-adj)', desierta:'var(--s-des)' };
+    const labels = { open:t('s_open'), adjudicado:t('s_adjudicado'), desierta:t('s_desierta') };
     const c = colors[S.estat] || 'var(--text)';
-    chips.push({ label: S.estat, color: c, onX: () => { S.estat=''; render(); syncPills('[data-estat]'); } });
+    chips.push({ label: labels[S.estat] || S.estat, color: c, onX: () => { S.estat=''; render(); syncPills('[data-estat]'); } });
   }
 
   if (S.ccaa) {
