@@ -10,6 +10,8 @@
  * Exports: window.ADG_Shared
  *
  * CHANGELOG (newest first)
+ * 0.4.4q May 2026  computeTrafficLight and computeAdvisory use getDisplayStatus/isOpenOpportunity.
+ *                   fichaHTML uses stateBadgeRow for current record badge.
  * b4.0  Mar 2026  Initial. FichaPanel, TrafficLight (D8 approved ruleset),
  *                 advisory layer (D9 approved rules), ToggleSwitch,
  *                 AlertasStub. Components available but not yet wired
@@ -22,7 +24,10 @@ var _utils = ADG_Utils;
 var t = _utils.t, fmt = _utils.fmt, fmtFull = _utils.fmtFull,
     daysTo = _utils.daysTo, isNew = _utils.isNew,
     discColor = _utils.discColor, discTag = _utils.discTag,
-    stateBadge = _utils.stateBadge;
+    stateBadge = _utils.stateBadge,
+    getDisplayStatus = _utils.getDisplayStatus,
+    isOpenOpportunity = _utils.isOpenOpportunity,
+    stateBadgeRow = _utils.stateBadgeRow;
 
 // -- Local utilities ----------------------------------------------------------
 
@@ -46,26 +51,24 @@ function cpvArray(cpvStr) {
 // UNKNOWN Adjudicado, or no deadline AND no budget
 
 function computeTrafficLight(r) {
+  var ds     = getDisplayStatus(r);
   var days   = daysTo(r.data_limit);
   var budget = r.pressupost || 0;
-  var estat  = r.estat || '';
   var hasAdj = !!(r.adjudicatari && r.adjudicatari.trim());
 
-  if (estat === 'Desierta')   return { verdict: 'bad',     label: t('tl_bad')     };
-  if (estat === 'Adjudicado') return { verdict: 'unknown',  label: t('tl_unknown') };
+  if (ds.key === 'desierta')   return { verdict: 'bad',     label: t('tl_bad')     };
+  if (ds.key === 'adjudicado') return { verdict: 'unknown',  label: t('tl_unknown') };
+  if (!isOpenOpportunity(r))   return { verdict: 'unknown',  label: t('tl_unknown') };
 
   var isBad  = (budget > 0 && budget < 3000) ||
                (days !== null && days >= 0 && days < 10);
   var isGood = (budget >= 10000) &&
                (days !== null && days >= 15) &&
-               (estat === 'Vigente') &&
                !hasAdj;
 
-  if (isBad)               return { verdict: 'bad',    label: t('tl_bad')    };
-  if (isGood)              return { verdict: 'good',   label: t('tl_good')   };
-  if (estat === 'Vigente') return { verdict: 'medium', label: t('tl_medium') };
-
-  return { verdict: 'unknown', label: t('tl_unknown') };
+  if (isBad)  return { verdict: 'bad',    label: t('tl_bad')    };
+  if (isGood) return { verdict: 'good',   label: t('tl_good')   };
+  return      { verdict: 'medium', label: t('tl_medium') };
 }
 
 function TrafficLight(r) {
@@ -93,7 +96,7 @@ function computeAdvisory(r) {
   else if (days !== null && days >= 10)  tips.push('Plazo razonable. Organiza la documentacion con antelacion.');
   if (budget >= 50000)                   tips.push('Presupuesto significativo. Vale la pena una propuesta solida.');
   else if (budget >= 10000)              tips.push('Presupuesto dentro del rango profesional habitual.');
-  if (estat === 'Vigente' && !hasAdj && estatRaw !== 'EV' && estatRaw !== 'PRE' && !(days !== null && days < 0))
+  if (isOpenOpportunity(r) && !hasAdj)
     tips.push('Licitacion activa y sin adjudicatario. Oportunidad real.');
 
   if (budget > 0 && budget < 3000)               warns.push('Presupuesto por debajo del umbral minimo recomendado por ADG-FAD.');
@@ -101,7 +104,7 @@ function computeAdvisory(r) {
   if (days !== null && days < 0)                  warns.push('El plazo de presentacion ya ha vencido.');
   if (hasAdj)                                     warns.push('Ya tiene adjudicatario. Util como referencia, no como oportunidad activa.');
   if (r.ccaa === 'ES')                            warns.push('Ambito estatal. Puede requerir mayor solvencia tecnica acreditada.');
-  if (estat === 'Desierta')                       warns.push('Declarada desierta. Puede republicarse -- util para seguir el organismo.');
+  if (getDisplayStatus(r).key === 'desierta')     warns.push('Declarada desierta. Puede republicarse -- util para seguir el organismo.');
 
   if ((r.historial || []).length > 1) notes.push('Esta licitacion tiene historial de cambios de estado.');
   var cpvs = cpvArray(r.cpv);
@@ -217,7 +220,7 @@ function fichaHTML(r) {
     relsSection = '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_relations')) + '</div><div class="sh-ficha__chips">' + rChips + '</div></div>';
   }
 
-  var badgesHTML = stateBadge(r.estat);
+  var badgesHTML = stateBadgeRow(r);
   if (r.ccaa && TERR[r.ccaa]) badgesHTML += ' <span class="badge b-info">' + esc(TERR[r.ccaa].name || r.ccaa) + '</span>';
   if (isNew(r)) badgesHTML += ' <span class="badge-new">' + esc(t('nueva')) + '</span>';
 
