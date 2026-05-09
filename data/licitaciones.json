@@ -1,65 +1,123 @@
 {
-  "generated_at": "2026-05-08T05:31:14Z",
-  "count": 2,
+  "generated_at": "2026-05-09T05:49:36Z",
+  "count": 4,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/17892950",
-      "titol": "Acord Marc dels serveis de museografia i de disseny gràfic per a les exposicions organitzades per la Direcció General de Difusió, del Departament de la Presidència, dividit en 4 lots. Té com a finalitats:\n-Determinar les condicions generals a les que haurà d’ajustar-se la contractació basada dels serveis de museografia i dels serveis de disseny gràfic de les exposicions organitzades per la DGD i d",
-      "organisme": "Departament de la Presidència",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/15623957",
+      "titol": "Servicio de diseño gráfico, maquetación y artefinalización de piezas de comunicación para Matadero (Lote 1), así como el servicio de maquetación, realización, artefinalización y edición de vídeo a partir de la identidad visual de Conde Duque (Lote 2)",
+      "organisme": "Madrid Destino Cultura Turismo y Negocio, S",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 1006567.5,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-07",
+      "pressupost": 83517.71,
+      "disciplines": [
+        "editorial"
+      ],
+      "ccaa": "MD",
+      "lloc": "Madrid",
+      "data_pub": "2026-05-08",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 45,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/1c698887-97f6-4043-a78e-eca8ff00310b/300768935",
-      "font": "PLACSP-1044",
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=P61RzFh6COdeKgd8LfVV9g%3D%3D",
+      "font": "PLACSP-643",
       "kw": [
-        "CPV:79950000",
-        "CPV:79956000",
-        "disseny gràfic"
+        "CPV:79822500",
+        "diseño gráfico"
       ],
-      "cpv": "79950000, 79956000",
+      "cpv": "79822500",
       "historial": [
         {
-          "data": "2026-05-07",
+          "data": "2026-05-08",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19534144",
-      "titol": "Servicio de diseño, producción audiovisual y ejecución de la campaña de comunicación institucional de la Mancomunidad de O Salnés, en el marco del proyecto “DTI Salnés: Nodo de Integración PID y Análisis de Datos Turísticos”",
-      "organisme": "Presidencia de la Mancomunidade do Salnés",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19034879",
+      "titol": "El objeto del contrato es la prestación de los servicios de comunicación integral.",
+      "organisme": "Dirección Gerencia de la Fundación La Laboral, Centro de Arte, Creación Industrial y Promoción Cultural",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 24793.39,
+      "pressupost": 99018.85,
       "disciplines": [
-        "audiovisual"
+        "publicitat"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-05-07",
+      "data_pub": "2026-05-08",
       "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=blHMLRPeDIH5Rey58Yagpg%3D%3D",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=YqEHl7U5lpDgL1BHd3qjQA%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "campaña de comunicación",
-        "CPV:79340000",
-        "CPV:79341400"
+        "CPV:79416000",
+        "servicios de comunicación"
       ],
-      "cpv": "79340000, 79341400, 79822500",
+      "cpv": "79416000",
       "historial": [
         {
-          "data": "2026-05-07",
+          "data": "2026-05-08",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19537912",
+      "titol": "La contratación de servicio de asesoramiento, producción, ejecución y seguimiento de la estrategia de comunicación del proyecto MITHIC, del programa europeo POCTEFA.",
+      "organisme": "",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 30000.0,
+      "disciplines": [],
+      "ccaa": "PV",
+      "lloc": "País Vasco",
+      "data_pub": "2026-05-08",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso706961/es_doc/index.html",
+      "font": "PLACSP-1044",
+      "kw": [
+        "estrategia de comunicación",
+        "CPV:79340000"
+      ],
+      "cpv": "79340000",
+      "historial": [
+        {
+          "data": "2026-05-08",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19529743",
+      "titol": "Material promocional para la difusión de las acciones de Formación Profesional, promovidas por la Dirección General de Educación Secundaria, Formación Profesional y Régimen Especial de la Consejería de Educación, Ciencia y universidades",
+      "organisme": "Consejería de Educación, Ciencia y Universidades",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 28766.02,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-08",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/material-promocional-difusion-acciones-formacion-profesional-promovidas-direccion",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:22462000",
+        "material promocional"
+      ],
+      "cpv": "22462000",
+      "historial": [
+        {
+          "data": "2026-05-08",
           "estat": "Vigente",
           "nota": "Publicación"
         }
