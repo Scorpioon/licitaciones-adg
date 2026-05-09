@@ -8,6 +8,7 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.4.4t May 2026  Harden status filter key normalization and status pill active-state sync.
  * 0.4.4q May 2026  Runtime status keys: getDisplayStatus/isOpenOpportunity/stateBadgeRow.
  *                   Honest filter, sort tier, and chip color using canonical lowercase keys.
  * b4.0  Mar 2026  Header updated. Stale copy string fixed.
@@ -38,10 +39,22 @@ const S = {
   selectedId: null,
 };
 
+// ── STATUS KEY NORMALIZATION ───────────────────────────────────────────────
+function normalizeStatusKey(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (!v) return '';
+  if (v === 'vigente') return 'open';
+  if (v === 'abiertas' || v === 'abierta') return 'open';
+  if (v === 'adjudicado') return 'adjudicado';
+  if (v === 'desierta') return 'desierta';
+  return v;
+}
+
 // ── FILTERING ─────────────────────────────────────────────────────────────
 function getFiltered() {
   let rows = ADG.data;
-  if (S.estat)   rows = rows.filter(r => getDisplayStatus(r).key === S.estat);
+  const statusKey = normalizeStatusKey(S.estat);
+  if (statusKey) rows = rows.filter(r => getDisplayStatus(r).key === statusKey);
   if (S.ccaa)    rows = rows.filter(r => r.ccaa === S.ccaa);
   if (S.year)    rows = rows.filter(r => (r.data_pub||'').startsWith(S.year));
   if (S.discs.size) rows = rows.filter(r => (r.disciplines||[]).some(d => S.discs.has(d)));
@@ -220,10 +233,11 @@ function renderFilterChips() {
   const chips = [];
 
   if (S.estat) {
+    const statusKey = normalizeStatusKey(S.estat);
     const colors = { open:'var(--s-ok)', adjudicado:'var(--s-adj)', desierta:'var(--s-des)' };
     const labels = { open:t('s_open'), adjudicado:t('s_adjudicado'), desierta:t('s_desierta') };
-    const c = colors[S.estat] || 'var(--text)';
-    chips.push({ label: labels[S.estat] || S.estat, color: c, onX: () => { S.estat=''; render(); syncPills('[data-estat]'); } });
+    const c = colors[statusKey] || 'var(--text)';
+    chips.push({ label: labels[statusKey] || statusKey, color: c, onX: () => { S.estat=''; render(); syncPills('[data-estat]'); } });
   }
 
   if (S.ccaa) {
@@ -267,6 +281,14 @@ function clearAll() {
 // ── PILL SYNC ─────────────────────────────────────────────────────────────
 function syncPills(selector) {
   document.querySelectorAll(selector).forEach(p => {
+    if (selector === '[data-estat]') {
+      const current = normalizeStatusKey(S.estat);
+      const candidate = normalizeStatusKey(p.dataset.estat);
+      const active = candidate === current;
+      p.classList.toggle('active', active);
+      p.setAttribute('aria-pressed', active);
+      return;
+    }
     const val = p.dataset.estat ?? '';
     p.classList.toggle('active', val === S.estat);
     p.setAttribute('aria-pressed', val === S.estat);
@@ -373,7 +395,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Filter events
   document.querySelectorAll('[data-estat]').forEach(p => {
     p.addEventListener('click', () => {
-      S.estat = p.dataset.estat; S.page=1;
+      S.estat = normalizeStatusKey(p.dataset.estat); S.page=1;
       syncPills('[data-estat]'); render();
     });
   });
@@ -456,4 +478,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   render();
   checkURL();
 });
+
+// ── DEBUG EXPORT (temporary, v0.4.4t) ─────────────────────────────────────
+window.ADG_LIC_DEBUG = {
+  getState: () => ({ ...S, discs: [...S.discs], estat: normalizeStatusKey(S.estat) }),
+  getFilteredCount: () => getFiltered().length,
+  getOpenCount: () => ADG.data.filter(r => getDisplayStatus(r).key === 'open').length,
+  getActiveStatusPills: () => [...document.querySelectorAll('[data-estat].active')].map(b => ({
+    dataset: b.dataset.estat,
+    normalized: normalizeStatusKey(b.dataset.estat),
+    text: b.textContent.trim(),
+    className: b.className
+  }))
+};
 })();
