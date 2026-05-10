@@ -8,6 +8,7 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.4.4v May 2026  Removed temporary ADG_LIC_DEBUG export after status filter runtime validation.
  * 0.4.4t May 2026  Harden status filter key normalization and status pill active-state sync.
  * 0.4.4q May 2026  Runtime status keys: getDisplayStatus/isOpenOpportunity/stateBadgeRow.
  *                   Honest filter, sort tier, and chip color using canonical lowercase keys.
@@ -479,16 +480,4 @@ document.addEventListener('DOMContentLoaded', async () => {
   checkURL();
 });
 
-// ── DEBUG EXPORT (temporary, v0.4.4t) ─────────────────────────────────────
-window.ADG_LIC_DEBUG = {
-  getState: () => ({ ...S, discs: [...S.discs], estat: normalizeStatusKey(S.estat) }),
-  getFilteredCount: () => getFiltered().length,
-  getOpenCount: () => ADG.data.filter(r => getDisplayStatus(r).key === 'open').length,
-  getActiveStatusPills: () => [...document.querySelectorAll('[data-estat].active')].map(b => ({
-    dataset: b.dataset.estat,
-    normalized: normalizeStatusKey(b.dataset.estat),
-    text: b.textContent.trim(),
-    className: b.className
-  }))
-};
 })();
