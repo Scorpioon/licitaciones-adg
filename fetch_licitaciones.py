@@ -341,6 +341,10 @@ def _local(tag: str) -> str:
     return tag.split("}")[-1] if "}" in tag else tag
 
 
+def localname_lower(tag: str) -> str:
+    return _local(tag).lower()
+
+
 def ubl_find_text(entry, *local_path: str) -> str:
     ubl_root = entry
     for child in entry:
@@ -447,6 +451,33 @@ _STATUS_CODES = {
     "ANU": "Desierta", "DES": "Desierta", "SUS": "Desierta", "ANUL": "Desierta",
 }
 
+# v0.4.5b — ContractFolderID extraction model constants
+STATUS_CODE_TO_NOTICE_TYPE = {
+    "PUB": "PUB",
+    "EV": "EV",
+    "PRE": "PRE",
+    "ADJ": "AWARD",
+    "RES": "RES",
+    "FOR": "FORMALIZATION",
+    "DEL": "CANCELLED",
+}
+
+STATUS_RANK = {
+    "FORMALIZATION": 10,
+    "CONTRACT_MODIFICATION": 9,
+    "AWARD": 8,
+    "ADJ": 8,
+    "RES": 7,
+    "EV": 4,
+    "PRE": 3,
+    "PUB": 2,
+    "PRIOR": 1,
+    "CANCELLED": 0,
+    "UNKNOWN": 0,
+}
+
+OPEN_NOTICE_TYPES = {"PUB", "EV", "PRE", "PRIOR", "UNKNOWN"}
+
 _CONTRACT_TYPES = {"1": "Suministros", "2": "Servicios", "3": "Obras"}
 
 
@@ -509,6 +540,174 @@ def extract_cpv_from_categories(entry) -> list:
             if re.fullmatch(r"[1-9]\d{7}", term):
                 codes.append(term)
     return list(dict.fromkeys(codes))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# v0.4.5b — ContractFolderID extraction helpers
+# All use entry.iter() BFS — do NOT use ubl_find_text() for ContractFolderID
+# because ubl_find_text() re-roots at ContractFolderStatus and can miss the
+# top-level ContractFolderID element.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def extract_contract_folder_id_xml(entry) -> str:
+    for el in entry.iter():
+        if localname_lower(el.tag) == "contractfolderid":
+            return (el.text or "").strip()
+    return ""
+
+
+def extract_notice_type_code_xml(entry) -> str:
+    for el in entry.iter():
+        if localname_lower(el.tag) == "noticetypecode":
+            return (el.text or "").strip()
+    return ""
+
+
+def extract_notice_type_xml(entry, status_code_raw=None) -> str:
+    raw = status_code_raw or extract_estat_raw_xml(entry)
+    # CONTRACT_MODIFICATION takes precedence when the element is present
+    for el in entry.iter():
+        if localname_lower(el.tag) == "contractmodification":
+            return "CONTRACT_MODIFICATION"
+    return STATUS_CODE_TO_NOTICE_TYPE.get(raw, "UNKNOWN")
+
+
+def extract_related_contract_ids_xml(entry) -> list:
+    TARGET_TAGS = frozenset({"contractid", "contractidentifier"})
+    ids = []
+    for el in entry.iter():
+        if localname_lower(el.tag) in TARGET_TAGS:
+            v = (el.text or "").strip()
+            if v and v not in ids:
+                ids.append(v)
+    return ids
+
+
+def extract_winning_party_nif_xml(entry) -> str:
+    _NIF_RE = re.compile(r"[A-Z][0-9A-Z]{7,8}")
+    for el in entry.iter():
+        if localname_lower(el.tag) == "winningparty":
+            for child in el.iter():
+                if localname_lower(child.tag) == "companyid":
+                    v = (child.text or "").strip()
+                    if _NIF_RE.match(v):
+                        return v
+    return ""
+
+
+def extract_formalization_date_xml(entry, status_code_raw: str, issue_date: str) -> str:
+    FORM_TAGS = frozenset({"formalizationdate", "signingdate", "contractdate"})
+    for el in entry.iter():
+        if localname_lower(el.tag) in FORM_TAGS:
+            v = (el.text or "").strip()
+            if v:
+                m = re.search(r"(\d{4}-\d{2}-\d{2})", v)
+                return m.group(1) if m else v[:10]
+    if status_code_raw == "FOR" and issue_date:
+        return issue_date[:10]
+    return ""
+
+
+def extract_award_results_xml(entry, notice_id: str, notice_type: str,
+                               status_code_raw: str = "", issue_date: str = "") -> list:
+    results = []
+    for tr in entry.iter():
+        if localname_lower(tr.tag) != "tenderresult":
+            continue
+        r = {
+            "notice_id": notice_id,
+            "notice_type": notice_type,
+            "result_code": "",
+            "winning_party_name": "",
+            "winning_party_nif": "",
+            "award_amount_tax_excl": None,
+            "award_amount_tax_incl": None,
+            "lot_id": None,
+            "lot_title": None,
+            "contract_id": None,
+            "award_date": "",
+            "formalization_date": extract_formalization_date_xml(entry, status_code_raw, issue_date),
+            "modification_date": "",
+            "provenance": "feed_xml",
+        }
+        for el in tr.iter():
+            ln = localname_lower(el.tag)
+            v = (el.text or "").strip()
+            if ln == "resultcode" and not r["result_code"]:
+                r["result_code"] = v
+            elif ln == "awarddate" and not r["award_date"]:
+                r["award_date"] = v[:10] if v else ""
+            elif ln == "payableamount" and r["award_amount_tax_incl"] is None:
+                try:
+                    r["award_amount_tax_incl"] = float(v.replace(",", "."))
+                except ValueError:
+                    pass
+            elif ln == "taxexclusiveamount" and r["award_amount_tax_excl"] is None:
+                try:
+                    r["award_amount_tax_excl"] = float(v.replace(",", "."))
+                except ValueError:
+                    pass
+            elif ln in ("partyname", "name") and not r["winning_party_name"]:
+                if len(v) >= 3 and not _NUTS_RE.match(v):
+                    r["winning_party_name"] = v[:120]
+            elif ln == "companyid" and not r["winning_party_nif"]:
+                if re.match(r"[A-Z][0-9A-Z]{7,8}", v):
+                    r["winning_party_nif"] = v
+            elif ln == "lotid" and r["lot_id"] is None:
+                r["lot_id"] = v
+            elif ln == "contractid" and r["contract_id"] is None:
+                r["contract_id"] = v
+        results.append(r)
+    return results
+
+
+def extract_document_catalogue_xml(entry, notice_id: str, notice_type: str) -> list:
+    # Live PLACSP Atom feed tags (confirmed v0.4.5a2) + fixture/full-CODICE tags
+    DOC_TAGS = frozenset({
+        "legaldocumentreference",
+        "technicaldocumentreference",
+        "additionalpublicationdocumentreference",
+        "templatedocumentreference",
+        "attachmentdocumentreference",
+        "documentreference",
+        "additionalattachment",
+    })
+    _MIME = {"pdf": "application/pdf", "zip": "application/zip",
+             "doc": "application/msword",
+             "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+    docs = []
+    for el in entry.iter():
+        if localname_lower(el.tag) not in DOC_TAGS:
+            continue
+        doc = {
+            "notice_id": notice_id,
+            "notice_type": notice_type,
+            "document_type": "",
+            "source_section": localname_lower(el.tag),
+            "title": "",
+            "url": "",
+            "mime_hint": "",
+            "format_hint": "",
+            "published_at": "",
+            "provenance": "feed_xml",
+        }
+        for child in el.iter():
+            ln = localname_lower(child.tag)
+            v = (child.text or "").strip()
+            if ln == "documenttypecode" and not doc["document_type"]:
+                doc["document_type"] = v
+            elif ln in ("uri", "url") and not doc["url"]:
+                doc["url"] = v[:500]
+            elif ln in ("filename", "title", "documentdescription", "name") and not doc["title"]:
+                doc["title"] = v[:200]
+            elif ln == "issuedate" and not doc["published_at"]:
+                doc["published_at"] = v[:10]
+        if doc["url"]:
+            ext = doc["url"].rsplit(".", 1)[-1].lower().split("?")[0][:8]
+            doc["mime_hint"] = _MIME.get(ext, "")
+            doc["format_hint"] = ext.upper() if ext else ""
+        docs.append(doc)
+    return docs
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -793,6 +992,23 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
                 "Suministros" if re.search(r"\bsuministro\b|\bsubministrament\b", norm(titulo)) else "Servicios"
             )
 
+            # v0.4.5b — ContractFolderID extraction (additive fields; does not affect merge yet)
+            cfid = extract_contract_folder_id_xml(entry)
+            canonical_key = cfid if cfid else item_id[:120]
+            notice_type = extract_notice_type_xml(entry, estat_raw)
+            notice_type_code = extract_notice_type_code_xml(entry)
+            status_rank = STATUS_RANK.get(notice_type, 0)
+            award_results = extract_award_results_xml(entry, item_id[:80], notice_type, estat_raw, fecha_pub)
+            related_contract_ids = extract_related_contract_ids_xml(entry)
+            documents = extract_document_catalogue_xml(entry, item_id[:80], notice_type)
+            # Backward-compat: fill adjudicatari from award_results if currently empty
+            if not adjudicatari and award_results:
+                for ar in award_results:
+                    if ar.get("winning_party_name"):
+                        adjudicatari = ar["winning_party_name"]
+                        break
+            winner_provenance = "feed_xml" if adjudicatari else ""
+
             page_results.append({
                 "id": item_id[:120],
                 "titol": titulo[:400],
@@ -813,6 +1029,28 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
                 "kw": kws,
                 "cpv": ", ".join(cpv_codes[:3]),
                 "historial": [],
+                # v0.4.5b additive fields
+                "contract_folder_id": cfid,
+                "canonical_key": canonical_key,
+                "notice_type": notice_type,
+                "notice_type_code": notice_type_code,
+                "status_rank": status_rank,
+                "first_pub_date": fecha_pub if notice_type in {"PUB", "PRIOR"} else "",
+                "last_notice_date": fecha_pub,
+                "status_provenance": item_id[:80],
+                "winner_provenance": winner_provenance,
+                "award_results": award_results,
+                "related_contract_ids": related_contract_ids,
+                "notice_history": [{
+                    "notice_id": item_id[:80],
+                    "notice_type": notice_type,
+                    "status_key": notice_type,
+                    "status_code_raw": estat_raw,
+                    "issue_date": fecha_pub,
+                    "url": url_item[:300],
+                    "source": source_name,
+                }],
+                "documents": documents,
             })
         except Exception as e:
             pprint(f"    [!] entry error: {e}")
