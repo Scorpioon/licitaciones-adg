@@ -1,8 +1,69 @@
 {
-  "generated_at": "2026-05-10T06:12:56Z",
-  "count": 5,
+  "generated_at": "2026-05-11T06:40:09Z",
+  "count": 7,
   "fetcher_version": "2.0",
   "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19551101",
+      "titol": "Contratación del Suministro por cuenta abierta de Material Promocional de Merchandising para la Delegación de Juventud del Excmo. Ayuntamiento de Marbella",
+      "organisme": "Junta de Gobierno del Ayuntamiento de Marbella",
+      "adjudicatari": "",
+      "tipus": "Suministros",
+      "pressupost": 15000.0,
+      "disciplines": [],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-10",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=fRSsCBzqsgKLAncw3qdZkA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:22462000",
+        "material promocional"
+      ],
+      "cpv": "22462000",
+      "historial": [
+        {
+          "data": "2026-05-10",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19379717",
+      "titol": "Contratación por cuenta abierta del Servicio de Impresión de Cartelería y de otros Elementos destinados a la presentación de los diferentes eventos organizados por la Delegación de Fiestas",
+      "organisme": "Junta de Gobierno del Ayuntamiento de Marbella",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 20000.0,
+      "disciplines": [
+        "editorial",
+        "impressio"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-09",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=m1Y5nsZdOq3L1rX3q%2FMAPA%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "CPV:79810000",
+        "cartelería"
+      ],
+      "cpv": "79810000",
+      "historial": [
+        {
+          "data": "2026-05-09",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
     {
       "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19501130",
       "titol": "Es objeto de este contrato la prestación del servicio de  maquetación, impresión, encuadernación y suministro de la Revista de feria FONS MELLARIA 2026 conforme al PPT",
@@ -23,8 +84,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=0TL5wqMa1NYIYE3ZiZ%2BxmQ%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "maquetación",
         "CPV:79810000",
+        "maquetación",
         "CPV:79971000"
       ],
       "cpv": "79810000, 79971000",
@@ -86,8 +147,8 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=YqEHl7U5lpDgL1BHd3qjQA%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79416000",
-        "servicios de comunicación"
+        "servicios de comunicación",
+        "CPV:79416000"
       ],
       "cpv": "79416000",
       "historial": [
@@ -115,8 +176,8 @@
       "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso706961/es_doc/index.html",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79340000",
-        "estrategia de comunicación"
+        "estrategia de comunicación",
+        "CPV:79340000"
       ],
       "cpv": "79340000",
       "historial": [
