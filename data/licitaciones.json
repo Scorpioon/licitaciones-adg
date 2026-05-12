@@ -1,218 +1,69 @@
 {
-  "generated_at": "2026-05-11T06:40:09Z",
-  "count": 7,
+  "generated_at": "2026-05-12T06:15:05Z",
+  "count": 2,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19551101",
-      "titol": "Contratación del Suministro por cuenta abierta de Material Promocional de Merchandising para la Delegación de Juventud del Excmo. Ayuntamiento de Marbella",
-      "organisme": "Junta de Gobierno del Ayuntamiento de Marbella",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 15000.0,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-10",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=fRSsCBzqsgKLAncw3qdZkA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:22462000",
-        "material promocional"
-      ],
-      "cpv": "22462000",
-      "historial": [
-        {
-          "data": "2026-05-10",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19379717",
-      "titol": "Contratación por cuenta abierta del Servicio de Impresión de Cartelería y de otros Elementos destinados a la presentación de los diferentes eventos organizados por la Delegación de Fiestas",
-      "organisme": "Junta de Gobierno del Ayuntamiento de Marbella",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19295121",
+      "titol": "Servei de disseny gràfic i maquetació de diversos suports de promoció i divulgació del portafoli de productes de Loteries de Catalunya SAU, i d’accions transversals per a l’any 2026.\nLOT 1 Conceptualització, naming i disseny de logotips (V0951-MKJ-26-0002) \nLOT 2 Desenvolupament gràfic, maquetació i adaptació de peces vinculades al punt de venda (V0953-RET-26-0009)",
+      "organisme": "Loteries de Catalunya, SAU",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 20000.0,
+      "pressupost": 60085.37,
       "disciplines": [
-        "editorial",
-        "impressio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-09",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=m1Y5nsZdOq3L1rX3q%2FMAPA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79810000",
-        "cartelería"
-      ],
-      "cpv": "79810000",
-      "historial": [
-        {
-          "data": "2026-05-09",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19501130",
-      "titol": "Es objeto de este contrato la prestación del servicio de  maquetación, impresión, encuadernación y suministro de la Revista de feria FONS MELLARIA 2026 conforme al PPT",
-      "organisme": "Alcaldia del Ayuntamiento de Fuente Obejuna",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 9615.0,
-      "disciplines": [
-        "editorial",
-        "impressio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-09",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 40,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=0TL5wqMa1NYIYE3ZiZ%2BxmQ%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "CPV:79810000",
-        "maquetación",
-        "CPV:79971000"
-      ],
-      "cpv": "79810000, 79971000",
-      "historial": [
-        {
-          "data": "2026-05-09",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/15623957",
-      "titol": "Servicio de diseño gráfico, maquetación y artefinalización de piezas de comunicación para Matadero (Lote 1), así como el servicio de maquetación, realización, artefinalización y edición de vídeo a partir de la identidad visual de Conde Duque (Lote 2)",
-      "organisme": "Madrid Destino Cultura Turismo y Negocio, S",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 83517.71,
-      "disciplines": [
+        "branding",
         "editorial"
       ],
-      "ccaa": "MD",
-      "lloc": "Madrid",
-      "data_pub": "2026-05-08",
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-05-11",
       "data_limit": "",
       "estat": "Adjudicado",
       "rellevancia": 45,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=P61RzFh6COdeKgd8LfVV9g%3D%3D",
-      "font": "PLACSP-643",
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/fa83ab13-4d8f-4855-9466-8495fc5727d7/300771563",
+      "font": "PLACSP-1044",
       "kw": [
-        "diseño gráfico",
+        "disseny gràfic",
         "CPV:79822500"
       ],
       "cpv": "79822500",
       "historial": [
         {
-          "data": "2026-05-08",
+          "data": "2026-05-11",
           "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
     },
     {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19034879",
-      "titol": "El objeto del contrato es la prestación de los servicios de comunicación integral.",
-      "organisme": "Dirección Gerencia de la Fundación La Laboral, Centro de Arte, Creación Industrial y Promoción Cultural",
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19207795",
+      "titol": "Servicios de impresión y encuadernación de catálogos y folletos de exposiciones, así como de libros y publicaciones editadas por el Área de Cultura",
+      "organisme": "Presidencia de la Diputación Provincial de Cáceres",
       "adjudicatari": "",
       "tipus": "Servicios",
-      "pressupost": 99018.85,
+      "pressupost": 133620.0,
       "disciplines": [
-        "publicitat"
+        "branding",
+        "editorial",
+        "impressio"
       ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-08",
+      "ccaa": "EX",
+      "lloc": "Extremadura",
+      "data_pub": "2026-05-11",
       "data_limit": "",
       "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=YqEHl7U5lpDgL1BHd3qjQA%3D%3D",
+      "rellevancia": 40,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=BeWsxT9fZwTVGIpKDxgsAQ%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "servicios de comunicación",
-        "CPV:79416000"
+        "folletos",
+        "CPV:79824000"
       ],
-      "cpv": "79416000",
+      "cpv": "79824000",
       "historial": [
         {
-          "data": "2026-05-08",
+          "data": "2026-05-11",
           "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19537912",
-      "titol": "La contratación de servicio de asesoramiento, producción, ejecución y seguimiento de la estrategia de comunicación del proyecto MITHIC, del programa europeo POCTEFA.",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 30000.0,
-      "disciplines": [],
-      "ccaa": "PV",
-      "lloc": "País Vasco",
-      "data_pub": "2026-05-08",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso706961/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "estrategia de comunicación",
-        "CPV:79340000"
-      ],
-      "cpv": "79340000",
-      "historial": [
-        {
-          "data": "2026-05-08",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19529743",
-      "titol": "Material promocional para la difusión de las acciones de Formación Profesional, promovidas por la Dirección General de Educación Secundaria, Formación Profesional y Régimen Especial de la Consejería de Educación, Ciencia y universidades",
-      "organisme": "Consejería de Educación, Ciencia y Universidades",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 28766.02,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-08",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contratos-publicos.comunidad.madrid/contrato-publico/material-promocional-difusion-acciones-formacion-profesional-promovidas-direccion",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:22462000",
-        "material promocional"
-      ],
-      "cpv": "22462000",
-      "historial": [
-        {
-          "data": "2026-05-08",
-          "estat": "Vigente",
           "nota": "Publicación"
         }
       ]
