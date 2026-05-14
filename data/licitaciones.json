@@ -1,161 +1,37 @@
 {
-  "generated_at": "2026-05-13T06:26:43Z",
-  "count": 5,
+  "generated_at": "2026-05-14T06:25:30Z",
+  "count": 1,
   "fetcher_version": "2.0",
   "data": [
     {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19490905",
-      "titol": "L’objecte del contracte comprèn servei d’impressió, enquadernació i lliurament de la publicació turística “OH!Garrotxa, la guia” la prestació és integral comprèn els serveis necessaris per a la impressió i lliurament de la publicació, incloent la revisió tècnica prèvia dels arxius, la seva eventual adaptació al procés d’impressió, la impressió mitjançant el sistema més adequat segons les caracterí",
-      "organisme": "Consell Comarcal de la Garrotxa",
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19574639",
+      "titol": "Contrato de servicios de asistencia a trabajos de diseño, redacción, maquetación, edición e impresión del Boletín Informativo Municipal Bidezarra y de gestión de las Redes Sociales del Ayuntamiento del Valle de Elorz / Elortzibarko Udada",
+      "organisme": "Ayuntamiento del Valle de Elorz",
       "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 47739.45,
+      "tipus": "Servicios",
+      "pressupost": 39950.0,
       "disciplines": [
         "editorial",
         "impressio"
       ],
       "ccaa": "ES",
       "lloc": "Estatal",
-      "data_pub": "2026-05-12",
+      "data_pub": "2026-05-14",
       "data_limit": "",
       "estat": "Vigente",
-      "rellevancia": 42,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/6912293f-ec27-495a-bbb6-62c1f7be0c86/300771718",
+      "rellevancia": 45,
+      "url": "https://hacienda.navarra.es/sicpportal/mtoAnunciosModalidad.aspx?cod=260427132640A0801A12",
       "font": "PLACSP-1044",
       "kw": [
-        "CPV:79823000",
-        "CPV:22100000",
-        "disseny gràfic",
-        "marca"
+        "maquetación",
+        "CPV:79822500",
+        "CPV:79416000"
       ],
-      "cpv": "79823000, 22100000, 79810000",
+      "cpv": "79416000, 79822500, 72413000",
       "historial": [
         {
-          "data": "2026-05-12",
+          "data": "2026-05-14",
           "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19546336",
-      "titol": "Contratación de los servicios de impresión, montaje, desmontaje y retirada de elementos, así como del suministro de diferentes soportes gráficos y de comunicación vinculados con la actividad de Fomento de San Sebastián, S.A.",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Suministros",
-      "pressupost": 71052.11,
-      "disciplines": [
-        "impressio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-12",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso707046/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:79810000",
-        "servicios de impresión"
-      ],
-      "cpv": "79810000",
-      "historial": [
-        {
-          "data": "2026-05-12",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19667556",
-      "titol": "Adquisició de 8 obres \"Sense títol\" de la sèrie \"Dramagrames (1984 - 2010)\" de Fernando Krahn, incloses a la línia d'adquisicions del Còmic i la Il·lustració",
-      "organisme": "Departament de Cultura",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 20000.0,
-      "disciplines": [
-        "illustracio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-12",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/cba424c7-18d1-4863-9eea-68bb944d309f/300773458",
-      "font": "PLACSP-1044",
-      "kw": [
-        "il·lustració",
-        "CPV:92311000"
-      ],
-      "cpv": "92311000",
-      "historial": [
-        {
-          "data": "2026-05-12",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19276549",
-      "titol": "Prestació d’un servei integral de coordinació, producció audiovisual, fotografia institucional i edició de continguts (vídeo i foto) per a la cobertura dels diferents actes, visites, esdeveniments i actuacions d’interès per a l’Ajuntament de l’Ametlla del Vallès i per als mitjans de comunicació municipals, així com per a la confecció de peces i campanyes comunicatives municipals que requereixin un",
-      "organisme": "Ajuntament de l'Ametlla del Vallès",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 17500.0,
-      "disciplines": [
-        "audiovisual"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-12",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/e87b7c08-ab99-4d79-9d5d-4977b9c71960/300773272",
-      "font": "PLACSP-1044",
-      "kw": [
-        "producció audiovisual",
-        "CPV:79961000"
-      ],
-      "cpv": "79961000",
-      "historial": [
-        {
-          "data": "2026-05-12",
-          "estat": "Adjudicado",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19192584",
-      "titol": "Contractar els serveis de comunicació i community manager de l'Ajuntament de Santa Eugènia de Berga, per utilitzar de manera més eficient les xarxes socials i mantenir actualitzats tots els canals de comunicació dels que disposa (web corporativa, butlletí, aplicació mòbil, etc.).",
-      "organisme": "Ajuntament de Santa Eugènia de Berga",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 10801.6,
-      "disciplines": [],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-12",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 35,
-      "url": "https://contractaciopublica.cat/ca/detall-publicacio/b4848048-d626-4147-8754-a0478665fbbf/300773236",
-      "font": "PLACSP-1044",
-      "kw": [
-        "serveis de comunicació",
-        "CPV:79970000",
-        "CPV:79340000"
-      ],
-      "cpv": "79340000, 79970000, 92400000",
-      "historial": [
-        {
-          "data": "2026-05-12",
-          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
