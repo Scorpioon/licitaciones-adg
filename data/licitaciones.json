@@ -1,40 +1,6 @@
 {
-  "generated_at": "2026-05-14T06:25:30Z",
-  "count": 1,
+  "generated_at": "2026-05-15T06:34:33Z",
+  "count": 0,
   "fetcher_version": "2.0",
-  "data": [
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19574639",
-      "titol": "Contrato de servicios de asistencia a trabajos de diseño, redacción, maquetación, edición e impresión del Boletín Informativo Municipal Bidezarra y de gestión de las Redes Sociales del Ayuntamiento del Valle de Elorz / Elortzibarko Udada",
-      "organisme": "Ayuntamiento del Valle de Elorz",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 39950.0,
-      "disciplines": [
-        "editorial",
-        "impressio"
-      ],
-      "ccaa": "ES",
-      "lloc": "Estatal",
-      "data_pub": "2026-05-14",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 45,
-      "url": "https://hacienda.navarra.es/sicpportal/mtoAnunciosModalidad.aspx?cod=260427132640A0801A12",
-      "font": "PLACSP-1044",
-      "kw": [
-        "maquetación",
-        "CPV:79822500",
-        "CPV:79416000"
-      ],
-      "cpv": "79416000, 79822500, 72413000",
-      "historial": [
-        {
-          "data": "2026-05-14",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    }
-  ]
+  "data": []
 }
