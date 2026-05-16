@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.4o -- May 2026
+# 0.4.5f -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.5f May 2026  Add merge_master_v2: ContractFolderID-aware merge; canonical_key dedup path.
 # 0.4.4o May 2026  Per-page retry/backoff for transient SSL/network failures in fetch_source().
 # 0.4.4n May 2026  Live fetch reliability metadata, partial-run detection, and production write guard.
 # 0.4.4i May 2026  Add estat_raw provenance field preserving raw ContractFolderStatusCode for future status semantics.
@@ -933,6 +934,246 @@ def merge_master(new_items: list, previous: dict, today: str) -> tuple:
     return list(merged.values()), stats
 
 
+def merge_master_v2(new_items: list, previous: dict, today: str) -> tuple:
+    """ContractFolderID-aware incremental merge (v0.4.5f).
+
+    Merge key: canonical_key = contract_folder_id if present, else item["id"].
+    Higher STATUS_RANK always wins; lower rank never downgrades a record.
+    Union semantics for notice_history, award_results, documents,
+    related_contract_ids, cpv, historial.
+    previous dict may be keyed by old item["id"] strings (pre-CFID baseline) —
+    those records are preserved unchanged under their original keys.
+    """
+    # Build a lookup from canonical_key -> record for previous data.
+    # previous may be keyed by item["id"] (old records without CFID).
+    prev_by_ckey: dict = {}
+    for rec in previous.values():
+        ckey = rec.get("canonical_key") or rec.get("contract_folder_id") or rec["id"]
+        prev_by_ckey[ckey] = rec
+
+    merged: dict = {}
+    # Preserve all previous records under their canonical keys.
+    for rec in previous.values():
+        ckey = rec.get("canonical_key") or rec.get("contract_folder_id") or rec["id"]
+        merged[ckey] = rec
+
+    new_count = 0
+    updated_count = 0
+
+    def _union_list(base: list, incoming: list, key_fn) -> list:
+        seen = {key_fn(x) for x in base}
+        result = list(base)
+        for x in incoming:
+            k = key_fn(x)
+            if k not in seen:
+                result.append(x)
+                seen.add(k)
+        return result
+
+    def _award_key(a: dict) -> tuple:
+        return (
+            a.get("notice_id", ""),
+            a.get("winning_party_name", ""),
+            a.get("winning_party_nif", ""),
+            str(a.get("award_amount_tax_excl", "")),
+            a.get("contract_id", ""),
+            a.get("lot_id", ""),
+        )
+
+    def _doc_key(d: dict) -> tuple:
+        return (d.get("title", ""), d.get("url", ""), d.get("document_type", ""), d.get("notice_id", ""))
+
+    def _hist_key(h: dict) -> tuple:
+        return (h.get("notice_id", ""), h.get("notice_type", ""), h.get("issue_date", ""))
+
+    def _earliest_date(a: str, b: str) -> str:
+        if not a:
+            return b
+        if not b:
+            return a
+        return a if a <= b else b
+
+    def _latest_date(a: str, b: str) -> str:
+        if not a:
+            return b
+        if not b:
+            return a
+        return a if a >= b else b
+
+    def _estat_from_notice_type(notice_type: str, rank: int) -> str:
+        if notice_type == "CANCELLED":
+            return "Desierta"
+        if rank >= 8 or notice_type in {"AWARD", "FORMALIZATION", "ADJ", "RES"}:
+            return "Adjudicado"
+        return "Vigente"
+
+    for item in new_items:
+        ckey = item.get("canonical_key") or item.get("contract_folder_id") or item["id"]
+        item_rank = STATUS_RANK.get(item.get("notice_type", "UNKNOWN"), 0)
+        prev = merged.get(ckey)
+
+        if prev is None:
+            # Genuinely new canonical procurement.
+            if not item.get("historial"):
+                item["historial"] = [
+                    make_history_entry(item.get("data_pub", today), item.get("estat", "Vigente"), "Publicación")
+                ]
+            merged[ckey] = item
+            new_count += 1
+            continue
+
+        # Existing record — decide winner by status rank.
+        prev_rank = STATUS_RANK.get(prev.get("notice_type", "UNKNOWN"), 0)
+        rank_wins = item_rank > prev_rank
+
+        # Base record: start from the higher-rank source.
+        if rank_wins:
+            base = dict(item)
+            other = prev
+        else:
+            base = dict(prev)
+            other = item
+
+        # --- Union / append fields ---
+
+        # notice_history: union by (notice_id, notice_type, issue_date)
+        base["notice_history"] = _union_list(
+            list(base.get("notice_history") or []),
+            list(other.get("notice_history") or []),
+            _hist_key,
+        )
+
+        # award_results: union by stable tuple
+        base["award_results"] = _union_list(
+            list(base.get("award_results") or []),
+            list(other.get("award_results") or []),
+            _award_key,
+        )
+
+        # documents
+        base["documents"] = _union_list(
+            list(base.get("documents") or []),
+            list(other.get("documents") or []),
+            _doc_key,
+        )
+
+        # related_contract_ids: union by exact string
+        rci_set = set(base.get("related_contract_ids") or [])
+        for r in (other.get("related_contract_ids") or []):
+            rci_set.add(r)
+        base["related_contract_ids"] = sorted(rci_set)
+
+        # cpv: union comma-joined sets
+        cpv_set = set(x.strip() for x in (base.get("cpv") or "").split(",") if x.strip())
+        for c in (other.get("cpv") or "").split(","):
+            c = c.strip()
+            if c:
+                cpv_set.add(c)
+        base["cpv"] = ",".join(sorted(cpv_set))
+
+        # historial: prefer base; append entries from other that aren't duplicates
+        base_historial = list(base.get("historial") or [])
+        other_historial = list(other.get("historial") or [])
+        hist_keys = {(h.get("data", ""), h.get("estat", ""), h.get("nota", "")) for h in base_historial}
+        for h in other_historial:
+            k = (h.get("data", ""), h.get("estat", ""), h.get("nota", ""))
+            if k not in hist_keys:
+                base_historial.append(h)
+                hist_keys.add(k)
+        if rank_wins:
+            new_estat = _estat_from_notice_type(item.get("notice_type", "UNKNOWN"), item_rank)
+            prev_estat_val = prev.get("estat") or "Vigente"
+            if new_estat != prev_estat_val:
+                nota = (
+                    f"Adjudicado a {item.get('adjudicatari')}"
+                    if (new_estat == "Adjudicado" and item.get("adjudicatari"))
+                    else f"Cambio: {prev_estat_val} → {new_estat}"
+                )
+                base_historial.append(make_history_entry(today, new_estat, nota))
+        elif not base_historial:
+            base_historial.append(
+                make_history_entry(base.get("data_pub", today), base.get("estat", "Vigente"), "Publicación")
+            )
+        base["historial"] = base_historial
+
+        # --- Scalar fields: keep non-empty / winning-rank values ---
+
+        # id: preserve the existing id (may be the original Atom entry URL)
+        base["id"] = prev.get("id") or item.get("id")
+
+        # canonical_key / contract_folder_id: keep truthy value
+        base["canonical_key"] = (
+            prev.get("canonical_key") or prev.get("contract_folder_id")
+            or item.get("canonical_key") or item.get("contract_folder_id")
+            or ckey
+        )
+        base["contract_folder_id"] = (
+            prev.get("contract_folder_id") or item.get("contract_folder_id") or ""
+        )
+
+        # data_limit: keep non-empty tender-stage deadline; don't overwrite with blank from award notices
+        base["data_limit"] = prev.get("data_limit") or item.get("data_limit") or ""
+
+        # first_pub_date: earliest publication date
+        base["first_pub_date"] = _earliest_date(
+            prev.get("first_pub_date") or "", item.get("first_pub_date") or ""
+        )
+
+        # last_notice_date: latest known notice date
+        base["last_notice_date"] = _latest_date(
+            prev.get("last_notice_date") or "", item.get("last_notice_date") or ""
+        )
+
+        # data_pub: keep; prefer winner's value but fall back to other
+        if not base.get("data_pub"):
+            base["data_pub"] = other.get("data_pub") or ""
+
+        # estat / estat_raw: derive from winning rank
+        new_notice_type = base.get("notice_type", "UNKNOWN")
+        winning_rank = max(item_rank, prev_rank)
+        base["estat"] = _estat_from_notice_type(new_notice_type, winning_rank)
+        # estat_raw: keep prev's raw code if new winner has none
+        if not base.get("estat_raw"):
+            base["estat_raw"] = other.get("estat_raw") or ""
+
+        # adjudicatari: never blank a non-empty value; fill from award_results if empty
+        if not base.get("adjudicatari"):
+            base["adjudicatari"] = other.get("adjudicatari") or ""
+        if not base.get("adjudicatari") and base["award_results"]:
+            best = max(
+                base["award_results"],
+                key=lambda a: STATUS_RANK.get(a.get("notice_type", "UNKNOWN"), 0),
+            )
+            winner_name = best.get("winning_party_name") or ""
+            if winner_name:
+                base["adjudicatari"] = winner_name
+                base["winner_provenance"] = "feed_xml"
+
+        # Carry forward enrichment fields if winner doesn't have them
+        for field in ("pressupost", "organisme", "url", "font", "disciplines", "kw",
+                      "enrichment_version", "tipus", "ambit"):
+            if not base.get(field) and other.get(field):
+                base[field] = other[field]
+
+        # sources_seen: union
+        s_set = set(base.get("sources_seen") or [])
+        s_set.update(other.get("sources_seen") or [])
+        if s_set:
+            base["sources_seen"] = sorted(s_set)
+
+        if rank_wins:
+            updated_count += 1
+        else:
+            # Not a rank win but still absorbed union data — count as updated
+            updated_count += 1
+
+        merged[ckey] = base
+
+    preserved_count = len(previous) - updated_count
+    stats = {"new": new_count, "updated": updated_count, "preserved": preserved_count}
+    return list(merged.values()), stats
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PROCESSING
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1432,17 +1673,25 @@ def main():
                 completed_sources.append(sname)
             pprint("")
 
-    # Dedup dentro de la corrida actual (mayor relevancia gana)
+    # Dedup dentro de la corrida actual (status_rank primero, rellevancia como desempate)
     dedup_new: dict = {}
     for item in all_new_items:
-        key = item["id"]
-        if key not in dedup_new or item["rellevancia"] > dedup_new[key]["rellevancia"]:
+        key = item.get("canonical_key") or item.get("id")
+        if key not in dedup_new:
             dedup_new[key] = item
+        else:
+            existing = dedup_new[key]
+            item_rank = STATUS_RANK.get(item.get("notice_type", "UNKNOWN"), 0)
+            exist_rank = STATUS_RANK.get(existing.get("notice_type", "UNKNOWN"), 0)
+            if item_rank > exist_rank or (
+                item_rank == exist_rank and item.get("rellevancia", 0) > existing.get("rellevancia", 0)
+            ):
+                dedup_new[key] = item
     dedup_removed = len(all_new_items) - len(dedup_new)
     if dedup_removed:
         pprint(f"  → {dedup_removed} duplicados eliminados en esta corrida → {len(dedup_new)} únicos")
 
-    merged, merge_stats = merge_master(list(dedup_new.values()), previous, today)
+    merged, merge_stats = merge_master_v2(list(dedup_new.values()), previous, today)
 
     if args.enrich:
         pprint("\n  ── Enriqueciendo adjudicatarios (--enrich) ──")
