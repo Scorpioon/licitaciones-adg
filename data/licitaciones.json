@@ -1,39 +1,8 @@
 {
-  "generated_at": "2026-05-16T05:55:33Z",
-  "count": 3,
+  "generated_at": "2026-05-17T06:23:40Z",
+  "count": 1,
   "fetcher_version": "2.0",
   "data": [
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19690953",
-      "titol": "Diseño gráfico y creatividad de los soportes para campañas de comunicación, actos públicos, publicaciones y demás actividades de la Dirección de Innovación Social y Agenda 2030",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 49400.0,
-      "disciplines": [],
-      "ccaa": "PV",
-      "lloc": "País Vasco",
-      "data_pub": "2026-05-15",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 39,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso707869/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "CPV:79822500",
-        "comunicació",
-        "comunicación",
-        "diseño gráfico"
-      ],
-      "cpv": "79822500",
-      "historial": [
-        {
-          "data": "2026-05-15",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
     {
       "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19687768",
       "titol": "Planificación estratégica, compra de medios y control de campaña de publicidad exterior 25º Aniversario de Castilla-La Mancha Media",
@@ -53,45 +22,14 @@
       "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=zUdtteK9mW3L1rX3q%2FMAPA%3D%3D",
       "font": "PLACSP-643",
       "kw": [
-        "CPV:79341200",
-        "campaña de publicidad"
+        "campaña de publicidad",
+        "CPV:79341200"
       ],
       "cpv": "79341200",
       "historial": [
         {
           "data": "2026-05-15",
           "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    },
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/14960234",
-      "titol": "Redacción del proyecto de rehabilitación sostenible del caserío en el parque de Garaio y acondicionamiento como centro de interpretación ded los embalses del Zadorra, y del proyecto de museografía, equipamiento asociado y digitalización de su contenido museoístico, señalética y cartelería, en el marco del Plan de Recuperación, Transformación y Resiliencia - financiado por la Unión Europea - NextGe",
-      "organisme": "",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 68553.72,
-      "disciplines": [
-        "editorial",
-        "senyaletica"
-      ],
-      "ccaa": "PV",
-      "lloc": "País Vasco",
-      "data_pub": "2026-05-15",
-      "data_limit": "",
-      "estat": "Adjudicado",
-      "rellevancia": 25,
-      "url": "https://www.contratacion.euskadi.eus/webkpe00-kpeperfi/es/contenidos/anuncio_contratacion/expjaso518779/es_doc/index.html",
-      "font": "PLACSP-1044",
-      "kw": [
-        "cartelería"
-      ],
-      "cpv": "71200000",
-      "historial": [
-        {
-          "data": "2026-05-15",
-          "estat": "Adjudicado",
           "nota": "Publicación"
         }
       ]
