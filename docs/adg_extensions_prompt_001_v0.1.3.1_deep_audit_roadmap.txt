@@ -1,0 +1,192 @@
+CONTRACT ACTIVE.
+MODE: AUDIT MODE.
+OUTPUT: PLAN_MIN / DEEP_AUDIT_ROADMAP.
+DO NOT IMPLEMENT.
+DO NOT EDIT FILES.
+DO NOT WRITE PATCHES.
+DO NOT RUN BUILD/DEV SERVERS.
+DO NOT INSTALL PACKAGES.
+
+Context:
+- Current work branch: extensions
+- Active baseline: ADG Extensions Batch 1.3.1 / v0.1.3.1
+- The operator has applied hotfixes C6–C9:
+  - C6: 003_OPPORTUNITIES_FRAMEWORK child lane refs corrected from v0.1.2 to v0.1.3.1
+  - C7: 003B_003C + Framework locked “Bolsa Profesional” as canonical name; “Bolsa de Puestos Profesionales” deprecated
+  - C8: Framework + Index explicitly mark phases 3, 4, 6 as reserved/unassigned
+  - C9: all fichas now use standardized “Delta log” sections per version
+- There are 9 active ADG Extensions v0.1.3.1 docs in the active extensions folder.
+- There may also be ADGOPS_ACTIVE_SURFACES docs present in the same active folder; if present, read them as supporting context, not as ADG Extensions implementation scope unless explicitly relevant.
+- The goal now is a DEEP AUDIT and implementation roadmap, not coding.
+
+Primary task:
+Read all active documentation files in the extensions folder and produce a deep audit plus an implementation roadmap for the ADG Extensions branch.
+
+Read at minimum:
+- ADG_EXTENSIONS_000_EXTENSION_FRAMEWORK_v0.1.3.1.md
+- ADG_EXTENSIONS_001_LAUS_TRACKER_v0.1.3.1.md
+- ADG_EXTENSIONS_002_DIRECTORIO_SOCIOS_v0.1.3.1.md
+- ADG_EXTENSIONS_003_OPPORTUNITIES_FRAMEWORK_v0.1.3.1.md
+- ADG_EXTENSIONS_003A_BOLSA_PRACTICAS_v0.1.3.1.md
+- ADG_EXTENSIONS_003B_003C_FREELANCERS_PROFESIONALES_v0.1.3.1.md
+- ADG_EXTENSIONS_004_ALERTAS_EMAIL_v0.1.3.1.md
+- ADG_EXTENSIONS_BATCH_1.3.1_INDEX_v0.1.3.1.md
+- ADG_EXTENSIONS_BATCH_1.3.1_CROSS_SYSTEM_CONSISTENCY_v0.1.3.1.md
+
+If ADGOPS_ACTIVE_SURFACES files are present, read them too and classify them separately as supporting active-surface context.
+
+Allowed actions:
+- Read files.
+- Inspect folder tree.
+- Run read-only commands only, such as:
+  - pwd
+  - git branch --show-current
+  - git status --short
+  - git log --oneline -5
+  - ls / dir / Get-ChildItem
+  - grep / rg searches
+- Produce audit and roadmap.
+
+Forbidden actions:
+- No file edits.
+- No code generation patches.
+- No automated fixes.
+- No npm run dev.
+- No npm run build.
+- No npx vite.
+- No package install.
+- No git commit.
+- No git push.
+- No branch switching unless explicitly asked later.
+- No implementation hidden inside audit.
+- No redesign beyond roadmap recommendations.
+
+Audit rules:
+- Do not treat future modules as current features.
+- Do not treat phase as implementation state.
+- Do not treat scoped docs as implementation-ready specs.
+- Do not treat “No existe nada” as a route/page that already exists.
+- Do not make Google Forms, Formspree, Mailchimp, Brevo, Airtable, DB, or any provider current truth unless the repo proves it.
+- Do not claim Alertas por Email exists as a service.
+- Do not claim Laus Tracker is implementation-ready before a data contract.
+- Do not reduce Directorio to the existing map.
+- Do not reduce Oportunidades ADG to Bolsa de Prácticas.
+- Do not use “Bolsa de Puestos Profesionales” as canonical naming; canonical is “Bolsa Profesional.”
+- Do not assign phases 3, 4, or 6 to features unless explicitly directed; they are reserved/unassigned.
+- Preserve WIP vs Coming Soon distinction.
+
+Required output structure:
+
+1. EXECUTIVE VERDICT
+   - One of:
+     - READY FOR ROADMAP ONLY
+     - READY FOR LIMITED IMPLEMENTATION PLANNING
+     - BLOCKED UNTIL CLARIFICATION
+   - Explain in 3–6 bullets.
+
+2. REPO / BRANCH CHECK
+   - Current root path
+   - Current branch
+   - Git status summary
+   - Active docs found
+   - Any expected docs missing
+
+3. DOCUMENT INVENTORY
+   Table:
+   - file
+   - version
+   - role
+   - authority
+   - status
+   - implementation relevance
+   - notes
+
+4. CONSISTENCY AUDIT
+   Check:
+   - stale references
+   - version mismatches
+   - naming inconsistencies
+   - phase/state contradictions
+   - current/future confusion
+   - data-contract gaps
+   - privacy/moderation gaps
+   - WIP/Coming Soon label conflicts
+   - extension vs active-surface boundary issues
+
+5. MODULE READINESS TABLE
+   For each:
+   - Extension Framework
+   - Laus Tracker
+   - Directorio de Socios
+   - Oportunidades ADG
+   - Bolsa de Prácticas / Juniors / Talents
+   - Bolsa de Freelancers
+   - Bolsa Profesional
+   - Alertas por Email
+
+   Columns:
+   - current state
+   - maturity
+   - data dependency
+   - UI readiness
+   - implementation readiness
+   - blocker/debt/later
+   - recommended next action
+
+6. IMPLEMENTATION ROADMAP PROPOSAL
+   Produce a staged roadmap with narrow phases.
+
+   Requirements:
+   - No mega-patches.
+   - Separate docs/data/IA/UI/router/content/stub work.
+   - Each phase must state:
+     - goal
+     - what enters
+     - what stays out
+     - likely files to inspect next
+     - output artifact
+     - smoke checks
+     - risk level
+
+   Suggested roadmap shape, but audit and adjust:
+   - Phase 0: repo/current implementation discovery
+   - Phase 1: IA / Hub model audit
+   - Phase 2: low-risk visible extension hub + disabled/stub state model
+   - Phase 3: Recursos/active surface boundary check only if active-surface docs are in scope
+   - Phase 4: Directorio legacy-to-future gap analysis
+   - Phase 5: Oportunidades ADG hub/stub architecture
+   - Phase 6: Alertas disabled/no-spam placeholder only
+   - Phase 7: Data contract package before real dynamic modules
+   - Phase 8: Implementation split plan
+
+7. FIRST IMPLEMENTATION CANDIDATE
+   Recommend the first smallest safe implementation slice.
+   It must be one narrow slice only.
+   It must not require data contracts unless the slice is purely disabled/stub/IA.
+   It must not activate services.
+
+8. FILES TO REQUEST / INSPECT NEXT
+   Provide exact file list in one semicolon-separated line.
+   Include only files actually needed for the first roadmap/implementation-planning slice.
+   If exact files are not knowable yet, request a narrow folder/file tree with exclusions.
+
+9. CRITICAL QUESTIONS
+   Ask only blocking questions.
+   No speculative filler.
+   If no blocking questions, say:
+   - No blocking questions. Ready for assistant audit of this roadmap.
+
+10. STOP
+   End after the roadmap/audit.
+   Do not implement anything.
+
+Tone:
+- concise
+- technical
+- direct
+- no hype
+- no broad inspirational recap
+- no implementation theater
+
+Final reminder:
+This is a deep audit and roadmap pass only. The assistant will audit your roadmap before any implementation prompt is allowed.

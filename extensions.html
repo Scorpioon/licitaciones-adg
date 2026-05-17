@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<!-- ADG Plataforma Digital -- extensions.html | v0.1.3.1-ext | Role: ADG Extensions hub shell (static/stub -- no active services) -->
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ADG Extensions · Plataforma ADG</title>
+<meta name="description" content="Módulos, servicios y capacidades de la plataforma ADG. Estado actual y hoja de ruta.">
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+<div class="shell-top">
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span class="ticker-item" id="tk-a"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Plataforma Digital · ADG Extensions</span><span class="ticker-sep">·</span>
+      <span class="ticker-item" id="tk-b"></span><span class="ticker-sep">·</span>
+      <span class="ticker-item">Iniciativa ADG · Plataforma Digital · ADG Extensions</span><span class="ticker-sep">·</span>
+    </div>
+  </div>
+  <header class="header" role="banner">
+    <div class="logo-wrap">
+      <img class="logo-img" src="./img/img_2.png" alt="ADG FAD" height="30">
+      <div class="logo-sep"></div>
+      <div>
+        <div class="logo-eyebrow" data-i18n="hd_eyebrow">ADG-FAD · Plataforma Digital</div>
+        <div class="logo-name" data-i18n="hd_name">Diseño y Comunicación Visual</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <nav class="nav-tabs">
+        <a class="nav-tab" href="./index.html"><i class="bi bi-house"></i><span data-i18n="nav_home">Inicio</span></a>
+        <a class="nav-tab" href="./licitaciones.html"><i class="bi bi-table"></i><span data-i18n="nav_list">Licitaciones</span></a>
+        <a class="nav-tab" href="./estadisticas.html"><i class="bi bi-bar-chart-fill"></i><span data-i18n="nav_stats">Estadísticas</span></a>
+        <a class="nav-tab" href="./recursos.html"><i class="bi bi-calculator"></i><span data-i18n="nav_recursos">Recursos</span></a>
+        <a class="nav-tab" href="./mapa.html"><i class="bi bi-geo-alt"></i><span data-i18n="nav_mapa">Mapa</span></a>
+        <a class="nav-tab" href="./alertas.html"><i class="bi bi-bell"></i><span data-i18n="nav_alertas">Alertas</span></a>
+        <a class="nav-tab" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
+        <a class="nav-tab current" href="./extensions.html"><i class="bi bi-grid"></i><span data-i18n="nav_ext">ADG+</span></a>
+      </nav>
+      <div class="lang-wrap">
+        <button class="lang-btn active" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="ca">CA</button>
+        <button class="lang-btn" data-lang="eu">EU</button>
+        <button class="lang-btn" data-lang="gl">GL</button>
+      </div>
+      <button class="hbtn" id="btn-theme"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
+    </div>
+  </header>
+</div>
+
+<div class="page-body home-body">
+
+  <!-- HERO -->
+  <section class="home-hero">
+    <div class="home-hero-label">ADG-FAD · Plataforma Digital</div>
+    <h1 class="home-hero-title">ADG Extensions</h1>
+    <p class="home-hero-sub">Módulos, servicios y capacidades de la plataforma ADG. El Observatorio de Licitaciones es el único módulo activo. El resto está en planificación o desarrollo activo — ninguno presta servicio todavía.</p>
+  </section>
+
+  <!-- SUITE PRINCIPAL -->
+  <section class="home-section">
+    <div class="home-section-label">Suite principal</div>
+    <div class="home-grid">
+
+      <!-- Observatorio de Licitaciones — ACTIVO -->
+      <a class="home-card home-card--live" href="./licitaciones.html">
+        <div class="home-card-icon"><i class="bi bi-table"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">Observatorio de Licitaciones</div>
+          <div class="home-card-desc">Contratación pública de diseño en España. Filtros por disciplina, CCAA y estado. Actualización diaria automática desde PLACSP.</div>
+          <div class="home-card-tags">
+            <span class="home-tag tag-live"><i class="bi bi-circle-fill"></i>Activo</span>
+            <span class="home-tag">10 disciplinas</span>
+            <span class="home-tag">4 idiomas</span>
+          </div>
+        </div>
+        <div class="home-card-arrow"><i class="bi bi-arrow-right"></i></div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- MÓDULOS EN DESARROLLO -->
+  <section class="home-section">
+    <div class="home-section-label">Módulos en desarrollo</div>
+    <div class="home-grid">
+
+      <!-- Laus Tracker — Fase 1 — Próximamente -->
+      <div class="home-card home-card--soon">
+        <div class="home-card-icon"><i class="bi bi-trophy"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">Laus Tracker</div>
+          <div class="home-card-desc">Archivo histórico de los premios ADG Laus. Medallero por estudio, análisis por categoría, evolución anual.</div>
+          <div class="home-card-tags">
+            <span class="home-tag tag-soon"><i class="bi bi-clock"></i>Próximamente</span>
+            <span class="home-tag">Fase 1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Directorio de Socios — Fase 2 — En revisión -->
+      <div class="home-card home-card--soon">
+        <div class="home-card-icon"><i class="bi bi-people"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">Directorio de Socios</div>
+          <div class="home-card-desc">Directorio profesional de la comunidad ADG. Estudios, freelancers y agencias filtrados por especialidad y ubicación.</div>
+          <div class="home-card-tags">
+            <span class="home-tag tag-soon"><i class="bi bi-clock"></i>En revisión</span>
+            <span class="home-tag">Fase 2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Oportunidades ADG — Módulo paraguas — Próximamente -->
+      <div class="home-card home-card--soon">
+        <div class="home-card-icon"><i class="bi bi-briefcase"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">Oportunidades ADG</div>
+          <div class="home-card-desc">Plataforma de bolsas de trabajo y oportunidades profesionales para la comunidad ADG.</div>
+          <div class="home-card-tags">
+            <span class="home-tag tag-soon"><i class="bi bi-clock"></i>Próximamente</span>
+          </div>
+          <div class="ext-child-lanes">
+            <div class="ext-child-lane">
+              <i class="bi bi-mortarboard"></i>
+              <span>Bolsa de Prácticas / Juniors / Talents</span>
+              <span class="home-tag">Fase 5</span>
+              <span class="home-tag tag-soon">Próximamente</span>
+            </div>
+            <div class="ext-child-lane">
+              <i class="bi bi-laptop"></i>
+              <span>Bolsa de Freelancers</span>
+              <span class="home-tag tag-soon">Próximamente</span>
+            </div>
+            <div class="ext-child-lane">
+              <i class="bi bi-person-badge"></i>
+              <span>Bolsa Profesional</span>
+              <span class="home-tag tag-soon">Próximamente</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alertas por Email — Fase 7 — Próximamente -->
+      <div class="home-card home-card--soon">
+        <div class="home-card-icon"><i class="bi bi-bell"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">Alertas por Email</div>
+          <div class="home-card-desc">Notificaciones automáticas cuando aparezcan licitaciones que coincidan con tus disciplinas y territorio.</div>
+          <div class="home-card-tags">
+            <span class="home-tag tag-soon"><i class="bi bi-clock"></i>Próximamente</span>
+            <span class="home-tag">Fase 7</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ESTADOS -->
+  <section class="home-section">
+    <div class="home-section-label">Estados</div>
+    <div class="ext-legend">
+      <div class="ext-legend-item">
+        <span class="home-tag tag-live"><i class="bi bi-circle-fill"></i>Activo</span>
+        <span class="ext-legend-desc">Módulo disponible y operativo.</span>
+      </div>
+      <div class="ext-legend-item">
+        <span class="home-tag tag-soon"><i class="bi bi-arrow-repeat"></i>En revisión</span>
+        <span class="ext-legend-desc">Existe funcionalidad parcial o legacy. Siendo evaluado para rediseño.</span>
+      </div>
+      <div class="ext-legend-item">
+        <span class="home-tag tag-soon"><i class="bi bi-clock"></i>Próximamente</span>
+        <span class="ext-legend-desc">Planificado. Sin fecha de disponibilidad. No activo todavía.</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="footer shell-foot" role="contentinfo">
+  <div class="footer-left">
+    <img class="footer-logo" src="./img/img_2.png" alt="ADG" height="16">
+    <div class="footer-text">
+      <strong>ADG · Associació de Disseny Gràfic i Comunicació Visual</strong><br>
+      <span>Open Source · </span><span class="footer-wip">⚠ WIP — plataforma en desarrollo</span>
+    </div>
+  </div>
+  <div class="footer-links">
+    <a href="https://www.instagram.com/adgfad/" target="_blank" rel="noopener" class="footer-link" aria-label="Instagram">
+      <i class="bi bi-instagram"></i><span>@adgfad</span>
+    </a>
+    <div class="footer-sep"></div>
+    <a href="https://adg-fad.org" target="_blank" rel="noopener" class="footer-link">
+      <i class="bi bi-globe2"></i><span>adg-fad.org</span>
+    </a>
+    <div class="footer-sep"></div>
+    <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank" rel="noopener" class="footer-link">
+      <i class="bi bi-github"></i><span>GitHub</span>
+    </a>
+    <div class="footer-sep"></div>
+    <span class="footer-link" style="cursor:default">
+      <i class="bi bi-code-slash"></i><span data-adg-version>v0.1.3.1-ext</span>
+    </span>
+  </div>
+</footer>
+
+<script src="./app.js"></script>
+<script src="./shared.js"></script>
+<script>
+;(function() {
+"use strict";
+const { initShared } = ADG_Utils;
+document.addEventListener('DOMContentLoaded', () => {
+  initShared();
+  document.addEventListener('adg:langchange', () => ADG_Utils.applyI18n());
+});
+})();
+</script>
+</body>
+</html>

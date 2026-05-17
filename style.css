@@ -714,3 +714,12 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sv-lf .pill { padding:3px 9px; }
 .sv-lf-toggle { display:none; } /* 0.4.3h: hidden at desktop */
 @media (max-width:768px) { .sv-layout { flex-direction:column; } .sv-sidebar { width:100%; max-height:none; position:static; border-right:none; border-bottom:1px solid var(--border2); } .sv-main { padding:14px 16px; } .sv-lf-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:8px 10px; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text2); cursor:pointer; } .sv-lf-toggle-chevron { margin-left:auto; transition:transform .2s; font-size:10px; } .sv-sidebar.sv-lf--open .sv-lf-toggle-chevron { transform:rotate(180deg); } .sv-lf { display:none; } .sv-sidebar.sv-lf--open .sv-lf { display:flex; } }
+
+/* ─── ADG+ HUB (extensions.html) ──────────────────────────────────────────── */
+.ext-child-lanes { margin-top:10px; padding-top:8px; border-top:1px solid var(--border3); display:flex; flex-direction:column; gap:5px; }
+.ext-child-lane { display:flex; align-items:center; gap:7px; font-size:9px; color:var(--text3); line-height:1.3; }
+.ext-child-lane i.bi { font-size:10px; flex-shrink:0; opacity:.6; }
+.ext-child-lane > span:first-of-type { flex:1; }
+.ext-legend { display:flex; flex-direction:column; gap:8px; }
+.ext-legend-item { display:flex; align-items:center; gap:10px; }
+.ext-legend-desc { font-size:9px; color:var(--text3); line-height:1.45; }
