@@ -1,38 +1,6 @@
 {
-  "generated_at": "2026-05-17T06:23:40Z",
-  "count": 1,
+  "generated_at": "2026-05-18T06:57:23Z",
+  "count": 0,
   "fetcher_version": "2.0",
-  "data": [
-    {
-      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/19687768",
-      "titol": "Planificación estratégica, compra de medios y control de campaña de publicidad exterior 25º Aniversario de Castilla-La Mancha Media",
-      "organisme": "Dirección General del Ente Público Radiotelevisión de Castilla-La Mancha",
-      "adjudicatari": "",
-      "tipus": "Servicios",
-      "pressupost": 70000.0,
-      "disciplines": [
-        "publicitat"
-      ],
-      "ccaa": "CM",
-      "lloc": "Castilla-La Mancha",
-      "data_pub": "2026-05-15",
-      "data_limit": "",
-      "estat": "Vigente",
-      "rellevancia": 35,
-      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=zUdtteK9mW3L1rX3q%2FMAPA%3D%3D",
-      "font": "PLACSP-643",
-      "kw": [
-        "campaña de publicidad",
-        "CPV:79341200"
-      ],
-      "cpv": "79341200",
-      "historial": [
-        {
-          "data": "2026-05-15",
-          "estat": "Vigente",
-          "nota": "Publicación"
-        }
-      ]
-    }
-  ]
+  "data": []
 }
