@@ -1,6 +1,101 @@
 {
-  "generated_at": "2026-05-18T06:57:23Z",
-  "count": 0,
+  "generated_at": "2026-05-19T06:49:23Z",
+  "count": 3,
   "fetcher_version": "2.0",
-  "data": []
+  "data": [
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19307457",
+      "titol": "disseny i producció de peces audiovisuals de cada encàrrec objecte del contracte, per a la captació de leads i promoció de l’activitat i serveis de la Fundació Institut de Formació Contínua de la Universitat de Barcelona (d’ara endavant IL3-UB), mitjançant l’aplicació i execució de la seva identitat corporativa n els aspectes i característiques descrites en la part d’especificacions tècniques del ",
+      "organisme": "Fundació Privada Institut de Formació Contínua de la Universitat de Barcelona (IL3-UB)(M",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 32541.74,
+      "disciplines": [
+        "branding"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-05-18",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 40,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/1038e333-5b7d-480c-b369-80a0a19531e8/300778864",
+      "font": "PLACSP-1044",
+      "kw": [
+        "identitat corporativa",
+        "CPV:79970000"
+      ],
+      "cpv": "79970000",
+      "historial": [
+        {
+          "data": "2026-05-18",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/PlataformasAgregadasSinMenores/19562103",
+      "titol": "L’objecte d’aquest Acord Marc és la contractació de serveis professionals en els àmbits del màrqueting, , el disseny gràfic, l’estratègia de marca i l’assessoria d’actius comercialitzables. A través dels diferents lots, s’articularà la col·laboració amb proveïdors experts que donaran suport a BSM i CBSA en la conceptualització, desenvolupament i implementació d’accions i projectes de caràcter estr",
+      "organisme": "Barcelona de Serveis Municipals SA",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 4260000.0,
+      "disciplines": [
+        "publicitat"
+      ],
+      "ccaa": "CT",
+      "lloc": "Catalunya",
+      "data_pub": "2026-05-18",
+      "data_limit": "",
+      "estat": "Vigente",
+      "rellevancia": 35,
+      "url": "https://contractaciopublica.cat/ca/detall-publicacio/3833d035-b591-4c27-bb72-beec12107f55/300778800",
+      "font": "PLACSP-1044",
+      "kw": [
+        "CPV:79415200",
+        "disseny gràfic",
+        "CPV:79341000"
+      ],
+      "cpv": "79341000, 79415200, 79416000",
+      "historial": [
+        {
+          "data": "2026-05-18",
+          "estat": "Vigente",
+          "nota": "Publicación"
+        }
+      ]
+    },
+    {
+      "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/14581724",
+      "titol": "Servicio para la realización de la creatividad, producción y asesoramiento permanente de una campaña de publicidad para la difusión y visibilización del Plan de Recuperación, Transformación y Resiliencia.",
+      "organisme": "Junta de Contratación del Ministerio de Asuntos Económicos y Transformación Digital",
+      "adjudicatari": "",
+      "tipus": "Servicios",
+      "pressupost": 700000.0,
+      "disciplines": [
+        "publicitat"
+      ],
+      "ccaa": "ES",
+      "lloc": "Estatal",
+      "data_pub": "2026-05-18",
+      "data_limit": "",
+      "estat": "Adjudicado",
+      "rellevancia": 35,
+      "url": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=%2BE05ugDOZbstm4eBPtV6eQ%3D%3D",
+      "font": "PLACSP-643",
+      "kw": [
+        "campaña de publicidad",
+        "CPV:79341000"
+      ],
+      "cpv": "79341000",
+      "historial": [
+        {
+          "data": "2026-05-18",
+          "estat": "Adjudicado",
+          "nota": "Publicación"
+        }
+      ]
+    }
+  ]
 }
