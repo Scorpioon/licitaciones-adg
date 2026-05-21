@@ -187,24 +187,12 @@
     <div class="modal-head"><span class="modal-title"><i class="bi bi-bell" style="margin-right:4px"></i><span data-i18n="modal_title">Alertas</span></span><button class="modal-close" id="modal-close"><i class="bi bi-x"></i></button></div>
     <div class="modal-body">
       <div id="modal-form-wrap">
-        <p class="modal-desc" data-i18n="modal_desc">Recibe un email cuando aparezca una nueva licitación. Sin spam.</p>
-        <form id="sub-form" action="https://formspree.io/f/FORM_ID_AQUI" method="POST">
-          <label class="m-label" data-i18n="modal_email">Email</label><input class="m-input" type="email" name="email" placeholder="tu@estudio.com" required>
-          <label class="m-label" data-i18n="modal_disc">Disciplinas</label>
-          <div class="m-cb-grid">
-            <label class="m-cb"><input type="checkbox" name="disc" value="branding"> Branding</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="editorial"> Editorial</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="web"> Web</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="uxui"> UX · UI</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="publicitat"> Publicidad</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="fotografia"> Fotografía</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="audiovisual"> Audiovisual</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="illustracio"> Ilustración</label>
-          </div>
-          <label class="m-label" data-i18n="modal_terr">Territorio</label>
-          <select class="m-select" name="territorio"><option value="">Todo el territorio</option><option value="CT">Catalunya</option><option value="MD">Madrid</option><option value="AN">Andalucía</option><option value="PV">País Vasco</option></select>
-          <button class="m-submit" type="submit" data-i18n="modal_submit">Suscribirme →</button>
-        </form>
+        <div style="padding:24px 0;text-align:center;color:var(--text3)">
+          <i class="bi bi-bell" style="font-size:28px;display:block;margin-bottom:10px;opacity:.25"></i>
+          <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Alertas por Email</div>
+          <div style="font-size:11px;margin-bottom:8px">Módulo en desarrollo. Las alertas personalizadas están previstas como una futura capa de comunicación, pero aún no hay servicio activo, sistema de envío conectado ni captación de emails.</div>
+          <span style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);border:1px solid var(--border2);border-radius:3px;padding:3px 8px">Próximamente</span>
+        </div>
       </div>
       <div class="m-success" id="modal-success"><div class="m-success-icon"><i class="bi bi-check-circle-fill"></i></div><div class="m-success-title" data-i18n="modal_ok_t">¡Registrado!</div><div class="m-success-sub" data-i18n="modal_ok_s">Te avisaremos pronto.</div></div>
     </div>
