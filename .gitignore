@@ -29,3 +29,8 @@ patch_*.ps1
 
 # If you want SOTs local only, uncomment this:
 # snapshots/
+
+# ADG Extensions local/private workflow artifacts
+docs/support_copys/
+.claude/
+desktop.ini
