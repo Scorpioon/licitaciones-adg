@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ADG Plataforma Digital -- fetch_licitaciones.py
-# 0.4.5f -- May 2026
+# 0.4.5z -- May 2026
 # Role: PLACSP ATOM fetcher -- scoring, classification, incremental merge,
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.5z May 2026  Bugfix: seen_ids.add deferred after score gate; observed/candidate/accepted accounting.
 # 0.4.5f May 2026  Add merge_master_v2: ContractFolderID-aware merge; canonical_key dedup path.
 # 0.4.4o May 2026  Per-page retry/backoff for transient SSL/network failures in fetch_source().
 # 0.4.4n May 2026  Live fetch reliability metadata, partial-run detection, and production write guard.
@@ -1188,12 +1189,19 @@ def _get_next_url(root) -> str:
     return ""
 
 
-def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score):
-    discarded = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
+def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score,
+                     discard_evidence=None, max_discard_evidence=500):
+    _evidence = discard_evidence if discard_evidence is not None else []
+    discarded = {
+        "no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0,
+        "observed_entries_count": 0, "candidate_id_count": 0,
+        "low_score_by_score": {},
+    }
     page_results = []
 
     for entry in entries:
         try:
+            discarded["observed_entries_count"] += 1
             titulo = get_entry_text(entry, "title")
             if not titulo:
                 discarded["no_title"] += 1
@@ -1206,11 +1214,12 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
             content = get_entry_content(entry)
             url_item = extract_link(entry)
             item_id = (get_entry_text(entry, "id") or url_item or hashlib.md5(titulo.encode()).hexdigest())
+            discarded["candidate_id_count"] += 1
 
             if item_id in seen_ids:
                 discarded["dup"] += 1
                 continue
-            seen_ids.add(item_id)
+            # seen_ids.add deferred — only accepted records block re-evaluation (v0.4.5z)
 
             fecha_pub = (get_entry_text(entry, "published") or get_entry_text(entry, "updated") or today)[:10]
             cpv_codes = extract_cpv_xml(entry) or extract_cpv_from_categories(entry)
@@ -1224,6 +1233,14 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
             score, discs, kws = score_item(titulo, content, cpv_codes, min_score)
             if score < min_score:
                 discarded["low_score"] += 1
+                sk = str(score)
+                discarded["low_score_by_score"][sk] = discarded["low_score_by_score"].get(sk, 0) + 1
+                if len(_evidence) < max_discard_evidence:
+                    _evidence.append({
+                        "id": item_id[:80], "score": score,
+                        "titulo": titulo[:120], "kws": kws, "discs": discs,
+                        "source": source_name,
+                    })
                 continue
 
             item_ccaa = detect_ccaa(src_ccaa, organisme, content)
@@ -1250,6 +1267,7 @@ def _process_entries(entries, src_ccaa, source_name, seen_ids, today, min_score)
                         break
             winner_provenance = "feed_xml" if adjudicatari else ""
 
+            seen_ids.add(item_id)  # v0.4.5z: moved after score gate — accepted records only
             page_results.append({
                 "id": item_id[:120],
                 "titol": titulo[:400],
@@ -1439,12 +1457,21 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
     }
 
 
+def _merge_discarded(total: dict, delta: dict) -> None:
+    """Accumulate integer counters and low_score_by_score dict from delta into total."""
+    for k in ("no_title", "title_gate", "low_score", "dup",
+              "observed_entries_count", "candidate_id_count"):
+        total[k] = total.get(k, 0) + delta.get(k, 0)
+    for sk, cnt in delta.get("low_score_by_score", {}).items():
+        total["low_score_by_score"][sk] = total["low_score_by_score"].get(sk, 0) + cnt
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # FETCH: LOCAL (atoms sueltos + ZIPs)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fetch_local_dir(local_dir: Path, min_score: int, t_start: float,
-                    max_local_atoms: int = 0) -> list:
+                    max_local_atoms: int = 0):
     pprint(f"  ↓ LOCAL  [{local_dir}]")
     if not local_dir.exists():
         pprint("    [!] La carpeta no existe")
@@ -1459,7 +1486,12 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float,
     today       = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     processed_atom = 0
     processed_zip_members = 0
-    total_rejected = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
+    total_rejected = {
+        "no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0,
+        "observed_entries_count": 0, "candidate_id_count": 0,
+        "low_score_by_score": {},
+    }
+    total_discard_evidence = []
     atoms_done  = 0
     cap_reached = False
 
@@ -1470,10 +1502,11 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float,
             try:
                 root = ET.parse(atom_file).getroot()
                 entries = parse_atom_entries(root)
-                page_results, discarded = _process_entries(entries, None, "LOCAL", seen_ids, today, min_score)
+                page_results, discarded = _process_entries(
+                    entries, None, "LOCAL", seen_ids, today, min_score,
+                    discard_evidence=total_discard_evidence)
                 all_results.extend(page_results)
-                for k in total_rejected:
-                    total_rejected[k] += discarded[k]
+                _merge_discarded(total_rejected, discarded)
                 processed_atom += 1
             except ET.ParseError as e:
                 pprint(f"    [!] XML parse error en {atom_file.name}: {e}")
@@ -1498,19 +1531,24 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float,
                     pprint(f"\n    [{zip_idx}/{len(zip_files)}] {zip_path.name}: {len(atom_names)} .atom")
 
                     zip_relevant_before = len(all_results)
-                    zip_rejected = {"no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0}
+                    zip_rejected = {
+                        "no_title": 0, "title_gate": 0, "low_score": 0, "dup": 0,
+                        "observed_entries_count": 0, "candidate_id_count": 0,
+                        "low_score_by_score": {},
+                    }
 
                     for i, member in enumerate(atom_names, 1):
                         try:
                             with zf.open(member) as fh:
                                 root = ET.parse(BytesIO(fh.read())).getroot()
                             entries = parse_atom_entries(root)
-                            page_results, discarded = _process_entries(entries, None, "LOCAL-ZIP", seen_ids, today, min_score)
+                            page_results, discarded = _process_entries(
+                                entries, None, "LOCAL-ZIP", seen_ids, today, min_score,
+                                discard_evidence=total_discard_evidence)
                             all_results.extend(page_results)
                             processed_zip_members += 1
-                            for k in zip_rejected:
-                                zip_rejected[k] += discarded[k]
-                                total_rejected[k] += discarded[k]
+                            _merge_discarded(zip_rejected, discarded)
+                            _merge_discarded(total_rejected, discarded)
                         except ET.ParseError:
                             pass
                         except Exception as e:
@@ -1552,16 +1590,32 @@ def fetch_local_dir(local_dir: Path, min_score: int, t_start: float,
             except Exception as e:
                 pprint(f"    [!] No se pudo abrir {zip_path.name}: {e}")
 
-    gate_t = total_rejected["title_gate"]
-    score_t = total_rejected["low_score"]
+    gate_t    = total_rejected["title_gate"]
+    score_t   = total_rejected["low_score"]
     notitle_t = total_rejected["no_title"]
-    dup_t = total_rejected["dup"]
+    dup_t     = total_rejected["dup"]
     pprint(f"\n    ── local: {processed_atom} .atom sueltos + {processed_zip_members} .atom en ZIP")
     pprint(f"    ── local: {len(all_results)} relevantes  [{elapsed(t_start)}]")
     pprint(f"    ── rechazados: gate={gate_t} score={score_t} notitle={notitle_t} dup={dup_t}")
     if cap_reached:
         pprint(f"    [cap] Detenido tras {atoms_done} .atom (--max-local-atoms {max_local_atoms})")
-    return all_results
+
+    accepted_count  = len(all_results)
+    discarded_count = gate_t + score_t + notitle_t + dup_t
+    local_stats = {
+        "observed_entries_count": total_rejected["observed_entries_count"],
+        "candidate_id_count": total_rejected["candidate_id_count"],
+        "accepted_count": accepted_count,
+        "discarded_count": discarded_count,
+        "discard_reason_distribution": {
+            "no_title": notitle_t,
+            "title_gate": gate_t,
+            "low_score": score_t,
+            "dup": dup_t,
+        },
+        "low_score_by_score": total_rejected["low_score_by_score"],
+    }
+    return all_results, local_stats
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1631,6 +1685,7 @@ def main():
     pprint(f"  Datos anteriores cargados: {len(previous)} items\n")
 
     all_new_items = []
+    _local_stats = None
 
     # Run-level tracking (live mode only)
     completed_pages_by_source: dict = {}
@@ -1644,8 +1699,9 @@ def main():
     retry_errors_by_source: dict = {}
 
     if args.local_dir:
-        all_new_items.extend(fetch_local_dir(Path(args.local_dir), args.min_score, t_start,
-                                              max_local_atoms=args.max_local_atoms))
+        _local_items, _local_stats = fetch_local_dir(Path(args.local_dir), args.min_score, t_start,
+                                                      max_local_atoms=args.max_local_atoms)
+        all_new_items.extend(_local_items)
         pprint("")
         session = build_session() if args.enrich else None
     else:
@@ -1801,6 +1857,14 @@ def main():
         envelope["retry_counts_by_source"]    = retry_counts_by_source
         envelope["retried_pages_by_source"]   = retried_pages_by_source
         envelope["retry_errors_by_source"]    = retry_errors_by_source
+
+    if _local_stats is not None:
+        envelope["observed_entries_count"]    = _local_stats["observed_entries_count"]
+        envelope["candidate_id_count"]        = _local_stats["candidate_id_count"]
+        envelope["accepted_count"]            = _local_stats["accepted_count"]
+        envelope["discarded_count"]           = _local_stats["discarded_count"]
+        envelope["discard_reason_distribution"] = _local_stats["discard_reason_distribution"]
+        envelope["low_score_by_score"]        = _local_stats["low_score_by_score"]
 
     envelope["data"] = merged
 
