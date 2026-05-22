@@ -34,3 +34,9 @@ patch_*.ps1
 docs/support_copys/
 .claude/
 desktop.ini
+
+# ADG Extensions local-only docs archive and tooling
+docs/_old/
+docs/wrkops/
+docs/adg_extensions_prompt_*.txt
+docs/adg_extensions_reply_*.txt
