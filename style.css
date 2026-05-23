@@ -457,7 +457,7 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 
 /* ─── PREHUB CARDS ─────────────────────────────────────────────────────────── */
 .prehub-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-.prehub-grid--3col { grid-template-columns:1fr 1fr 1fr; }
+.prehub-grid--3col { grid-template-columns:repeat(3,minmax(0,1fr)); }
 
 .prehub-card { display:flex; flex-direction:column; gap:0; padding:20px 20px 16px; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg); transition:all .12s; text-decoration:none; color:inherit; }
 .prehub-card--live { cursor:pointer; }
@@ -483,6 +483,7 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 /* ─── RESPONSIVE ──────────────────────────────────────────────────────────── */
 @media (max-width:1100px) { .sv-grid { grid-template-columns:1fr 1fr; } }
 @media (max-width:900px)  { .header { flex-wrap:wrap; row-gap:6px; } .htbtn span { display:none; } .htbtn { padding:0 9px; } .nav-tab span { display:none; } }
+@media (max-width:900px)  { .prehub-grid--3col { grid-template-columns:1fr 1fr; } }
 @media (max-width:860px)  { .sv-bignums { grid-template-columns:1fr 1fr; } .sv-grid { grid-template-columns:1fr; } .detail-col { display:none!important; } .main { flex-direction:column; height:auto; overflow:visible; } .list-col { height:auto; overflow:visible; } }
 @media (max-width:860px)  { body.lic-page { height:auto; min-height:100vh; } body.lic-page .lic-main { flex:none; } }
 @media (max-width:800px)  { td:nth-child(4),th:nth-child(4) { display:none; } }
