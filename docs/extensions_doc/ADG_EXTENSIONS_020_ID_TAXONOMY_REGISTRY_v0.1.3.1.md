@@ -11,6 +11,36 @@
 
 ---
 
+## AMENDMENT NOTE — TXT 125 / v0.1.3.1
+
+**Added by:** TXT 125 (shared base doc implementation)
+**Amendment type:** Pointer / supersession notice — historical text below is preserved unchanged
+
+`ADG_EXTENSIONS_029_SHARED_BASE_v0.1.3.1.md` is now the current source of truth for:
+- route/module registry (§5 of this doc)
+- hub card registry (§6 of this doc)
+- route registry (§7 of this doc)
+- subhub/prehub mappings (§8 of this doc)
+- current route state, HOLD state, and tombstone register
+
+**This amendment supersedes §§5–8 and §15 of this document.**
+
+The following sections of this document **remain canonical** and are not superseded:
+- §1 Purpose
+- §2 Canon Summary
+- §3 Naming Conventions
+- §4 Reserved Prefixes
+- §9 Dataset Registry
+- §10 SQL-Readiness Contract
+- §11 Mock Data Policy
+- §13 Retired / Stale Items
+- §14 Open Questions (Confirmation State)
+
+**Last synced commit:** cc5ec6a
+**Checkpoint tag:** adg-extensions-prehub-routes-v0.1.3.1
+
+---
+
 ## 1. Purpose
 
 This registry defines stable, canonical IDs for all ADG Extensions modules, hub cards, routes, subhubs, and datasets before further implementation begins.
