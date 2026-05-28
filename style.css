@@ -194,7 +194,8 @@ tbody tr.sel .disc-tag { border-color:rgba(255,255,255,.2)!important; color:rgba
 td { padding:9px 10px; vertical-align:middle; font-size:11.5px; line-height:1.35; color:var(--text); }
 td:first-child { padding-left:20px; }
 td:last-child { padding-right:20px; }
-body.lic-page .list-col td { padding:7px 10px; }
+body.lic-page .list-col td { padding:5px 8px; }
+body.lic-page .list-col thead th { padding:5px 8px; }
 .tc-name { font-weight:400; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .tc-tags { margin-top:3px; display:flex; flex-wrap:wrap; gap:3px; }
 .disc-tag { display:inline-flex; align-items:center; gap:3px; font-size:8px; letter-spacing:.06em; text-transform:uppercase; padding:2px 5px; border-radius:2px; border:1px solid; white-space:nowrap; }
@@ -461,7 +462,7 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 @media (max-width:860px)  { .sv-bignums { grid-template-columns:1fr 1fr; } .sv-grid { grid-template-columns:1fr; } .detail-col { display:none!important; } .main { flex-direction:column; height:auto; overflow:visible; } .list-col { height:auto; overflow:visible; } }
 @media (max-width:860px)  { body.lic-page { height:auto; min-height:100vh; } body.lic-page .lic-main { flex:none; } }
 @media (max-width:800px)  { td:nth-child(4),th:nth-child(4) { display:none; } }
-@media (max-width:640px)  { td:nth-child(3),th:nth-child(3),td:nth-child(6),th:nth-child(6) { display:none; } .adj-wrap { display:none; } .home-grid { grid-template-columns:1fr; } }
+@media (max-width:640px)  { td:nth-child(3),th:nth-child(3),td:nth-child(6),th:nth-child(6),td:nth-child(7),th:nth-child(7) { display:none; } .adj-wrap { display:none; } .home-grid { grid-template-columns:1fr; } }
 @media (max-width:600px)  { .sv-lf { padding:10px 14px; } .sv-summary { padding:6px 14px; } .sv-body { padding:14px 14px 30px; } .home-hero-title { font-size:18px; } }
 
 /* ─── F3 · RECURSOS + CALCULADORA ─────────────────────────────────────────── */
@@ -714,3 +715,13 @@ tr.sel .badge { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,
 .sv-lf .pill { padding:3px 9px; }
 .sv-lf-toggle { display:none; } /* 0.4.3h: hidden at desktop */
 @media (max-width:768px) { .sv-layout { flex-direction:column; } .sv-sidebar { width:100%; max-height:none; position:static; border-right:none; border-bottom:1px solid var(--border2); } .sv-main { padding:14px 16px; } .sv-lf-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:8px 10px; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text2); cursor:pointer; } .sv-lf-toggle-chevron { margin-left:auto; transition:transform .2s; font-size:10px; } .sv-sidebar.sv-lf--open .sv-lf-toggle-chevron { transform:rotate(180deg); } .sv-lf { display:none; } .sv-sidebar.sv-lf--open .sv-lf { display:flex; } }
+
+/* ─── 124 · UI ADAPTER HARDENING ──────────────────────────────────────────── */
+.badge-review { display:inline-flex; align-items:center; font-size:7px; letter-spacing:.1em; font-weight:600; text-transform:uppercase; padding:2px 5px; border-radius:2px; background:var(--s-warn-bg); color:var(--s-warn); border:1px solid var(--s-warn); vertical-align:middle; margin-left:4px; }
+tr.sel .badge-review { border-color:rgba(255,255,255,.3)!important; color:rgba(255,255,255,.85)!important; background:rgba(255,255,255,.08)!important; }
+[data-theme="dark"] tr.sel .badge-review { border-color:rgba(0,0,0,.3)!important; color:rgba(0,0,0,.85)!important; background:rgba(0,0,0,.08)!important; }
+.sstat-clickable { cursor:pointer; transition:background .12s; }
+.sstat-clickable:hover { background:var(--hover); }
+.sstat-clickable.active { background:var(--s-ok-bg); }
+.sstat-clickable.active .sstat-val { color:var(--s-ok)!important; }
+.sstat-clickable.active .sstat-lbl { color:var(--s-ok); }

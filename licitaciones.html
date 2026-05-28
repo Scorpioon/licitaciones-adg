@@ -51,10 +51,10 @@
   </header>
   <div class="stats-strip">
     <div class="sstat"><span class="sstat-val" id="s-total">—</span><span class="sstat-lbl" data-i18n="st_total">licitaciones</span></div>
-    <div class="sstat"><span class="sstat-val" id="s-vigent" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_vigent">vigentes</span></div>
+    <div class="sstat"><span class="sstat-val" id="s-vigent" style="color:var(--s-ok)">—</span><span class="sstat-lbl">activas</span></div>
     <div class="sstat"><span class="sstat-val" id="s-vol">—</span><span class="sstat-lbl" data-i18n="st_vol">volumen €</span></div>
     <div class="sstat"><span class="sstat-val" id="s-warn" style="color:var(--s-warn)">—</span><span class="sstat-lbl" data-i18n="st_week">vencen esta semana</span></div>
-    <div class="sstat"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">nuevas hoy</span></div>
+    <div class="sstat sstat-clickable" id="sstat-new" title="Filtrar por publicadas hoy"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">nuevas hoy</span></div>
     <div class="sstat"><span class="live-dot"></span><span class="update-info" id="s-update"><strong data-i18n="st_loading">Cargando…</strong></span></div>
   </div>
   <div class="filters">
@@ -90,6 +90,9 @@
         <button class="pill" data-estat="adjudicado"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-adj)"></i><span data-i18n="s_adjudicado">Adjudicado</span></button>
         <button class="pill" data-estat="desierta"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-des)"></i><span data-i18n="s_desierta">Desierta</span></button>
       </div>
+      <div class="filter-group">
+        <button class="pill" id="pill-solo-activas">Solo activas <span id="solo-activas-count" style="margin-left:2px;font-size:8px;opacity:.7"></span></button>
+      </div>
     </div>
     <div class="filter-row">
       <div class="filter-group stretch">
@@ -117,6 +120,7 @@
       <option value="pressupost,desc" data-i18n="sort_ppto">↓ Presupuesto</option>
       <option value="data_limit,asc" data-i18n="sort_vence">↑ Vence antes</option>
       <option value="data_pub,desc" data-i18n="sort_recent">↓ Más reciente</option>
+      <option value="data_pub,asc">↑ Fecha publicación</option>
     </select>
     <span class="result-count" id="count"></span>
     <button class="csv-btn" id="btn-csv"><i class="bi bi-download"></i><span data-i18n="btn_csv">CSV</span></button>
@@ -134,6 +138,7 @@
         <th class="sortable" data-col="rellevancia"><span data-i18n="col_rel">Relevancia</span><i class="sort-arrow">↕</i></th>
         <th class="sortable" data-col="estat"><span data-i18n="col_estat">Estado</span><i class="sort-arrow">↕</i></th>
         <th class="sortable" data-col="data_limit"><span data-i18n="col_term">Termina</span><i class="sort-arrow">↕</i></th>
+        <th class="sortable" data-col="data_pub"><span>Publicación</span><i class="sort-arrow">↕</i></th>
         <th></th>
       </tr></thead>
       <tbody id="tbody"></tbody>

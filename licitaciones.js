@@ -38,7 +38,23 @@ const S = {
   page:    1,
   perPage: 20,
   selectedId: null,
+  soloActivas: false,
+  nuevasHoy:   false,
 };
+
+// ── DISPLAY HELPERS ───────────────────────────────────────────────────────
+function capFirst(s) {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function todayLocalISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 // ── STATUS KEY NORMALIZATION ───────────────────────────────────────────────
 function normalizeStatusKey(value) {
@@ -56,9 +72,14 @@ function getFiltered() {
   let rows = ADG.data;
   const statusKey = normalizeStatusKey(S.estat);
   if (statusKey) rows = rows.filter(r => getDisplayStatus(r).key === statusKey);
+  if (S.soloActivas) rows = rows.filter(r => r.active_opportunity_eligible === true);
   if (S.ccaa)    rows = rows.filter(r => r.ccaa === S.ccaa);
   if (S.year)    rows = rows.filter(r => (r.data_pub||'').startsWith(S.year));
   if (S.discs.size) rows = rows.filter(r => (r.disciplines||[]).some(d => S.discs.has(d)));
+  if (S.nuevasHoy) {
+    const today = todayLocalISO();
+    rows = rows.filter(r => (r.data_pub||'').startsWith(today));
+  }
   if (S.query) {
     const q = S.query.toLowerCase();
     rows = rows.filter(r =>
@@ -138,14 +159,16 @@ function rowHTML(r) {
   const days = daysTo(r.data_limit);
   const dateClass = days !== null && days >= 0 && days <= 7 ? 'date-warn' : (days !== null && days > 7 ? 'date-ok' : '');
   const dateStr = r.data_limit ? new Date(r.data_limit).toLocaleDateString(ADG.lang+'-ES',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
+  const pubStr  = r.data_pub  ? new Date(r.data_pub + 'T00:00:00').toLocaleDateString(ADG.lang+'-ES',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
   const tags = (r.disciplines||[]).map(d => discTag(d)).join('');
-  const newBadge = isNew(r) ? `<span class="badge-new">${t('nueva')}</span>` : '';
+  const newBadge    = isNew(r) ? `<span class="badge-new">${t('nueva')}</span>` : '';
+  const reviewBadge = r.lifecycle_review_required === true ? `<span class="badge-review">Revisar</span>` : '';
   const bellClass = isSubscribed(r.id) ? 'subscribed' : '';
   const isSel = r.id === S.selectedId;
 
   return `<tr data-id="${r.id}" class="${isSel?'sel':''}" tabindex="0">
     <td>
-      <div class="tc-name">${esc(r.titol)}${newBadge}</div>
+      <div class="tc-name">${esc(capFirst(r.titol))}${newBadge}${reviewBadge}</div>
       <div class="tc-tags">${tags}</div>
     </td>
     <td>
@@ -164,6 +187,7 @@ function rowHTML(r) {
     </td>
     <td>${stateBadgeRow(r)}</td>
     <td><div class="tc-date ${dateClass}">${dateStr}</div></td>
+    <td><div class="tc-date">${pubStr}</div></td>
     <td class="tc-bell"><button class="bell-btn ${bellClass}" aria-label="Notificación"><i class="bi bi-bell${bellClass?'-fill':''}"></i></button></td>
   </tr>`;
 }
@@ -249,6 +273,14 @@ function renderFilterChips() {
     chips.push({ label: S.year, color: 'var(--text)', onX: () => { S.year=''; el('sel-year').value=''; render(); } });
   }
 
+  if (S.soloActivas) {
+    chips.push({ label: 'Solo activas', color: 'var(--s-ok)', onX: () => { S.soloActivas = false; el('pill-solo-activas')?.classList.remove('active'); S.page=1; render(); } });
+  }
+
+  if (S.nuevasHoy) {
+    chips.push({ label: 'Nuevas hoy', color: 'var(--s-ok)', onX: () => { S.nuevasHoy = false; el('sstat-new')?.classList.remove('active'); S.page=1; render(); } });
+  }
+
   S.discs.forEach(d => {
     const c = discColor(d);
     chips.push({ label: DISC[d]?.label || d, color: c.text, bg: c.bg, onX: () => { S.discs.delete(d); S.page=1; render(); syncDiscPills(); } });
@@ -272,9 +304,12 @@ function renderFilterChips() {
 
 function clearAll() {
   S.estat=''; S.ccaa=''; S.year=''; S.discs.clear(); S.query=''; S.adjQ=''; S.page=1;
+  S.soloActivas = false; S.nuevasHoy = false;
   el('sel-ccaa').value=''; el('sel-year').value='';
   el('comarca-group').style.display='none';
   el('search').value=''; el('adj-search').value='';
+  el('pill-solo-activas')?.classList.remove('active');
+  el('sstat-new')?.classList.remove('active');
   syncPills('[data-estat]'); syncDiscPills();
   render();
 }
@@ -456,15 +491,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   el('btn-csv')?.addEventListener('click', exportCSV);
 
+  // Solo activas toggle
+  el('pill-solo-activas')?.addEventListener('click', () => {
+    S.soloActivas = !S.soloActivas;
+    el('pill-solo-activas')?.classList.toggle('active', S.soloActivas);
+    S.page = 1;
+    render();
+  });
+
+  // Nuevas Hoy clickable stat
+  el('sstat-new')?.addEventListener('click', () => {
+    S.nuevasHoy = !S.nuevasHoy;
+    el('sstat-new')?.classList.toggle('active', S.nuevasHoy);
+    S.page = 1;
+    render();
+  });
+
   initModal();
 
   // Refresh on lang/theme change
-  document.addEventListener('adg:langchange', () => { applyI18n(); render(); updateStrip(); });
+  document.addEventListener('adg:langchange', () => {
+    applyI18n(); render(); updateStrip();
+    _updateActiveStats();
+  });
   document.addEventListener('adg:themechange', () => render());
 
   // Load data
   await loadData();
   updateStrip();
+  _updateActiveStats();
 
   // Sample notice
   if (ADG.isSample) {
@@ -479,5 +534,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   render();
   checkURL();
 });
+
+function _updateActiveStats() {
+  const activeCount = ADG.data.filter(r => r.active_opportunity_eligible === true).length;
+  const sVig = el('s-vigent');
+  if (sVig) sVig.textContent = activeCount.toLocaleString('es-ES');
+  const sacCount = el('solo-activas-count');
+  if (sacCount) sacCount.textContent = activeCount.toLocaleString('es-ES');
+  const today = todayLocalISO();
+  const todayCount = ADG.data.filter(r => (r.data_pub||'').startsWith(today)).length;
+  const sNew = el('s-new');
+  if (sNew) sNew.textContent = todayCount;
+}
 
 })();
