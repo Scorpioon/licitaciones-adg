@@ -1,5 +1,10 @@
 name: Fetch Licitaciones (Scheduled Safe Merge)
 
+# BRANCH NOTE
+# Production data now lives on main after v0.5.0b promotion.
+# experimental/wip remains the integration/canon development lane.
+# extensions remains a separate branch/worktree for non-licitaciones surfaces.
+
 # ============================================================
 # WARNING — BRANCH NOTE
 # This workflow checks out branch 'experimental/wip'.
@@ -40,11 +45,11 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repo (experimental/wip)
+      - name: Checkout repo (main)
         uses: actions/checkout@v4
         with:
           # WARNING: update to 'main' after branch merge (see header note above).
-          ref: experimental/wip
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
