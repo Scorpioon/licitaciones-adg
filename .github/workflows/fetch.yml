@@ -6,12 +6,11 @@ name: Fetch Licitaciones (Scheduled Safe Merge)
 # extensions remains a separate branch/worktree for non-licitaciones surfaces.
 
 # ============================================================
-# WARNING — BRANCH NOTE
-# This workflow checks out branch 'experimental/wip'.
-# This is a temporary measure: production data
-# (data/licitaciones.json) currently lives on experimental/wip,
-# not on main. Update ref below to 'main' after the branch is
-# merged to main and production data is confirmed on main.
+# BRANCH NOTE
+# This workflow checks out branch 'main'.
+# Production data lives on main after v0.5.0b promotion.
+# experimental/wip remains the integration/canon development lane.
+# extensions remains a separate branch/worktree for non-licitaciones surfaces.
 # ============================================================
 #
 # Schedule strategy: DST-safe option B
@@ -48,7 +47,6 @@ jobs:
       - name: Checkout repo (main)
         uses: actions/checkout@v4
         with:
-          # WARNING: update to 'main' after branch merge (see header note above).
           ref: main
 
       - name: Setup Python
