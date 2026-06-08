@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 tools/scheduled_fetch_merge.py
-ADG OPS v0.4.5aq — Lifecycle-safe scheduled append/merge helper for Fetcher 1.
-Prompt 119. (Corrects 118 overlap lifecycle precedence bug.)
+ADG OPS v0.5.0a — Lifecycle-safe scheduled append/merge helper for Fetcher 1.
+Prompt 135. Hotfix: accept Fetcher 1 candidate envelopes with top-level metadata.
+(v0.4.5aq / Prompt 119: corrected 118 overlap lifecycle precedence bug.)
 
 Usage:
   --check
@@ -33,8 +34,9 @@ from pathlib import Path
 PRODUCTION_PATH = Path("data/licitaciones.json")
 FETCHER_SCRIPT  = Path("fetch_licitaciones.py")
 TMP_DIR         = Path("_tmp")
-VERSION         = "0.4.5aq"
-PROMPT_NUM      = "119"
+VERSION         = "0.5.0a"
+PROMPT_NUM      = "135"
+# v0.5.0a - Accept fetcher candidate envelopes with top-level metadata by normalizing candidate meta before validation.
 
 REPORT_CHECK     = TMP_DIR / f"scheduled_merge_check_{PROMPT_NUM}_{VERSION}.json"
 REPORT_VALIDATE  = TMP_DIR / f"scheduled_merge_validation_{PROMPT_NUM}_{VERSION}.json"
@@ -320,6 +322,29 @@ def build_candidate_record(cand_rec: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Candidate envelope normalization
+# ---------------------------------------------------------------------------
+
+def normalize_candidate_envelope(candidate_data: dict, label: str = "candidate") -> dict:
+    """
+    Accept either canonical {meta, data} or fetcher top-level-metadata + data.
+    Shape A: {"meta": {...}, "data": [...]} — returned unchanged.
+    Shape B: {"generated_at": ..., "data": [...], ...} — top-level keys except
+             "data" are moved into meta, returning {"meta": {...}, "data": [...]}.
+    Non-dict or missing "data" inputs are returned as-is for validate_structure to catch.
+    Never applied to production data.
+    """
+    if not isinstance(candidate_data, dict):
+        return candidate_data
+    if not isinstance(candidate_data.get("data"), list):
+        return candidate_data
+    if isinstance(candidate_data.get("meta"), dict):
+        return candidate_data
+    meta = {k: v for k, v in candidate_data.items() if k != "data"}
+    return {"meta": meta, "data": candidate_data["data"]}
+
+
+# ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
 
@@ -541,6 +566,7 @@ def run_merge_dry_run(args) -> None:
 
     print(f"[merge-dry-run] Loading candidate from {candidate_path}...")
     cand_data = load_json(candidate_path)
+    cand_data = normalize_candidate_envelope(cand_data, "candidate")
     errs = validate_structure(cand_data, "candidate")
     if errs:
         for e in errs:
@@ -705,6 +731,7 @@ def run_live(args) -> None:
 
     # Validate candidate.
     cand_data = load_json(candidate_path)
+    cand_data = normalize_candidate_envelope(cand_data, "candidate")
     errs = validate_structure(cand_data, "candidate")
     if errs:
         sys.exit(f"[ERROR] Candidate invalid: {errs}")
