@@ -8,6 +8,8 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.5.0k Jun 2026  Zone B list/row-key/duplicate hardening: stable row-key for exact
+ *                  detail mapping, duplicate-ID collision fix, lifecycle variant badge.
  * 0.5.0j Jun 2026  Zone A data status/recency hardening: fix production dataset meta
  *                  extraction (raw.meta shape), fix false "Datos de muestra", unify
  *                  3-day recent window for s-new KPI and filter, default sort to
@@ -345,7 +347,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0j';
+ADG.version = '0.5.0k';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);

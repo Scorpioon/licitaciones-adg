@@ -716,6 +716,7 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 
 /* ─── 124 · UI ADAPTER HARDENING ──────────────────────────────────────────── */
 .badge-review { display:inline-flex; align-items:center; font-size:7px; letter-spacing:.1em; font-weight:600; text-transform:uppercase; padding:2px 5px; border-radius:2px; background:var(--s-warn-bg); color:var(--s-warn); border:1px solid var(--s-warn); vertical-align:middle; margin-left:4px; }
+.badge-states { display:inline-flex; align-items:center; font-size:7px; letter-spacing:.08em; text-transform:uppercase; padding:2px 5px; border-radius:2px; background:var(--bg2); color:var(--text3); border:1px solid var(--border2); vertical-align:middle; margin-left:4px; }
 .sstat-clickable { cursor:pointer; transition:background .12s; }
 .sstat-clickable:hover { background:var(--hover); }
 .sstat-clickable.active { background:var(--s-ok-bg); }

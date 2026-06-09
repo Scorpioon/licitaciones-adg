@@ -8,6 +8,9 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.5.0k Jun 2026  Zone B hardening: stable rowKey for exact detail mapping, fix duplicate-ID
+ *                  collision in openDetail, lifecycle variant badge, selectedKey replaces
+ *                  selectedId to prevent cross-duplicate selection.
  * 0.5.0j Jun 2026  Zone A hardening: default sort to data_pub desc, consistent 3-day recent
  *                  window for nuevasHoy filter and s-new KPI, clean loading UX deduplication,
  *                  sync sort-sel dropdown to initial state.
@@ -43,10 +46,13 @@ const S = {
   sortDir: 'desc',
   page:    1,
   perPage: 20,
-  selectedId: null,
+  selectedKey: null,
   soloActivas: true,
   nuevasHoy:   false,
 };
+
+// ── ROW KEY MAP (rebuilt on each render) ──────────────────────────────────
+let ROW_BY_KEY = {};
 
 // ── DISPLAY HELPERS ───────────────────────────────────────────────────────
 function capFirst(s) {
@@ -60,6 +66,11 @@ function todayLocalISO() {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+// ── ROW KEY ───────────────────────────────────────────────────────────────
+function rowKey(r, idx) {
+  return r.id + '|' + (r.estat_raw || r.estat || '') + '|' + (r.data_pub || '') + '|' + idx;
 }
 
 // ── STATUS KEY NORMALIZATION ───────────────────────────────────────────────
@@ -139,16 +150,22 @@ function render() {
   if (emptyEl) emptyEl.style.display = slice.length ? 'none' : 'block';
   if (tableEl) tableEl.style.display = slice.length ? '' : 'none';
 
-  // Rows
+  // Rows — stable keys for exact detail mapping
+  const pageOffset = (S.page-1)*S.perPage;
+  const idCounts = {};
+  ADG.data.forEach(r => { idCounts[r.id] = (idCounts[r.id]||0)+1; });
+  ROW_BY_KEY = {};
+  slice.forEach((r, i) => { const k = rowKey(r, pageOffset+i); ROW_BY_KEY[k] = r; });
+
   const tbody = el('tbody');
   if (!tbody) return;
-  tbody.innerHTML = slice.map(r => rowHTML(r)).join('');
+  tbody.innerHTML = slice.map((r, i) => rowHTML(r, rowKey(r, pageOffset+i), idCounts[r.id]||1)).join('');
 
-  // Click on row
-  tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+  // Click on row — rowKey for exact record; data-id retained for bell/subscription
+  tbody.querySelectorAll('tr[data-row-key]').forEach(tr => {
     tr.addEventListener('click', e => {
       if (e.target.closest('.bell-btn')) return;
-      openDetail(tr.dataset.id);
+      openDetailByKey(tr.dataset.rowKey);
     });
     const bb = tr.querySelector('.bell-btn');
     if (bb) bb.addEventListener('click', e => { e.stopPropagation(); toggleBell(tr.dataset.id, bb); });
@@ -168,20 +185,21 @@ function render() {
   renderFilterChips();
 }
 
-function rowHTML(r) {
+function rowHTML(r, key, dupCount) {
   const days = daysTo(r.data_limit);
   const dateClass = days !== null && days >= 0 && days <= 7 ? 'date-warn' : (days !== null && days > 7 ? 'date-ok' : '');
   const dateStr = r.data_limit ? new Date(r.data_limit).toLocaleDateString(ADG.lang+'-ES',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
   const pubStr  = r.data_pub  ? new Date(r.data_pub + 'T00:00:00').toLocaleDateString(ADG.lang+'-ES',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
   const tags = (r.disciplines||[]).map(d => discTag(d)).join('');
-  const newBadge    = isNew(r) ? `<span class="badge-new">${t('nueva')}</span>` : '';
-  const reviewBadge = r.lifecycle_review_required === true ? `<span class="badge-review"><i class="bi bi-exclamation-triangle" style="font-size:6px;margin-right:2px"></i>Revisar</span>` : '';
+  const newBadge        = isNew(r) ? `<span class="badge-new">${t('nueva')}</span>` : '';
+  const reviewBadge     = r.lifecycle_review_required === true ? `<span class="badge-review"><i class="bi bi-exclamation-triangle" style="font-size:6px;margin-right:2px"></i>Revisar</span>` : '';
+  const multiStateBadge = dupCount > 1 ? `<span class="badge-states" title="${dupCount} estados registrados">${dupCount}&nbsp;est.</span>` : '';
   const bellClass = isSubscribed(r.id) ? 'subscribed' : '';
-  const isSel = r.id === S.selectedId;
+  const isSel = key === S.selectedKey;
 
-  return `<tr data-id="${r.id}" class="${isSel?'sel':''}" tabindex="0">
+  return `<tr data-row-key="${esc(key)}" data-id="${esc(r.id)}" class="${isSel?'sel':''}" tabindex="0">
     <td>
-      <div class="tc-name">${esc(capFirst(r.titol))}${newBadge}${reviewBadge}</div>
+      <div class="tc-name">${esc(capFirst(r.titol))}${newBadge}${reviewBadge}${multiStateBadge}</div>
       <div class="tc-tags">${tags}</div>
     </td>
     <td>
@@ -206,13 +224,26 @@ function rowHTML(r) {
 }
 
 // ── DETAIL PANEL ──────────────────────────────────────────────────────────
+function openDetailByKey(key) {
+  var r = ROW_BY_KEY[key];
+  if (!r) return;
+  S.selectedKey = key;
+  document.querySelectorAll('tbody tr').forEach(function(tr) {
+    tr.classList.toggle('sel', tr.dataset.rowKey === key);
+  });
+  ADG_Shared.FichaPanel(r, {
+    container: el('detail'),
+    onClose: closeDetail
+  });
+  updateURL(r.id);
+}
+
 function openDetail(id) {
+  // URL restore path — find first visible row matching id, else fall back to raw data
+  var key = Object.keys(ROW_BY_KEY).find(function(k) { return ROW_BY_KEY[k].id === id; });
+  if (key) { openDetailByKey(key); return; }
   var r = ADG.data.find(function(x) { return x.id === id; });
   if (!r) return;
-  S.selectedId = id;
-  document.querySelectorAll('tbody tr').forEach(function(tr) {
-    tr.classList.toggle('sel', tr.dataset.id === id);
-  });
   ADG_Shared.FichaPanel(r, {
     container: el('detail'),
     onClose: closeDetail
@@ -221,7 +252,7 @@ function openDetail(id) {
 }
 
 function closeDetail() {
-  S.selectedId = null;
+  S.selectedKey = null;
   ADG_Shared.FichaClose(el('detail'));
   document.querySelectorAll('tbody tr').forEach(function(tr) { tr.classList.remove('sel'); });
   clearURL();
