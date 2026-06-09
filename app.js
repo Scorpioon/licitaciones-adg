@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.4.4q -- May 2026
+ * 0.5.0e -- Jun 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,7 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.5.0e Jun 2026  Version bump. fp_no_docs i18n "todavía". Console warn copy fix.
  * 0.4.4q May 2026  Runtime display status: getDisplayStatus, isOpenOpportunity, stateBadgeRow. Honest open-opportunity filtering/badges.
  * 0.4.4i May 2026  Version bump for fetcher estat_raw provenance field.
  * 0.4.4h May 2026  (status/date semantics audit only -- no code changes).
@@ -115,7 +116,7 @@ const I18N = {
     fp_type:'Tipo', fp_adjudicado_a:'Adjudicado a', fp_cpv:'CPV', fp_source:'Fuente',
     fp_disciplines:'Disciplinas', fp_keywords:'Palabras clave',
     fp_history:'Historial', fp_no_history:'Sin historial de estados',
-    fp_documents:'Documentos', fp_no_docs:'Sin documentos adjuntos',
+    fp_documents:'Documentos', fp_no_docs:'Sin documentos adjuntos todavía',
     fp_relations:'Licitaciones relacionadas', fp_no_relations:'Sin relaciones',
     fp_view_official:'Ver en contrataciondelestado.es',
     fp_close:'Cerrar', fp_share:'Compartir',
@@ -180,7 +181,7 @@ const I18N = {
     fp_type:'Tipus', fp_adjudicado_a:'Adjudicat a', fp_cpv:'CPV', fp_source:'Font',
     fp_disciplines:'Disciplines', fp_keywords:'Paraules clau',
     fp_history:'Historial', fp_no_history:'Sense historial d\u0027estats',
-    fp_documents:'Documents', fp_no_docs:'Sense documents adjunts',
+    fp_documents:'Documents', fp_no_docs:'Sense documents adjunts encara',
     fp_relations:'Licitacions relacionades', fp_no_relations:'Sense relacions',
     fp_view_official:'Veure a contrataciondelestado.es',
     fp_close:'Tancar', fp_share:'Compartir',
@@ -285,7 +286,7 @@ const I18N = {
     fp_type:'Tipo', fp_adjudicado_a:'Adxudicado a', fp_cpv:'CPV', fp_source:'Fonte',
     fp_disciplines:'Disciplinas', fp_keywords:'Palabras clave',
     fp_history:'Historial', fp_no_history:'Sen historial de estados',
-    fp_documents:'Documentos', fp_no_docs:'Sen documentos adxuntos',
+    fp_documents:'Documentos', fp_no_docs:'Sen documentos adxuntos aínda',
     fp_relations:'Licitacions relacionadas', fp_no_relations:'Sen relacions',
     fp_view_official:'Ver en contrataciondelestado.es',
     fp_close:'Pechar', fp_share:'Compartir',
@@ -326,7 +327,7 @@ ADG.generatedAt = null;
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.4.4q';
+ADG.version = '0.5.0e';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -470,7 +471,7 @@ async function loadData() {
       }
     }
   } catch (e) {
-    console.warn('[ADG] data.json not found, using sample:', e.message);
+    console.warn('[ADG] licitaciones.json not found, using sample:', e.message);
   }
   document.dispatchEvent(new Event('adg:loaded'));
 }

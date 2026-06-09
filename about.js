@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- about.js
- * b4.0 -- Mar 2026
+ * 0.5.0e -- Jun 2026
  * Role: Changelog rendering, credit line, guide title I18N update.
  *       Phase 6 will expand into full helpdesk/governance page.
  * Page: about.html
@@ -8,6 +8,7 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.5.0e Jun 2026  v0.5.0 series changelog entries added. Version bump.
  * b4.0  Mar 2026  Header updated. Helpdesk expansion pending (Phase 6).
  * v1.0  Mar 2026  Hardcoded changelog, credit line, guide title i18n.
  */;(function() {
@@ -16,6 +17,13 @@
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
 const CHANGELOG = [
+  { ver:'v0.5.0e', date:'Jun 2026', text:'Claridad pública UI. Activas primero por defecto. Copia de producción actualizada (sin lenguaje de muestra). Filtro "Sin etiqueta" para licitaciones no clasificadas. Selección de fila más legible. Documentos placeholder para Fetcher 2.' },
+  { ver:'v0.5.0d', date:'Jun 2026', text:'Comentarios del workflow de fetch limpiados.' },
+  { ver:'v0.5.0c', date:'Jun 2026', text:'Workflow de fetch apunta a main como rama de producción.' },
+  { ver:'v0.5.0b', date:'Jun 2026', text:'Dataset de producción Fetcher 1 actualizado: 6095 registros (de 6093 previos). Validación de ciclo de vida pasada.' },
+  { ver:'v0.5.0a', date:'Jun 2026', text:'Compatibilidad de envelope de metadatos para candidatos live de Fetcher 1 (normalización top-level meta).' },
+  { ver:'v0.5.0',  date:'Jun 2026', text:'Fetcher 2 F2-A iniciado: herramienta de manifest de documentos. Protocolo WRKOPS v1.7 activado (CLAUDE.md).' },
+  { ver:'v0.4.6c', date:'May 2026', text:'UI robustecida para campos de ciclo de vida de Fetcher 1: lifecycle_category, active_opportunity_eligible, lifecycle_review_required, badge REVISAR.' },
   { ver:'β3.1',     date:'11 Mar 2026', text:'Fases 3, 4 y 6. Calculadora de Honorarios interactiva (proyecto, experiencia, complejidad, urgencia). Recursos profesionales: plantillas legales + referencias. Mapa Leaflet con licitaciones por CCAA. Barómetro del Sector: informe automático imprimible. Header genérico "ADG-FAD · Plataforma Digital". Navegación ampliada a 6 tabs. i18n nav_recursos + nav_mapa.' },
   { ver:'β3.0',     date:'11 Mar 2026', text:'Fase 0 · Fundación del ecosistema. Nueva home como hub central con cards a cada herramienta y roadmap visual. Renombrado index.html → licitaciones.html. Datos movidos a carpeta data/. Navegación ampliada con tab Inicio. loadJSON genérico en app.js. Preparada la estructura para Laus Tracker, Directorio de Socios, Recursos, Calculadora, Mapa, Bolsa de Prácticas, Barómetro y Alertas.' },
   { ver:'v2.1',     date:'11 Mar 2026', text:'Fix crítico: error "Identifier el already declared" impedía cargar datos en todas las páginas desde la separación multi-página. Todos los JS de página ahora usan IIFE. Changelog hardcodeado. loadData con timeout de seguridad.' },

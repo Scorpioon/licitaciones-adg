@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- licitaciones.js
- * b4.0 -- Mar 2026
+ * 0.5.0e -- Jun 2026
  * Role: Main procurement table -- state, filtering, sorting, detail panel,
  *       pagination, CSV export, URL sharing, bell subscriptions.
  * Page: licitaciones.html
@@ -8,6 +8,8 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.5.0e Jun 2026  Active-first default (soloActivas=true). Sin etiqueta discipline filter.
+ *                   REVISAR badge icon. Version bump.
  * 0.4.4v May 2026  Removed temporary ADG_LIC_DEBUG export after status filter runtime validation.
  * 0.4.4t May 2026  Harden status filter key normalization and status pill active-state sync.
  * 0.4.4q May 2026  Runtime status keys: getDisplayStatus/isOpenOpportunity/stateBadgeRow.
@@ -38,7 +40,7 @@ const S = {
   page:    1,
   perPage: 20,
   selectedId: null,
-  soloActivas: false,
+  soloActivas: true,
   nuevasHoy:   false,
 };
 
@@ -75,7 +77,15 @@ function getFiltered() {
   if (S.soloActivas) rows = rows.filter(r => r.active_opportunity_eligible === true);
   if (S.ccaa)    rows = rows.filter(r => r.ccaa === S.ccaa);
   if (S.year)    rows = rows.filter(r => (r.data_pub||'').startsWith(S.year));
-  if (S.discs.size) rows = rows.filter(r => (r.disciplines||[]).some(d => S.discs.has(d)));
+  if (S.discs.size) {
+    const noTag = S.discs.has('__none__');
+    const tagged = new Set([...S.discs].filter(d => d !== '__none__'));
+    rows = rows.filter(r => {
+      const discs = r.disciplines || [];
+      if (noTag && discs.length === 0) return true;
+      return tagged.size > 0 && discs.some(d => tagged.has(d));
+    });
+  }
   if (S.nuevasHoy) {
     const today = todayLocalISO();
     rows = rows.filter(r => (r.data_pub||'').startsWith(today));
@@ -162,7 +172,7 @@ function rowHTML(r) {
   const pubStr  = r.data_pub  ? new Date(r.data_pub + 'T00:00:00').toLocaleDateString(ADG.lang+'-ES',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
   const tags = (r.disciplines||[]).map(d => discTag(d)).join('');
   const newBadge    = isNew(r) ? `<span class="badge-new">${t('nueva')}</span>` : '';
-  const reviewBadge = r.lifecycle_review_required === true ? `<span class="badge-review">Revisar</span>` : '';
+  const reviewBadge = r.lifecycle_review_required === true ? `<span class="badge-review"><i class="bi bi-exclamation-triangle" style="font-size:6px;margin-right:2px"></i>Revisar</span>` : '';
   const bellClass = isSubscribed(r.id) ? 'subscribed' : '';
   const isSel = r.id === S.selectedId;
 
@@ -283,7 +293,8 @@ function renderFilterChips() {
 
   S.discs.forEach(d => {
     const c = discColor(d);
-    chips.push({ label: DISC[d]?.label || d, color: c.text, bg: c.bg, onX: () => { S.discs.delete(d); S.page=1; render(); syncDiscPills(); } });
+    const label = d === '__none__' ? 'Sin etiqueta' : (DISC[d]?.label || d);
+    chips.push({ label, color: c.text, bg: c.bg, onX: () => { S.discs.delete(d); S.page=1; render(); syncDiscPills(); } });
   });
 
   if (!chips.length) { bar.classList.remove('visible'); return; }
@@ -427,6 +438,9 @@ function esc(s) {
 // ── INIT ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   initShared();
+
+  // Sync pill visual state with initial S defaults
+  if (S.soloActivas) el('pill-solo-activas')?.classList.add('active');
 
   // ── Filter events
   document.querySelectorAll('[data-estat]').forEach(p => {

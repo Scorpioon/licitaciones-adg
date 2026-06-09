@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- about.html | 0.4.3k Apr 2026 | Role: About + helpdesk + changelog (Phase 6 expansion) | Scripts: app.js shared.js about.js | CHANGELOG: 0.4.3k Apr 2026 -- runtime version badge hook (data-adg-version) -->
+<!-- ADG Plataforma Digital -- about.html | 0.5.0e Jun 2026 | Role: About + helpdesk + changelog (Phase 6 expansion) | Scripts: app.js shared.js about.js | CHANGELOG: 0.5.0e Jun 2026 -- production notice, pipeline copy, WIP language removed -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -51,10 +51,10 @@
 <div class="page-body">
 <div style="padding:24px;max-width:1100px;margin:0 auto">
 
-  <!-- WIP NOTICE -->
-  <div class="wip-banner">
-    <i class="bi bi-cone-striped"></i>
-    <div><strong>Proyecto en desarrollo activo.</strong> Los datos son de muestra. Las alertas por email están en fase beta. Si encuentras errores o quieres colaborar, abre un issue en GitHub.</div>
+  <!-- PRODUCTION NOTICE v0.5.0e -->
+  <div class="wip-banner" style="border-color:var(--border2);color:var(--text2);background:var(--bg2)">
+    <i class="bi bi-info-circle" style="color:var(--text3)"></i>
+    <div>Dataset de producción en actualización continua desde PLACSP. Las alertas por email están en desarrollo. Si encuentras errores o quieres colaborar, abre un issue en <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank" rel="noopener" style="border-bottom:1px solid var(--border2)">GitHub ↗</a>.</div>
   </div>
 
   <!-- ABOUT: 2 columns -->
@@ -72,8 +72,8 @@
       <div class="about-card">
         <div class="about-card-title">¿Cómo funciona?</div>
         <div class="about-body">
-          <p>Un script Python (<code>fetch_licitaciones.py</code>) descarga periódicamente los datos de los ZIPs de PLACSP, los filtra por relevancia para el sector del diseño y genera un fichero <code>data.json</code> que alimenta esta interfaz.</p>
-          <p>El filtrado se basa en palabras clave, códigos CPV y un sistema de puntuación de relevancia. <strong>Solo se muestran licitaciones con puntuación ≥ 20</strong>.</p>
+          <p>Un pipeline Python descarga y clasifica periódicamente licitaciones de los feeds ATOM de PLACSP (feeds 643 y 1044), las puntúa por relevancia para el sector del diseño, y actualiza el dataset de producción (<code>data/licitaciones.json</code>) de forma incremental mediante un merge con validación de ciclo de vida.</p>
+          <p>El filtrado se basa en palabras clave y códigos CPV. El dataset cubre los feeds PLACSP disponibles. No se garantiza cobertura histórica completa de todas las fuentes externas.</p>
           <p>Todo el código es <strong>open source</strong> — puedes contribuir, hacer fork o desplegar tu propia versión desde <a href="https://github.com/scorpioon/licitaciones-adg" target="_blank" rel="noopener">GitHub ↗</a>.</p>
         </div>
       </div>
@@ -157,7 +157,7 @@
     <img class="footer-logo" src="./img/img_2.png" alt="ADG" height="16">
     <div class="footer-text">
       <strong>ADG · Associació de Disseny Gràfic i Comunicació Visual</strong><br>
-      <span>Fuente: PLACSP · contrataciondelestado.es · Open Source · </span><span class="footer-wip">⚠ WIP — herramienta en desarrollo</span>
+      <span>Fuente: PLACSP · contrataciondelestado.es · Open Source</span>
     </div>
   </div>
   <div class="footer-links">
@@ -174,7 +174,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.4.3k</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.5.0e</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">

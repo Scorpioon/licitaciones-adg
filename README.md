@@ -36,7 +36,7 @@ about.js                Changelog del proyecto
 style.css               CSS compartido: tokens, layout, tabla, stats, modales, about, guía
 app.js                  Módulo compartido: DISC, TERR, I18N, SAMPLE, estado, utils
 fetch_licitaciones.py   Fetcher v2.0 (descarga ATOM/ZIP + scoring + enriquecimiento)
-data.json               Generado por el fetcher (no versionado)
+data/licitaciones.json  Dataset de producción (no versionado, actualizado automáticamente)
 fonts/
   └── NeueHaasUnica.otf
 img/
@@ -51,11 +51,11 @@ img/
 
 ## ⚙️ Cómo funciona
 
-**Fetcher** → El script `fetch_licitaciones.py` descarga licitaciones desde dos feeds ATOM de PLACSP, las puntúa por relevancia para el sector del diseño (palabras clave + códigos CPV), enriquece los datos, y genera `data.json`. Solo se incluyen licitaciones con puntuación ≥ 20.
+**Fetcher** → El script `fetch_licitaciones.py` descarga licitaciones desde dos feeds ATOM de PLACSP (643 y 1044), las puntúa por relevancia para el sector del diseño (palabras clave + códigos CPV), enriquece los datos, y actualiza el dataset de producción `data/licitaciones.json` de forma incremental via `tools/scheduled_fetch_merge.py`.
 
-**Frontend** → Tres páginas estáticas que consumen `data.json`. Sin framework, sin build, sin backend — vanilla HTML/CSS/JS. Si `data.json` no existe, la app muestra 10 licitaciones de ejemplo como fallback.
+**Frontend** → Tres páginas estáticas que consumen `data/licitaciones.json`. Sin framework, sin build, sin backend — vanilla HTML/CSS/JS. Si `data/licitaciones.json` no es accesible, la app muestra 10 licitaciones de ejemplo como fallback.
 
-**Automatización** → GitHub Actions ejecuta el fetcher cada noche a las 03:00 UTC. Si hay cambios, commitea el nuevo `data.json` automáticamente.
+**Automatización** → GitHub Actions ejecuta el fetcher varias veces al día (06:00, 07:00, 15:00 y 16:00 UTC). Si hay cambios, commitea el nuevo dataset automáticamente.
 
 ---
 

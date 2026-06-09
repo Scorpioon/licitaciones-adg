@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- licitaciones.html | 0.4.4v May 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.4.4v May 2026 -- removed temporary debug export; cache-bust params bumped after status filter validation -->
+<!-- ADG Plataforma Digital -- licitaciones.html | 0.5.0e Jun 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.5.0e Jun 2026 -- active-first, Sin etiqueta pill, WIP footer removed -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -108,6 +108,7 @@
         <button class="pill" data-disc="audiovisual"><i class="bi bi-film"></i>Audiovisual</button>
         <button class="pill" data-disc="illustracio"><i class="bi bi-pen"></i>Ilustración</button>
         <button class="pill" data-disc="impressio"><i class="bi bi-printer"></i>Impresión</button>
+        <button class="pill" data-disc="__none__" style="opacity:.65"><i class="bi bi-slash-circle" style="font-size:9px"></i>Sin etiqueta</button>
       </div>
     </div>
   </div>
@@ -161,7 +162,7 @@
     <img class="footer-logo" src="./img/img_2.png" alt="ADG" height="16">
     <div class="footer-text">
       <strong>ADG · Associació de Disseny Gràfic i Comunicació Visual</strong><br>
-      <span>Fuente: PLACSP · contrataciondelestado.es · Open Source · </span><span class="footer-wip">⚠ WIP — herramienta en desarrollo</span>
+      <span>Fuente: PLACSP · contrataciondelestado.es · Open Source</span>
     </div>
   </div>
   <div class="footer-links">
@@ -178,7 +179,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.4.4k</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.5.0e</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
@@ -216,8 +217,8 @@
   </div>
 </div>
 
-<script src="./app.js?v=0.4.4v"></script>
-<script src="./shared.js?v=0.4.4v"></script>
-<script src="./licitaciones.js?v=0.4.4v"></script>
+<script src="./app.js?v=0.5.0e"></script>
+<script src="./shared.js?v=0.5.0e"></script>
+<script src="./licitaciones.js?v=0.5.0e"></script>
 </body>
 </html>
