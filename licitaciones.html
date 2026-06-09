@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- licitaciones.html | 0.5.0k Jun 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.5.0k Jun 2026 -- Zone B list/row-key/duplicate hardening -->
+<!-- ADG Plataforma Digital -- licitaciones.html | 0.5.0l Jun 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.5.0l Jun 2026 -- Zone A/C UX polish -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -123,10 +123,11 @@
       <option value="data_pub,desc" data-i18n="sort_recent">↓ Más reciente</option>
       <option value="data_pub,asc">↑ Fecha publicación</option>
     </select>
+    <div class="toolbar-perpage"><span class="pg-label" data-i18n="pg_show">Mostrar</span><select class="pg-perpage" id="pg-perpage"><option value="15">15</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select></div>
     <span class="result-count" id="count"></span>
     <button class="csv-btn" id="btn-csv"><i class="bi bi-download"></i><span data-i18n="btn_csv">CSV</span></button>
   </div>
-  <div class="notice" id="notice"><i class="bi bi-check-circle-fill" style="color:var(--s-ok);font-size:13px"></i><span id="notice-text"></span></div>
+  <div class="notice" id="notice"><span id="notice-text"></span></div>
 </div>
 
 <main class="main lic-main">
@@ -146,11 +147,7 @@
     </table>
     <div class="empty" id="empty"><i class="bi bi-files"></i><div class="empty-title" data-i18n="empty_t">Sin resultados</div><div style="font-size:10.5px;color:var(--text3)" data-i18n="empty_s">Prueba con otros filtros.</div></div>
     <div class="pagination-bar" id="pagination-bar" style="display:none">
-      <div class="pg-left">
-        <span class="pg-label" data-i18n="pg_show">Mostrar</span>
-        <select class="pg-perpage" id="pg-perpage"><option value="15">15</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select>
-        <span class="pg-label" id="pg-info"></span>
-      </div>
+      <div class="pg-left"><span class="pg-label" id="pg-info"></span></div>
       <div class="pg-pages" id="pg-pages"></div>
     </div>
   </div>
@@ -179,7 +176,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.5.0k</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.5.0l</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
@@ -217,8 +214,9 @@
   </div>
 </div>
 
-<script src="./app.js?v=0.5.0k"></script>
-<script src="./shared.js?v=0.5.0k"></script>
-<script src="./licitaciones.js?v=0.5.0k"></script>
+<script src="./app.js?v=0.5.0l"></script>
+<script src="./shared.js?v=0.5.0l"></script>
+<script src="./licitaciones.js?v=0.5.0l"></script>
 </body>
 </html>
+

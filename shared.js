@@ -130,6 +130,25 @@ function advisoryHTML(r) {
   return '<div class="sh-advisory">' + items.join('') + '</div>';
 }
 
+// -- ASSESSMENT BLOCK (compact rating + signals, replaces TrafficLight+advisory) --
+function assessmentBlock(r) {
+  var tl = computeTrafficLight(r);
+  var adv = computeAdvisory(r);
+  var signals = [];
+  adv.tips.forEach(function(msg)  { signals.push('<div class="sh-assess__sig sh-assess__sig--tip"><i class="bi bi-check-circle"></i><span>' + esc(msg) + '</span></div>'); });
+  adv.warns.forEach(function(msg) { signals.push('<div class="sh-assess__sig sh-assess__sig--warn"><i class="bi bi-exclamation-triangle"></i><span>' + esc(msg) + '</span></div>'); });
+  adv.notes.forEach(function(msg) { signals.push('<div class="sh-assess__sig sh-assess__sig--note"><i class="bi bi-info-circle"></i><span>' + esc(msg) + '</span></div>'); });
+  return (
+    '<div class="sh-assess sh-assess--' + tl.verdict + '">' +
+      '<div class="sh-assess__rating">' +
+        '<span class="sh-assess__dot"></span>' +
+        '<span class="sh-assess__label">' + esc(tl.label) + '</span>' +
+      '</div>' +
+      (signals.length ? '<div class="sh-assess__signals">' + signals.join('') + '</div>' : '') +
+    '</div>'
+  );
+}
+
 // -- FICHA PANEL --------------------------------------------------------------
 // Renders a full 1:1 analytical record for a tender.
 //
@@ -147,27 +166,42 @@ function advisoryHTML(r) {
 
 function fichaHTML(r) {
   var days    = daysTo(r.data_limit);
-  var dClass  = (days !== null && days >= 0 && days <= 7) ? 'date-warn' : (days !== null && days > 7 ? 'date-ok' : '');
   var langStr = (ADG.lang || 'es') + '-ES';
   var dlFact          = r.data_limit ? new Date(r.data_limit).toLocaleDateString(langStr, { day:'numeric', month:'short', year:'2-digit' }) : '&mdash;';
   var pubFact         = r.data_pub   ? new Date(r.data_pub).toLocaleDateString(langStr,   { day:'numeric', month:'short', year:'2-digit' }) : '&mdash;';
   var deadlineFactClass = (days !== null && days >= 0 && days <= 7) ? ' sh-ficha__fact--warn' : '';
   var terrLabel = r.lloc || (r.ccaa && TERR[r.ccaa] ? TERR[r.ccaa].name : r.ccaa) || '';
 
+  var ds = getDisplayStatus(r);
+  var stateColor = { 'b-ok':'var(--s-ok)', 'b-adj':'var(--s-adj)', 'b-des':'var(--s-des)', 'b-warn':'var(--s-warn)' }[ds.cssClass] || '';
+  var stateStyle = stateColor ? ' style="color:' + stateColor + ';font-weight:700"' : '';
+
   var factsHTML =
     '<div class="sh-ficha__facts">' +
+      // Row 1: Estado | Presupuesto
+      '<div class="sh-ficha__fact">' +
+        '<div class="sh-ficha__fact-key">' + esc(t('fp_status')) + '</div>' +
+        '<div class="sh-ficha__fact-val"' + stateStyle + '>' + esc(ds.label || '—') + '</div>' +
+      '</div>' +
       '<div class="sh-ficha__fact">' +
         '<div class="sh-ficha__fact-key">' + esc(t('fp_budget')) + '</div>' +
         '<div class="sh-ficha__fact-val sh-ficha__fact-val--amt">' + fmtFull(r.pressupost) + '</div>' +
+      '</div>' +
+      // Row 2: Territorio | Vencimiento
+      '<div class="sh-ficha__fact">' +
+        '<div class="sh-ficha__fact-key">' + esc(t('fp_terr')) + '</div>' +
+        '<div class="sh-ficha__fact-val">' + esc(terrLabel || '—') + '</div>' +
       '</div>' +
       '<div class="sh-ficha__fact' + deadlineFactClass + '">' +
         '<div class="sh-ficha__fact-key">' + esc(t('fp_deadline')) + '</div>' +
         '<div class="sh-ficha__fact-val">' + dlFact + '</div>' +
       '</div>' +
+      // Row 3: Organismo (wide)
       '<div class="sh-ficha__fact sh-ficha__fact--wide">' +
         '<div class="sh-ficha__fact-key">' + esc(t('fp_organism')) + '</div>' +
         '<div class="sh-ficha__fact-val">' + esc(r.organisme || '—') + '</div>' +
       '</div>' +
+      // Row 4: Tipo | Publicación
       '<div class="sh-ficha__fact">' +
         '<div class="sh-ficha__fact-key">' + esc(t('fp_type')) + '</div>' +
         '<div class="sh-ficha__fact-val">' + esc(r.tipus || '—') + '</div>' +
@@ -176,12 +210,7 @@ function fichaHTML(r) {
         '<div class="sh-ficha__fact-key">' + esc(t('fp_published')) + '</div>' +
         '<div class="sh-ficha__fact-val">' + pubFact + '</div>' +
       '</div>' +
-      (terrLabel ?
-        '<div class="sh-ficha__fact">' +
-          '<div class="sh-ficha__fact-key">' + esc(t('fp_terr')) + '</div>' +
-          '<div class="sh-ficha__fact-val">' + esc(terrLabel) + '</div>' +
-        '</div>'
-      : '') +
+      // Row 5: Adjudicado a (wide, conditional)
       (r.adjudicatari ?
         '<div class="sh-ficha__fact sh-ficha__fact--wide">' +
           '<div class="sh-ficha__fact-key">' + esc(t('fp_adjudicado_a')) + '</div>' +
@@ -253,10 +282,6 @@ function fichaHTML(r) {
     relsSection = '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_relations')) + '</div><div class="sh-ficha__chips">' + rChips + '</div></div>';
   }
 
-  var badgesHTML = stateBadgeRow(r);
-  if (r.ccaa && TERR[r.ccaa]) badgesHTML += ' <span class="badge b-info">' + esc(TERR[r.ccaa].name || r.ccaa) + '</span>';
-  if (isNew(r)) badgesHTML += ' <span class="badge-new">' + esc(t('nueva')) + '</span>';
-
   var ctaHref = (r.url && r.url.indexOf('http') === 0) ? r.url : 'https://contrataciondelestado.es';
   var ctaNote = (r.url && r.url.indexOf('http') === 0) ? '' : '<p class="sh-ficha__cta-note">URL directa no disponible</p>';
 
@@ -266,11 +291,9 @@ function fichaHTML(r) {
       '<button class="sh-ficha__close" aria-label="' + esc(t('fp_close')) + '"><i class="bi bi-x"></i></button>' +
     '</div>' +
     '<div class="sh-ficha__body">' +
-      '<div class="sh-ficha__title">' + esc(r.titol || '—') + '</div>' +
-      '<div class="sh-ficha__badges">' + badgesHTML + '</div>' +
+      '<div class="sh-ficha__title">' + esc(r.titol || '—') + (isNew(r) ? ' <span class="badge-new">' + esc(t('nueva')) + '</span>' : '') + '</div>' +
       factsHTML +
-      TrafficLight(r) +
-      advisoryHTML(r) +
+      assessmentBlock(r) +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_disciplines')) + '</div><div class="sh-ficha__chips">' + discHTML + '</div></div>' +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_keywords'))    + '</div><div class="sh-ficha__chips">' + kwHTML   + '</div></div>' +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_documents'))   + '</div><div class="sh-ficha__docs">'  + docsHTML + '</div></div>' +

@@ -548,14 +548,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.addEventListener('adg:themechange', () => render());
 
-  // Show loading spinner before fetch
-  const _notice = el('notice');
-  const _noticeText = el('notice-text');
-  if (_notice && _noticeText) {
-    _noticeText.innerHTML = '<span class="notice-spinner"></span>Cargando datos…';
-    _notice.classList.add('show');
-  }
-  // Clear s-update text during load — notice row carries the explanatory copy
+  // Clear s-update during load; updateStrip() sets it after data loads
   const _sUpdate = el('s-update');
   if (_sUpdate) _sUpdate.innerHTML = '';
 
@@ -563,12 +556,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadData();
   updateStrip();
   _updateActiveStats();
-
-  // Clear spinner (success path: app.js already replaced notice content + auto-hides after 4.5s)
-  // Sample path: clear spinner first, then show sample notice below
-  if (ADG.isSample && _notice) {
-    _notice.classList.remove('show');
-  }
 
   // Sample notice
   if (ADG.isSample) {

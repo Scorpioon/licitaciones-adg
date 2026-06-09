@@ -131,7 +131,7 @@ const I18N = {
     fp_documents:'Documentos', fp_no_docs:'Sin documentos adjuntos todavía',
     fp_f2_ready:'Preparado para enriquecimiento Fetcher 2',
     fp_docs_available:'documentos en la fuente oficial',
-    fp_terr:'Territorio',
+    fp_terr:'Territorio', fp_status:'Estado',
     fp_relations:'Licitaciones relacionadas', fp_no_relations:'Sin relaciones',
     fp_view_official:'Ver en contrataciondelestado.es',
     fp_close:'Cerrar', fp_share:'Compartir',
@@ -199,7 +199,7 @@ const I18N = {
     fp_documents:'Documents', fp_no_docs:'Sense documents adjunts encara',
     fp_f2_ready:"Preparat per a l'enriquiment Fetcher 2",
     fp_docs_available:'documents a la font oficial',
-    fp_terr:'Territori',
+    fp_terr:'Territori', fp_status:'Estat',
     fp_relations:'Licitacions relacionades', fp_no_relations:'Sense relacions',
     fp_view_official:'Veure a contrataciondelestado.es',
     fp_close:'Tancar', fp_share:'Compartir',
@@ -305,6 +305,7 @@ const I18N = {
     fp_disciplines:'Disciplinas', fp_keywords:'Palabras clave',
     fp_history:'Historial', fp_no_history:'Sen historial de estados',
     fp_documents:'Documentos', fp_no_docs:'Sen documentos adxuntos aínda',
+    fp_terr:'Territorio', fp_status:'Estado',
     fp_relations:'Licitacions relacionadas', fp_no_relations:'Sen relacions',
     fp_view_official:'Ver en contrataciondelestado.es',
     fp_close:'Pechar', fp_share:'Compartir',
@@ -347,7 +348,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0k';
+ADG.version = '0.5.0l';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -484,15 +485,6 @@ async function loadData() {
       ADG.dataRefreshedAt = raw.meta?.scheduled_merge_applied_at || raw.meta?.generated_at || raw.generated_at || null;
       ADG.fetcher_version = raw.meta?.version || raw.meta?.fetcher_version || raw.fetcher_version || '?';
       ADG.isSample = false;
-      const n = document.getElementById('notice');
-      const nt = document.getElementById('notice-text');
-      if (n && nt) {
-        const ts = ADG.dataRefreshedAt || ADG.generatedAt || '';
-        const tsFmt = ts ? ' · ' + new Date(ts).toLocaleDateString('es-ES', {day:'2-digit',month:'short',year:'numeric'}) : '';
-        nt.textContent = `${items.length} licitaciones cargadas${tsFmt}`;
-        n.classList.add('show');
-        setTimeout(() => n.classList.remove('show'), 4500);
-      }
     }
   } catch (e) {
     console.warn('[ADG] licitaciones.json failed or timed out, using sample:', e.message);
@@ -602,3 +594,4 @@ async function loadJSON(path, timeoutMs) {
     return null;
   }
 }
+
