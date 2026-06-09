@@ -28,4 +28,23 @@ historico/
 patch_*.ps1
 
 # If you want SOTs local only, uncomment this:
-# snapshots/
+# snapshots/# PANOPTES / GRC private intelligence quarantine
+CLAUDE.md
+/CLAUDE.md
+**/CLAUDE.md
+docs/
+/docs/
+.docs/
+/.docs/
+_tmp/
+/_tmp/
+data/_backup/
+/data/_backup/
+desktop.ini
+**/desktop.ini
+*.local
+*.private
+*.secret
+.env
+.env.*
+!.env.example
