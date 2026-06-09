@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- licitaciones.html | 0.5.0i Jun 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.5.0i Jun 2026 -- Zone C detail panel hardening -->
+<!-- ADG Plataforma Digital -- licitaciones.html | 0.5.0j Jun 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.5.0j Jun 2026 -- Zone A data status/recency hardening -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -54,7 +54,7 @@
     <div class="sstat"><span class="sstat-val" id="s-vigent" style="color:var(--s-ok)">—</span><span class="sstat-lbl">activas</span></div>
     <div class="sstat"><span class="sstat-val" id="s-vol">—</span><span class="sstat-lbl" data-i18n="st_vol">volumen €</span></div>
     <div class="sstat"><span class="sstat-val" id="s-warn" style="color:var(--s-warn)">—</span><span class="sstat-lbl" data-i18n="st_week">vencen esta semana</span></div>
-    <div class="sstat sstat-clickable" id="sstat-new" title="Filtrar por publicadas hoy"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">nuevas hoy</span></div>
+    <div class="sstat sstat-clickable" id="sstat-new" title="Filtrar por publicadas en los últimos 3 días"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">recientes</span></div>
     <div class="sstat"><span class="live-dot"></span><span class="update-info" id="s-update"><strong data-i18n="st_loading">Cargando…</strong></span></div>
   </div>
   <div class="filters">
@@ -179,7 +179,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.5.0i</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.5.0j</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
@@ -217,8 +217,8 @@
   </div>
 </div>
 
-<script src="./app.js?v=0.5.0i"></script>
-<script src="./shared.js?v=0.5.0i"></script>
-<script src="./licitaciones.js?v=0.5.0i"></script>
+<script src="./app.js?v=0.5.0j"></script>
+<script src="./shared.js?v=0.5.0j"></script>
+<script src="./licitaciones.js?v=0.5.0j"></script>
 </body>
 </html>

@@ -8,6 +8,10 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.5.0j Jun 2026  Zone A data status/recency hardening: fix production dataset meta
+ *                  extraction (raw.meta shape), fix false "Datos de muestra", unify
+ *                  3-day recent window for s-new KPI and filter, default sort to
+ *                  most recent, clean loading UX deduplication.
  * 0.5.0i Jun 2026  Zone C detail panel hardening: fix &mdash; doc label bug, reorder
  *                  panel hierarchy (title/facts first, then verdict/signals), add
  *                  territory fact, Fetcher 2 placeholder, fix eyebrow accent,
@@ -82,7 +86,7 @@ const I18N = {
     nav_list:'Licitaciones', nav_stats:'Estadísticas', nav_about:'Acerca de', nav_home:'Inicio',
     nav_recursos:'Recursos', nav_mapa:'Mapa',
     st_total:'licitaciones', st_vigent:'abiertas', st_vol:'volumen €',
-    st_week:'vencen esta semana', st_new:'nuevas hoy', st_loading:'Cargando…',
+    st_week:'vencen esta semana', st_new:'recientes', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de muestra',
     fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca', fl_all_terr:'Todo el territorio',
     fl_status:'Estado', fl_disc:'Disciplina', fl_all:'Todas',
@@ -150,7 +154,7 @@ const I18N = {
     nav_list:'Licitacions', nav_stats:'Estadístiques', nav_about:'Sobre nosaltres', nav_home:'Inici',
     nav_recursos:'Recursos', nav_mapa:'Mapa',
     st_total:'licitacions', st_vigent:'obertes', st_vol:'volum €',
-    st_week:'vencen aviat', st_new:'noves avui', st_loading:'Carregant…',
+    st_week:'vencen aviat', st_new:'recents', st_loading:'Carregant…',
     st_updated:'Actualitzat', st_sample:'Dades de mostra',
     fl_ccaa:'CCAA', fl_comarca:'Província / Comarca', fl_all_terr:'Tot el territori',
     fl_status:'Estat', fl_disc:'Disciplina', fl_all:'Totes',
@@ -218,7 +222,7 @@ const I18N = {
     nav_list:'Lizitazioak', nav_stats:'Estatistikak', nav_about:'Informazioa', nav_home:'Hasiera',
     nav_recursos:'Baliabideak', nav_mapa:'Mapa',
     st_total:'lizitazioak', st_vigent:'irekiak', st_vol:'bolumena €',
-    st_week:'laster iraungitzen', st_new:'gaur berriak', st_loading:'Kargatzen…',
+    st_week:'laster iraungitzen', st_new:'azkenak', st_loading:'Kargatzen…',
     st_updated:'Eguneratua', st_sample:'Lagin datuak',
     fl_ccaa:'AA EE', fl_comarca:'Probintzia / Eskualdea', fl_all_terr:'Lurralde osoa',
     fl_status:'Egoera', fl_disc:'Diziplina', fl_all:'Denak',
@@ -260,7 +264,7 @@ const I18N = {
     nav_list:'Licitacións', nav_stats:'Estatísticas', nav_about:'Sobre nós', nav_home:'Inicio',
     nav_recursos:'Recursos', nav_mapa:'Mapa',
     st_total:'licitacións', st_vigent:'abertas', st_vol:'volume €',
-    st_week:'vencen axiña', st_new:'novas hoxe', st_loading:'Cargando…',
+    st_week:'vencen axiña', st_new:'recentes', st_loading:'Cargando…',
     st_updated:'Actualizado', st_sample:'Datos de mostra',
     fl_ccaa:'CCAA', fl_comarca:'Provincia / Comarca', fl_all_terr:'Todo o territorio',
     fl_status:'Estado', fl_disc:'Disciplina', fl_all:'Todas',
@@ -336,10 +340,12 @@ const SAMPLE = [
 window.ADG = window.ADG || {};
 ADG.data = [];
 ADG.generatedAt = null;
+ADG.dataRefreshedAt = null;
+ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0i';
+ADG.version = '0.5.0j';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -471,13 +477,17 @@ async function loadData() {
     if (items.length) {
       items.forEach(normalizeItem);
       ADG.data = items;
-      ADG.generatedAt = raw.generated_at || null;
+      ADG.datasetMeta = raw.meta || {};
+      ADG.generatedAt = raw.meta?.generated_at || raw.generated_at || null;
+      ADG.dataRefreshedAt = raw.meta?.scheduled_merge_applied_at || raw.meta?.generated_at || raw.generated_at || null;
+      ADG.fetcher_version = raw.meta?.version || raw.meta?.fetcher_version || raw.fetcher_version || '?';
       ADG.isSample = false;
-      ADG.fetcher_version = raw.fetcher_version || '?';
       const n = document.getElementById('notice');
       const nt = document.getElementById('notice-text');
       if (n && nt) {
-        nt.textContent = `${items.length} licitaciones cargadas · ${ADG.generatedAt || ''}`;
+        const ts = ADG.dataRefreshedAt || ADG.generatedAt || '';
+        const tsFmt = ts ? ' · ' + new Date(ts).toLocaleDateString('es-ES', {day:'2-digit',month:'short',year:'numeric'}) : '';
+        nt.textContent = `${items.length} licitaciones cargadas${tsFmt}`;
         n.classList.add('show');
         setTimeout(() => n.classList.remove('show'), 4500);
       }
@@ -540,13 +550,15 @@ function updateStrip() {
   setEl('s-new',    d.filter(isNew).length);
   const uEl = el('s-update');
   if (!uEl) return;
-  if (ADG.generatedAt) {
-    const d2 = new Date(ADG.generatedAt);
+  if (ADG.isSample) {
+    uEl.innerHTML = `<strong>${t('st_sample')}</strong>`;
+  } else if (ADG.dataRefreshedAt) {
+    const d2 = new Date(ADG.dataRefreshedAt);
     const date = d2.toLocaleDateString(ADG.lang + '-ES', {day:'2-digit',month:'short',year:'numeric'});
     const time = d2.toLocaleTimeString(ADG.lang + '-ES', {hour:'2-digit',minute:'2-digit'});
     uEl.innerHTML = `<strong>${t('st_updated')}</strong> ${date} ${time}`;
   } else {
-    uEl.innerHTML = `<strong>${t('st_sample')}</strong>`;
+    uEl.innerHTML = `Datos cargados`;
   }
   updateTicker();
 }

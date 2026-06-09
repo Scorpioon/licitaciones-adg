@@ -8,6 +8,9 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.5.0j Jun 2026  Zone A hardening: default sort to data_pub desc, consistent 3-day recent
+ *                  window for nuevasHoy filter and s-new KPI, clean loading UX deduplication,
+ *                  sync sort-sel dropdown to initial state.
  * 0.5.0g Jun 2026  Loading spinner before fetch. Remove duplicate active-filter chips for pills.
  * 0.5.0e Jun 2026  Active-first default (soloActivas=true). Sin etiqueta discipline filter.
  *                   REVISAR badge icon. Version bump.
@@ -36,7 +39,7 @@ const S = {
   year:    '',
   query:   '',
   adjQ:    '',
-  sortCol: 'rellevancia',
+  sortCol: 'data_pub',
   sortDir: 'desc',
   page:    1,
   perPage: 20,
@@ -88,8 +91,7 @@ function getFiltered() {
     });
   }
   if (S.nuevasHoy) {
-    const today = todayLocalISO();
-    rows = rows.filter(r => (r.data_pub||'').startsWith(today));
+    rows = rows.filter(r => isNew(r));
   }
   if (S.query) {
     const q = S.query.toLowerCase();
@@ -420,6 +422,10 @@ function esc(s) {
 document.addEventListener('DOMContentLoaded', async () => {
   initShared();
 
+  // Sync sort selector to match S default (data_pub,desc)
+  const sortSel = el('sort-sel');
+  if (sortSel) sortSel.value = `${S.sortCol},${S.sortDir}`;
+
   // Sync pill visual state with initial S defaults
   if (S.soloActivas) el('pill-solo-activas')?.classList.add('active');
 
@@ -518,6 +524,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     _noticeText.innerHTML = '<span class="notice-spinner"></span>Cargando datos…';
     _notice.classList.add('show');
   }
+  // Clear s-update text during load — notice row carries the explanatory copy
+  const _sUpdate = el('s-update');
+  if (_sUpdate) _sUpdate.innerHTML = '';
 
   // Load data
   await loadData();
@@ -550,10 +559,9 @@ function _updateActiveStats() {
   if (sVig) sVig.textContent = activeCount.toLocaleString('es-ES');
   const sacCount = el('solo-activas-count');
   if (sacCount) sacCount.textContent = activeCount.toLocaleString('es-ES');
-  const today = todayLocalISO();
-  const todayCount = ADG.data.filter(r => (r.data_pub||'').startsWith(today)).length;
+  const recentCount = ADG.data.filter(r => isNew(r)).length;
   const sNew = el('s-new');
-  if (sNew) sNew.textContent = todayCount;
+  if (sNew) sNew.textContent = recentCount;
 }
 
 })();
