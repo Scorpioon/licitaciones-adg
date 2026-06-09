@@ -173,6 +173,8 @@ i.bi { font-style:normal; line-height:1; display:inline-flex; align-items:center
 .csv-btn:hover { border-color:var(--border); color:var(--text); }
 .notice { display:none; align-items:center; gap:7px; padding:5px 20px; font-size:10px; color:var(--text2); background:var(--bg2); border-bottom:1px solid var(--border2); flex-shrink:0; }
 .notice.show { display:flex; }
+@keyframes adg-spin { to { transform:rotate(360deg); } }
+.notice-spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border2); border-top-color:#f97316; border-radius:50%; animation:adg-spin .7s linear infinite; flex-shrink:0; }
 
 /* ─── TABLE ───────────────────────────────────────────────────────────────── */
 .list-col { flex:1; min-width:0; min-height:0; position:relative; overflow-y:auto; overflow-x:auto; border-right:1px solid var(--border2); }

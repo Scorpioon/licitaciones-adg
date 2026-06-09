@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- licitaciones.js
- * 0.5.0e -- Jun 2026
+ * 0.5.0g -- Jun 2026
  * Role: Main procurement table -- state, filtering, sorting, detail panel,
  *       pagination, CSV export, URL sharing, bell subscriptions.
  * Page: licitaciones.html
@@ -8,6 +8,7 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.5.0g Jun 2026  Loading spinner before fetch. Remove duplicate active-filter chips for pills.
  * 0.5.0e Jun 2026  Active-first default (soloActivas=true). Sin etiqueta discipline filter.
  *                   REVISAR badge icon. Version bump.
  * 0.4.4v May 2026  Removed temporary ADG_LIC_DEBUG export after status filter runtime validation.
@@ -267,14 +268,8 @@ function renderFilterChips() {
   if (!bar) return;
   const chips = [];
 
-  if (S.estat) {
-    const statusKey = normalizeStatusKey(S.estat);
-    const colors = { open:'var(--s-ok)', adjudicado:'var(--s-adj)', desierta:'var(--s-des)' };
-    const labels = { open:t('s_open'), adjudicado:t('s_adjudicado'), desierta:t('s_desierta') };
-    const c = colors[statusKey] || 'var(--text)';
-    chips.push({ label: labels[statusKey] || statusKey, color: c, onX: () => { S.estat=''; render(); syncPills('[data-estat]'); } });
-  }
-
+  // Only show chips for dropdown filters (CCAA, year) — pill-based filters
+  // (status, soloActivas, nuevasHoy, disciplines) already show selected state in Zone A.
   if (S.ccaa) {
     chips.push({ label: TERR[S.ccaa]?.name || S.ccaa, color: 'var(--text)', onX: () => { S.ccaa=''; el('sel-ccaa').value=''; el('comarca-group').style.display='none'; render(); } });
   }
@@ -282,20 +277,6 @@ function renderFilterChips() {
   if (S.year) {
     chips.push({ label: S.year, color: 'var(--text)', onX: () => { S.year=''; el('sel-year').value=''; render(); } });
   }
-
-  if (S.soloActivas) {
-    chips.push({ label: 'Solo activas', color: 'var(--s-ok)', onX: () => { S.soloActivas = false; el('pill-solo-activas')?.classList.remove('active'); S.page=1; render(); } });
-  }
-
-  if (S.nuevasHoy) {
-    chips.push({ label: 'Nuevas hoy', color: 'var(--s-ok)', onX: () => { S.nuevasHoy = false; el('sstat-new')?.classList.remove('active'); S.page=1; render(); } });
-  }
-
-  S.discs.forEach(d => {
-    const c = discColor(d);
-    const label = d === '__none__' ? 'Sin etiqueta' : (DISC[d]?.label || d);
-    chips.push({ label, color: c.text, bg: c.bg, onX: () => { S.discs.delete(d); S.page=1; render(); syncDiscPills(); } });
-  });
 
   if (!chips.length) { bar.classList.remove('visible'); return; }
   bar.classList.add('visible');
@@ -530,10 +511,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.addEventListener('adg:themechange', () => render());
 
+  // Show loading spinner before fetch
+  const _notice = el('notice');
+  const _noticeText = el('notice-text');
+  if (_notice && _noticeText) {
+    _noticeText.innerHTML = '<span class="notice-spinner"></span>Cargando datos…';
+    _notice.classList.add('show');
+  }
+
   // Load data
   await loadData();
   updateStrip();
   _updateActiveStats();
+
+  // Clear spinner (success path: app.js already replaced notice content + auto-hides after 4.5s)
+  // Sample path: clear spinner first, then show sample notice below
+  if (ADG.isSample && _notice) {
+    _notice.classList.remove('show');
+  }
 
   // Sample notice
   if (ADG.isSample) {
