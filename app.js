@@ -8,6 +8,7 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.5.0f Jun 2026  Increase production dataset fetch timeout for 19MB GitHub Pages JSON.
  * 0.5.0e Jun 2026  Version bump. fp_no_docs i18n "todavía". Console warn copy fix.
  * 0.4.4q May 2026  Runtime display status: getDisplayStatus, isOpenOpportunity, stateBadgeRow. Honest open-opportunity filtering/badges.
  * 0.4.4i May 2026  Version bump for fetcher estat_raw provenance field.
@@ -327,7 +328,7 @@ ADG.generatedAt = null;
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0e';
+ADG.version = '0.5.0f';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -450,7 +451,7 @@ async function loadData() {
   ADG.isSample = true;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
     const r = await fetch(`./data/licitaciones.json?t=${Date.now()}`, { signal: controller.signal });
     clearTimeout(timeout);
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -471,7 +472,7 @@ async function loadData() {
       }
     }
   } catch (e) {
-    console.warn('[ADG] licitaciones.json not found, using sample:', e.message);
+    console.warn('[ADG] licitaciones.json failed or timed out, using sample:', e.message);
   }
   document.dispatchEvent(new Event('adg:loaded'));
 }
