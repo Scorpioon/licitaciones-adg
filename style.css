@@ -595,7 +595,7 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sh-ficha__body { flex:1; min-height:0; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:12px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
 .sh-ficha__body::-webkit-scrollbar { display:block; width:3px; }
 .sh-ficha__body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
-.sh-ficha__title { font-size:12px; font-weight:700; line-height:1.45; letter-spacing:-.01em; color:var(--text); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.sh-ficha__title { font-size:12px; font-weight:700; line-height:1.45; letter-spacing:-.01em; color:var(--text); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
 .sh-ficha__badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
 .sh-ficha__rows { display:flex; flex-direction:column; gap:0; border:1px solid var(--border2); border-radius:var(--radius); overflow:hidden; }
 .sh-ficha__row { display:flex; gap:0; border-bottom:1px solid var(--border3); }
@@ -617,6 +617,8 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sh-ficha__chip { font-size:9px; padding:3px 8px; border:1px solid var(--border2); border-radius:var(--radius); color:var(--text2); display:inline-flex; align-items:center; gap:4px; }
 .sh-ficha__chip i.bi { font-size:9px; }
 .sh-ficha__empty { font-size:9.5px; color:var(--text3); font-style:italic; }
+.sh-ficha__doc-empty { display:flex; flex-direction:column; gap:3px; }
+.sh-ficha__f2-hint { font-size:8px; color:var(--text3); font-style:italic; display:block; }
 .sh-ficha__docs { display:flex; flex-direction:column; gap:4px; }
 .sh-ficha__doc { display:flex; align-items:center; gap:6px; font-size:9.5px; padding:5px 8px; border:1px solid var(--border2); border-radius:var(--radius); text-decoration:none; color:var(--text2); transition:all .1s; }
 .sh-ficha__doc:hover { border-color:var(--border); color:var(--text); background:var(--hover); }

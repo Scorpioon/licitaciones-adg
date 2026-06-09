@@ -152,6 +152,7 @@ function fichaHTML(r) {
   var dlFact          = r.data_limit ? new Date(r.data_limit).toLocaleDateString(langStr, { day:'numeric', month:'short', year:'2-digit' }) : '&mdash;';
   var pubFact         = r.data_pub   ? new Date(r.data_pub).toLocaleDateString(langStr,   { day:'numeric', month:'short', year:'2-digit' }) : '&mdash;';
   var deadlineFactClass = (days !== null && days >= 0 && days <= 7) ? ' sh-ficha__fact--warn' : '';
+  var terrLabel = r.lloc || (r.ccaa && TERR[r.ccaa] ? TERR[r.ccaa].name : r.ccaa) || '';
 
   var factsHTML =
     '<div class="sh-ficha__facts">' +
@@ -165,16 +166,22 @@ function fichaHTML(r) {
       '</div>' +
       '<div class="sh-ficha__fact sh-ficha__fact--wide">' +
         '<div class="sh-ficha__fact-key">' + esc(t('fp_organism')) + '</div>' +
-        '<div class="sh-ficha__fact-val">' + esc(r.organisme || '&mdash;') + '</div>' +
+        '<div class="sh-ficha__fact-val">' + esc(r.organisme || '—') + '</div>' +
       '</div>' +
       '<div class="sh-ficha__fact">' +
         '<div class="sh-ficha__fact-key">' + esc(t('fp_type')) + '</div>' +
-        '<div class="sh-ficha__fact-val">' + esc(r.tipus || '&mdash;') + '</div>' +
+        '<div class="sh-ficha__fact-val">' + esc(r.tipus || '—') + '</div>' +
       '</div>' +
       '<div class="sh-ficha__fact">' +
         '<div class="sh-ficha__fact-key">' + esc(t('fp_published')) + '</div>' +
         '<div class="sh-ficha__fact-val">' + pubFact + '</div>' +
       '</div>' +
+      (terrLabel ?
+        '<div class="sh-ficha__fact">' +
+          '<div class="sh-ficha__fact-key">' + esc(t('fp_terr')) + '</div>' +
+          '<div class="sh-ficha__fact-val">' + esc(terrLabel) + '</div>' +
+        '</div>'
+      : '') +
       (r.adjudicatari ?
         '<div class="sh-ficha__fact sh-ficha__fact--wide">' +
           '<div class="sh-ficha__fact-key">' + esc(t('fp_adjudicado_a')) + '</div>' +
@@ -192,14 +199,40 @@ function fichaHTML(r) {
   kwChips.push('<span class="sh-ficha__chip sh-ficha__chip--src"><i class="bi bi-database"></i>' + esc(r.font || 'PLACSP') + '</span>');
   var kwHTML = kwChips.join('');
 
-  var docs    = r.documents || [];
-  var docsHTML = docs.length
-    ? docs.map(function(d){
-        return '<a class="sh-ficha__doc" href="' + esc(d.url||'#') + '" target="_blank" rel="noopener">' +
-          '<i class="bi bi-file-earmark-text"></i><span>' + esc(d.title||d.id||'&mdash;') + '</span>' +
-          (d.date ? '<span class="sh-ficha__hist-date">' + esc(d.date) + '</span>' : '') + '</a>';
-      }).join('')
-    : '<span class="sh-ficha__empty">' + esc(t('fp_no_docs')) + '</span>';
+  var docs = r.documents || [];
+  var docsHTML;
+  if (!docs.length) {
+    docsHTML =
+      '<div class="sh-ficha__doc-empty">' +
+        '<span class="sh-ficha__empty">' + esc(t('fp_no_docs')) + '</span>' +
+        '<span class="sh-ficha__f2-hint">' + esc(t('fp_f2_ready')) + '</span>' +
+      '</div>';
+  } else {
+    var hasMeaningfulTitle = docs.some(function(d){ return d.title && d.title.trim().length > 0; });
+    if (hasMeaningfulTitle) {
+      docsHTML = docs.map(function(d){
+        var docLabel = (d.title && d.title.trim())
+          ? d.title.trim()
+          : (d.notice_type
+              ? (d.published_at && d.published_at.trim()
+                  ? d.notice_type + ' · ' + d.published_at.trim()
+                  : d.notice_type)
+              : 'Documento disponible');
+        return '<a class="sh-ficha__doc" href="' + esc(d.url || '#') + '" target="_blank" rel="noopener">' +
+          '<i class="bi bi-file-earmark-text"></i>' +
+          '<span>' + esc(docLabel) + '</span>' +
+          (d.date ? '<span class="sh-ficha__hist-date">' + esc(d.date) + '</span>' : '') +
+        '</a>';
+      }).join('');
+    } else {
+      var summaryHref = (r.url && r.url.indexOf('http') === 0) ? r.url : '#';
+      docsHTML =
+        '<a class="sh-ficha__doc" href="' + esc(summaryHref) + '" target="_blank" rel="noopener">' +
+          '<i class="bi bi-files"></i>' +
+          '<span>' + docs.length + ' ' + esc(t('fp_docs_available')) + '</span>' +
+        '</a>';
+    }
+  }
 
   var hist    = r.historial || [];
   var histHTML = hist.length
@@ -233,10 +266,10 @@ function fichaHTML(r) {
       '<button class="sh-ficha__close" aria-label="' + esc(t('fp_close')) + '"><i class="bi bi-x"></i></button>' +
     '</div>' +
     '<div class="sh-ficha__body">' +
-      TrafficLight(r) +
-      '<div class="sh-ficha__title">' + esc(r.titol || '&mdash;') + '</div>' +
+      '<div class="sh-ficha__title">' + esc(r.titol || '—') + '</div>' +
       '<div class="sh-ficha__badges">' + badgesHTML + '</div>' +
       factsHTML +
+      TrafficLight(r) +
       advisoryHTML(r) +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_disciplines')) + '</div><div class="sh-ficha__chips">' + discHTML + '</div></div>' +
       '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_keywords'))    + '</div><div class="sh-ficha__chips">' + kwHTML   + '</div></div>' +

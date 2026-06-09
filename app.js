@@ -8,6 +8,10 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.5.0i Jun 2026  Zone C detail panel hardening: fix &mdash; doc label bug, reorder
+ *                  panel hierarchy (title/facts first, then verdict/signals), add
+ *                  territory fact, Fetcher 2 placeholder, fix eyebrow accent,
+ *                  3-line title clamp. Version bump only — no data changes.
  * 0.5.0g Jun 2026  Loading spinner before fetch. Remove duplicate active-filter chips.
  * 0.5.0f Jun 2026  Increase production dataset fetch timeout for 19MB GitHub Pages JSON.
  * 0.5.0e Jun 2026  Version bump. fp_no_docs i18n "todavía". Console warn copy fix.
@@ -113,12 +117,15 @@ const I18N = {
     sv_no_data:'Sin datos suficientes', sv_no_adj:'Sin adjudicatarios identificados',
     sv_filter_label:'Filtrando', sv_of:'de',
     nav_alertas:'Alertas',
-    fp_eyebrow:'Detalle de licitacion', fp_organism:'Organismo',
+    fp_eyebrow:'Detalle de licitación', fp_organism:'Organismo',
     fp_budget:'Presupuesto', fp_deadline:'Termina', fp_published:'Publicado',
     fp_type:'Tipo', fp_adjudicado_a:'Adjudicado a', fp_cpv:'CPV', fp_source:'Fuente',
     fp_disciplines:'Disciplinas', fp_keywords:'Palabras clave',
     fp_history:'Historial', fp_no_history:'Sin historial de estados',
     fp_documents:'Documentos', fp_no_docs:'Sin documentos adjuntos todavía',
+    fp_f2_ready:'Preparado para enriquecimiento Fetcher 2',
+    fp_docs_available:'documentos en la fuente oficial',
+    fp_terr:'Territorio',
     fp_relations:'Licitaciones relacionadas', fp_no_relations:'Sin relaciones',
     fp_view_official:'Ver en contrataciondelestado.es',
     fp_close:'Cerrar', fp_share:'Compartir',
@@ -178,12 +185,15 @@ const I18N = {
     sv_no_data:'Sense dades suficients', sv_no_adj:'Sense adjudicataris identificats',
     sv_filter_label:'Filtrant', sv_of:'de',
     nav_alertas:'Alertes',
-    fp_eyebrow:'Detall de licitacio', fp_organism:'Organisme',
+    fp_eyebrow:'Detall de licitació', fp_organism:'Organisme',
     fp_budget:'Pressupost', fp_deadline:'Termina', fp_published:'Publicat',
     fp_type:'Tipus', fp_adjudicado_a:'Adjudicat a', fp_cpv:'CPV', fp_source:'Font',
     fp_disciplines:'Disciplines', fp_keywords:'Paraules clau',
     fp_history:'Historial', fp_no_history:'Sense historial d\u0027estats',
     fp_documents:'Documents', fp_no_docs:'Sense documents adjunts encara',
+    fp_f2_ready:"Preparat per a l'enriquiment Fetcher 2",
+    fp_docs_available:'documents a la font oficial',
+    fp_terr:'Territori',
     fp_relations:'Licitacions relacionades', fp_no_relations:'Sense relacions',
     fp_view_official:'Veure a contrataciondelestado.es',
     fp_close:'Tancar', fp_share:'Compartir',
@@ -329,7 +339,7 @@ ADG.generatedAt = null;
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0g';
+ADG.version = '0.5.0i';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
