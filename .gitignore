@@ -48,3 +48,6 @@ desktop.ini
 .env
 .env.*
 !.env.example
+# ADG OPS private local handoffs
+_handoffs/
+_handoffs/_old/
