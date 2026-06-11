@@ -7,8 +7,10 @@ Never mutates data/licitaciones.json. Never downloads binary files.
 """
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -18,7 +20,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 
-VERSION = "v0.5.0m"
+VERSION = "v0.5.0n"
 
 _SAFE_PREFIXES = [
     os.path.normpath("_tmp"),
@@ -65,21 +67,52 @@ _HIGH_KW = frozenset({
 })
 _GATEWAY_PATTERNS = frozenset({"getdocumentbyidservlet", "docacccmpnt"})
 
+# Tokens that must match at word boundaries only (short acronyms, false-positive prone).
+_WB_TOKENS = frozenset({"pca", "pcap", "ppt", "pptx"})
+_WB_PATTERNS = {tok: re.compile(r"\b" + re.escape(tok) + r"\b") for tok in _WB_TOKENS}
+
 _KIND_RANK = {
     "pliego_admin": 5, "pliego_tecnico": 5, "award_doc": 4,
     "annex": 3, "generic_doc": 2, "unknown": 1,
 }
 _CONF_RANK = {"high": 3, "medium": 2, "low": 1}
 
-# Titles filtered by default (all lowercase; compared against lowercased title)
+# Titles filtered by default (all lowercase; compared against normalized title)
 _VER_EXACT = "ver"
 _DEFERRED_MODULES_SUB = "deferred modules"
 _GENERIC_HTML_XML_EXACT = frozenset({"documento html", "documento xml"})
-# Generic navigation/UI labels (medium/low confidence only); "ver" handled separately
+# Navigation/UI labels that must never survive as kept candidates.
 _GENERIC_NAV_EXACT = frozenset({
+    # Original set
     "cerrar", "imprimir", "volver", "siguiente", "anterior",
     "inicio", "atrás", "atras", "tancar", "tornar",
+    # Expanded: observed portal navigation/noise labels
+    "bienvenidos", "ongi etorri", "benvinguts", "benvidos",
+    "welcome", "bienvenue", "home", "search",
+    "contractor profile", "companies",
+    "información legal", "informacion legal",
+    "suscribir alertas anuncio",
+    "acuerdos sobre contratación c.a.e.",
+    "acuerdos sobre contratacion c.a.e.",
+    "plazo cerrado",
+    "abierto / plazo de presentación",
+    "abierto / plazo de presentacion",
+    "descargar",
+    "descargar todos los archivos",
+    "búsqueda de poderes adjudicadores",
+    "busqueda de poderes adjudicadores",
+    "acceso poderes adjudicadores",
 })
+
+
+def _normalize_title(title):
+    """Lowercase, strip, collapse internal whitespace."""
+    return " ".join((title or "").lower().split())
+
+
+def _make_candidate_id(rec_canonical_key, normalized_url):
+    raw = rec_canonical_key + "|" + normalized_url
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
 
 class _LinkExtractor(HTMLParser):
@@ -180,16 +213,24 @@ def _is_candidate(href_l, combined_l):
     return any(kw in href_l or kw in combined_l for kw in _DOC_KEYWORDS)
 
 
+def _tok_match(kw, text):
+    """Match kw in text; word-boundary regex for short acronyms, substring otherwise."""
+    pat = _WB_PATTERNS.get(kw)
+    if pat is not None:
+        return bool(pat.search(text))
+    return kw in text
+
+
 def _infer_kind(href_l, combined_l):
     for kws, kind in _KIND_RULES:
-        matched = [kw for kw in kws if kw in combined_l or kw in href_l]
+        matched = [kw for kw in kws if _tok_match(kw, combined_l) or _tok_match(kw, href_l)]
         if matched:
             return kind, matched[:5]
     return "unknown", []
 
 
 def _infer_confidence(href_l, combined_l):
-    has_strong = any(kw in combined_l for kw in _HIGH_KW)
+    has_strong = any(_tok_match(kw, combined_l) for kw in _HIGH_KW)
     has_ext    = any(ext in href_l for ext in (".pdf", ".docx", ".doc"))
     has_text   = bool(combined_l.strip())
     if has_strong or (has_ext and has_text):
@@ -268,7 +309,7 @@ def _filter_candidates(candidates, min_conf_rank, keep_ver, include_html_xml,
     first_pass = []
 
     for c in candidates:
-        title_l = (c.get("title") or "").strip().lower()
+        title_l = _normalize_title(c.get("title") or "")
         conf = c.get("confidence", "low")
 
         # Confidence floor
@@ -291,9 +332,9 @@ def _filter_candidates(candidates, min_conf_rank, keep_ver, include_html_xml,
             skipped["skip_generic_html_xml"] += 1
             continue
 
-        # Generic navigation/UI labels (non-high-confidence only)
-        if skip_generic_titles and conf != "high" and title_l in _GENERIC_NAV_EXACT:
-            skipped["skip_generic_nav_medium"] += 1
+        # Navigation/UI labels — blocked at all confidence levels
+        if skip_generic_titles and title_l in _GENERIC_NAV_EXACT:
+            skipped["skip_generic_nav"] += 1
             continue
 
         first_pass.append(c)
@@ -388,7 +429,7 @@ def _select_records(data, active_only, limit, source_domains):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="F2-A document-link / pliego discovery sidecar — ADG OPS v0.5.0m"
+        description="F2-A document-link / pliego discovery sidecar — ADG OPS v0.5.0n"
     )
     ap.add_argument("--input", default=os.path.join("data", "licitaciones.json"),
                     help="Path to licitaciones.json")
@@ -409,11 +450,11 @@ def main():
     ap.add_argument("--max-html-bytes", type=int, default=2_000_000,
                     help="Max bytes to read per HTML response")
     ap.add_argument("--user-agent",
-                    default="ADG-OPS-Fetcher2/0.5.0m document-link-discovery",
+                    default="ADG-OPS-Fetcher2/0.5.0n document-link-discovery",
                     help="HTTP User-Agent header")
     ap.add_argument("--allow-output-outside-safe-area", action="store_true",
                     help="Bypass safe-area restriction on output path")
-    # Quality hardening flags (v0.5.0m)
+    # Quality hardening flags (v0.5.0m+)
     ap.add_argument("--min-confidence", choices=["high", "medium", "low"], default="medium",
                     help="Minimum confidence level to keep a candidate (default: medium)")
     ap.add_argument("--prefer-pdf", action=argparse.BooleanOptionalAction, default=True,
@@ -444,6 +485,7 @@ def main():
     mode   = "F2-A_DETAIL_LINK_DISCOVERY_DRY_RUN" if args.dry_run else "F2-A_DETAIL_LINK_DISCOVERY"
 
     manifest = {
+        "schema": "f2a/1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "version": VERSION,
         "mode": mode,
@@ -475,6 +517,7 @@ def main():
     }
 
     total_skipped: Counter = Counter()
+    capped_records_count = 0
 
     print(f"[F2-A] {mode} | limit={args.limit} active_only={args.active_only} "
           f"sample={len(sample)}")
@@ -583,6 +626,27 @@ def main():
                 n_capped = len(candidates) - args.max_candidates_per_record
                 candidates = candidates[:args.max_candidates_per_record]
                 total_skipped["skip_max_per_record"] += n_capped
+                capped_records_count += 1
+
+            # Candidate model v2: inject stable fields on every kept candidate.
+            rec_key = (
+                rec.get("canonical_key")
+                or rec.get("id")
+                or rec.get("idExpediente")
+                or rec.get("expediente")
+                or ""
+            )
+            for c in candidates:
+                norm_url   = _normalize_url(c["url"])
+                norm_title = _normalize_title(c.get("title") or "")
+                c["candidate_id"]    = _make_candidate_id(rec_key, norm_url)
+                c["canonical_key"]   = rec_key
+                c["normalized_url"]  = norm_url
+                c["normalized_title"] = norm_title
+                c["source_domain"]   = urllib.parse.urlparse(c["url"]).netloc.lower()
+                c["source_adapter"]  = "generic_html"
+                c["needs_resolver"]  = c.get("extension", "") in ("gateway", "")
+                c["merge_ready"]     = False
 
             for c in candidates:
                 manifest["counts"][f"{c['confidence']}_confidence"] += 1
@@ -608,6 +672,7 @@ def main():
     conf_counter  = Counter(c.get("confidence", "low") for c in all_final)
     kind_counter  = Counter(c.get("kind", "unknown") for c in all_final)
     ext_counter   = Counter(c.get("extension", "") for c in all_final)
+    domain_counter = Counter(c.get("source_domain", "") for c in all_final)
     _KNOWN_GENERIC_LC = frozenset({
         "ver", "documento html", "documento xml", "documento pdf",
         "deferred modules",
@@ -616,18 +681,35 @@ def main():
         1 for c in all_final
         if (c.get("title") or "").strip().lower() in _KNOWN_GENERIC_LC
     )
+    nav_title_count = sum(
+        1 for c in all_final
+        if _normalize_title(c.get("title") or "") in _GENERIC_NAV_EXACT
+    )
+
+    cnt = manifest["counts"]
+    candidates_after = cnt["candidate_links_total"]
+    records_attempted = cnt["records_attempted"]
+    error_count = cnt["errors"]
 
     manifest["quality_summary"] = {
-        "records_attempted":       manifest["counts"]["records_attempted"],
-        "candidates_before_filter": manifest["counts"]["candidates_before_filter"],
-        "candidates_after_filter": manifest["counts"]["candidate_links_total"],
-        "confidence_counts":       dict(conf_counter),
-        "kind_counts":             dict(kind_counter),
-        "extension_counts":        dict(ext_counter),
-        "title_counts_top":        title_counter.most_common(15),
-        "generic_title_count":     generic_title_count,
-        "duplicate_url_count":     manifest["counts"]["duplicates_removed"],
-        "skipped_counts":          dict(total_skipped),
+        "records_attempted":              records_attempted,
+        "records_with_candidates":        cnt["records_with_candidates"],
+        "candidates_before_filter":       cnt["candidates_before_filter"],
+        "candidates_after_filter":        candidates_after,
+        "error_count":                    error_count,
+        "error_rate":                     round(error_count / records_attempted, 6) if records_attempted else 0,
+        "records_with_candidates_ratio":  round(cnt["records_with_candidates"] / records_attempted, 6) if records_attempted else 0,
+        "generic_title_count":            generic_title_count,
+        "generic_title_ratio":            round(generic_title_count / candidates_after, 6) if candidates_after else 0,
+        "nav_title_count":                nav_title_count,
+        "capped_records_count":           capped_records_count,
+        "confidence_counts":              dict(conf_counter),
+        "kind_counts":                    dict(kind_counter),
+        "extension_counts":               dict(ext_counter),
+        "per_domain_counts":              dict(domain_counter),
+        "title_counts_top":               title_counter.most_common(15),
+        "duplicate_url_count":            cnt["duplicates_removed"],
+        "skipped_counts":                 dict(total_skipped),
     }
 
     out_dir = os.path.dirname(args.output)
