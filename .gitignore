@@ -51,3 +51,5 @@ desktop.ini
 # ADG OPS private local handoffs
 _handoffs/
 _handoffs/_old/
+# F2-A fetcher sidecar output (local only)
+data/fetcher2/
