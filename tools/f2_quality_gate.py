@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
 tools/f2_quality_gate.py — F2 quality gate: artifact verdict + merge-blocker report.
-Gate version: v0.5.0o
+Gate version: v0.5.0s
+
+Reads an F2-A manifest (schema f2a/1) and emits an ARTIFACT_OK / MERGE_OK verdict.
+Optionally consumes an F2-B resolver manifest (schema f2b/1) via --resolved-input
+to fold resolver metrics, warnings and blockers into the report. F2-A-only
+behaviour is unchanged when --resolved-input is omitted.
 """
 
 import argparse
@@ -12,7 +17,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-GATE_VERSION = "v0.5.0o"
+GATE_VERSION = "v0.5.0s"
 REPORT_SCHEMA = "f2_quality_gate/1"
 
 SAFE_OUTPUT_DIRS = ("_tmp", os.path.join("data", "fetcher2"))
@@ -65,6 +70,8 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument("--input", required=True, metavar="PATH", help="F2-A manifest JSON path.")
+    p.add_argument("--resolved-input", metavar="PATH", default=None,
+                   help="Optional F2-B resolver manifest (schema f2b/1) to fold into the report.")
     p.add_argument("--output", required=True, metavar="PATH", help="Output report JSON path.")
     p.add_argument("--artifact-error-rate-max", type=float, default=0.05, metavar="FLOAT",
                    help="Max error rate for ARTIFACT_OK PASS.")
@@ -78,6 +85,10 @@ def parse_args():
                    help="Max nav_title_count for MERGE_OK PASS.")
     p.add_argument("--merge-unknown-kind-ratio-max", type=float, default=0.05, metavar="FLOAT",
                    help="Max unknown-kind ratio for MERGE_OK PASS.")
+    p.add_argument("--merge-resolver-error-rate-max", type=float, default=0.01, metavar="FLOAT",
+                   help="Max F2-B resolver_error_rate for MERGE_OK PASS (only when --resolved-input given).")
+    p.add_argument("--merge-min-resolved-document-ratio", type=float, default=0.90, metavar="FLOAT",
+                   help="Min F2-B resolved_document_ratio for MERGE_OK PASS (only when --resolved-input given).")
     p.add_argument("--allow-output-outside-safe-area", action="store_true", default=False,
                    help="Allow writing report outside _tmp/ or data/fetcher2/.")
 
@@ -137,6 +148,79 @@ def _error_sample(rec):
         "error": rec.get("error"),
         "http_status": rec.get("http_status"),
     }
+
+
+def _f2b_candidate_sample(r):
+    return {
+        "candidate_id": r.get("candidate_id"),
+        "canonical_key": r.get("canonical_key"),
+        "source_domain": r.get("source_domain"),
+        "final_domain": r.get("final_domain"),
+        "resolver_status": r.get("resolver_status"),
+        "resolver_method": r.get("resolver_method"),
+        "content_type": r.get("content_type"),
+        "inferred_filename": r.get("inferred_filename"),
+        "resolved_is_document": r.get("resolved_is_document"),
+        "merge_ready_candidate": r.get("merge_ready_candidate"),
+        "merge_blockers": r.get("merge_blockers"),
+    }
+
+
+def compute_f2b_metrics(f2b):
+    """Fold an F2-B resolver manifest into gate-facing metrics + samples."""
+    qs = f2b.get("quality_summary", {})
+    resolved = f2b.get("resolved_candidates", [])
+
+    attempted = qs.get("candidates_attempted", len(resolved))
+    resolved_count = qs.get(
+        "resolved_count", sum(1 for r in resolved if r.get("resolver_status") == "resolved")
+    )
+    error_count = qs.get(
+        "error_count",
+        sum(1 for r in resolved if r.get("resolver_status") in ("error", "skipped")),
+    )
+    unresolved_count = qs.get(
+        "unresolved_count", sum(1 for r in resolved if r.get("resolver_status") == "unresolved")
+    )
+    merge_ready_count = qs.get(
+        "merge_ready_candidate_count", sum(1 for r in resolved if r.get("merge_ready_candidate"))
+    )
+
+    final_domain_counts = qs.get("final_domain_counts") or dict(
+        Counter(r.get("final_domain") or "" for r in resolved)
+    )
+
+    metrics = {
+        "f2b_schema": f2b.get("schema"),
+        "f2b_version": f2b.get("version"),
+        "candidates_considered": qs.get("candidates_considered"),
+        "candidates_attempted": attempted,
+        "resolved_count": resolved_count,
+        "resolved_ratio": qs.get("resolved_ratio", round(resolved_count / attempted, 6) if attempted else 0.0),
+        "resolved_document_count": qs.get("resolved_document_count"),
+        "resolved_document_ratio": qs.get("resolved_document_ratio", 0.0),
+        "resolved_pdf_count": qs.get("resolved_pdf_count"),
+        "resolved_pdf_ratio": qs.get("resolved_pdf_ratio", 0.0),
+        "resolver_error_rate": qs.get("resolver_error_rate", round(error_count / attempted, 6) if attempted else 0.0),
+        "merge_ready_candidate_count": merge_ready_count,
+        "merge_ready_candidate_ratio": qs.get("merge_ready_candidate_ratio", 0.0),
+        "unresolved_after_resolver_count": unresolved_count + error_count,
+        "content_type_counts": qs.get("content_type_counts", {}),
+        "final_domain_counts": final_domain_counts,
+        "resolver_method_counts": qs.get("resolver_method_counts", {}),
+        "resolver_status_counts": qs.get("resolver_status_counts", {}),
+    }
+
+    samples = {
+        "merge_ready_examples": [
+            _f2b_candidate_sample(r) for r in resolved if r.get("merge_ready_candidate")
+        ][:SAMPLE_LIMIT],
+        "unresolved_examples": [
+            _f2b_candidate_sample(r) for r in resolved
+            if r.get("resolver_status") in ("unresolved", "error", "skipped")
+        ][:SAMPLE_LIMIT],
+    }
+    return metrics, samples
 
 
 def compute_metrics(manifest):
@@ -274,7 +358,7 @@ def compute_metrics(manifest):
     return metrics, samples
 
 
-def evaluate_verdicts(metrics, thresholds):
+def evaluate_verdicts(metrics, thresholds, f2b_metrics=None):
     artifact_blocking = []
     artifact_warnings = []
     merge_blocking = []
@@ -352,6 +436,36 @@ def evaluate_verdicts(metrics, thresholds):
         merge_blocking.append(
             "merge_ready_true_count is zero — no candidates are marked merge-ready"
         )
+
+    # F2-B resolver folding — additive only; never weakens an existing blocker.
+    if f2b_metrics is not None:
+        rer = f2b_metrics.get("resolver_error_rate") or 0.0
+        rdr = f2b_metrics.get("resolved_document_ratio") or 0.0
+        mrc = f2b_metrics.get("merge_ready_candidate_count") or 0
+        unresolved_after = f2b_metrics.get("unresolved_after_resolver_count") or 0
+
+        if rer > thresholds["merge_resolver_error_rate_max"]:
+            merge_blocking.append(
+                f"f2b resolver_error_rate {rer:.6f} > {thresholds['merge_resolver_error_rate_max']}"
+            )
+        if rdr < thresholds["merge_min_resolved_document_ratio"]:
+            merge_blocking.append(
+                f"f2b resolved_document_ratio {rdr:.4f} < "
+                f"{thresholds['merge_min_resolved_document_ratio']} — resolver coverage insufficient"
+            )
+        if mrc == 0:
+            merge_blocking.append(
+                "f2b merge_ready_candidate_count is zero — resolver produced no merge-ready candidates"
+            )
+
+        if rer > 0:
+            artifact_warnings.append(
+                f"f2b resolver_error_rate {rer:.6f}: resolver encountered errors"
+            )
+        if unresolved_after > 0:
+            artifact_warnings.append(
+                f"f2b unresolved_after_resolver_count: {unresolved_after} candidates still unresolved"
+            )
 
     merge_ok = "PASS" if not merge_blocking else "FAIL"
 
@@ -433,6 +547,37 @@ def main():
 
     metrics, samples = compute_metrics(manifest)
 
+    # Optional F2-B resolver manifest.
+    f2b_metrics = None
+    f2b_samples = None
+    f2b_input_info = None
+    if args.resolved_input:
+        resolved_path = Path(args.resolved_input)
+        if not resolved_path.exists():
+            fail(f"Resolved input file not found: {resolved_path}")
+        try:
+            with open(resolved_path, encoding="utf-8") as f:
+                f2b_manifest = json.load(f)
+        except json.JSONDecodeError as e:
+            fail(f"Resolved input JSON is not parseable: {e}")
+        except OSError as e:
+            fail(f"Cannot read resolved input file: {e}")
+
+        f2b_schema = f2b_manifest.get("schema", "")
+        if not f2b_schema.startswith("f2b/"):
+            fail(f"Unexpected resolved manifest schema '{f2b_schema}'. Expected f2b/1 or compatible.")
+        if not isinstance(f2b_manifest.get("resolved_candidates"), list):
+            fail("Resolved manifest missing 'resolved_candidates' list — malformed or wrong schema.")
+
+        f2b_metrics, f2b_samples = compute_f2b_metrics(f2b_manifest)
+        f2b_input_info = {
+            "path": str(resolved_path),
+            "schema": f2b_manifest.get("schema"),
+            "version": f2b_manifest.get("version"),
+            "generated_at": f2b_manifest.get("generated_at"),
+            "source_f2a_version": f2b_manifest.get("source_f2a_version"),
+        }
+
     thresholds = {
         "artifact_error_rate_max": args.artifact_error_rate_max,
         "merge_error_rate_max": args.merge_error_rate_max,
@@ -440,9 +585,11 @@ def main():
         "merge_unresolved_gateway_ratio_max": args.merge_unresolved_gateway_ratio_max,
         "merge_nav_title_count_max": args.merge_nav_title_count_max,
         "merge_unknown_kind_ratio_max": args.merge_unknown_kind_ratio_max,
+        "merge_resolver_error_rate_max": args.merge_resolver_error_rate_max,
+        "merge_min_resolved_document_ratio": args.merge_min_resolved_document_ratio,
     }
 
-    verdicts = evaluate_verdicts(metrics, thresholds)
+    verdicts = evaluate_verdicts(metrics, thresholds, f2b_metrics)
     recommendation = build_recommendation(verdicts, metrics)
 
     report = {
@@ -462,6 +609,11 @@ def main():
         "recommendation": recommendation,
     }
 
+    if f2b_metrics is not None:
+        report["f2b_input"] = f2b_input_info
+        report["f2b_metrics"] = f2b_metrics
+        report["f2b_samples"] = f2b_samples
+
     try:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
@@ -480,6 +632,14 @@ def main():
             f"errors: {m['error_count']}  "
             f"rate: {m['error_rate']:.6f}"
         )
+        if f2b_metrics is not None:
+            print(
+                f"[F2-GATE] f2b: {f2b_metrics.get('f2b_schema')} {f2b_metrics.get('f2b_version')}  "
+                f"resolved_ratio: {f2b_metrics.get('resolved_ratio')}  "
+                f"doc_ratio: {f2b_metrics.get('resolved_document_ratio')}  "
+                f"merge_ready: {f2b_metrics.get('merge_ready_candidate_count')}  "
+                f"resolver_err: {f2b_metrics.get('resolver_error_rate')}"
+            )
         print(f"[F2-GATE] ARTIFACT_OK: {ao}")
         if verdicts["ARTIFACT_OK"]["warnings"]:
             print("[F2-GATE] artifact warnings:")
