@@ -23,8 +23,9 @@ import urllib.request
 from collections import Counter
 from datetime import datetime, timezone
 
-VERSION = "v0.5.0q"
+VERSION = "v0.6.0g"
 SCHEMA = "f2b/1"
+CHECKPOINT_SCHEMA = "f2b_checkpoint/1"
 
 _SAFE_PREFIXES = [
     os.path.normpath("_tmp"),
@@ -82,7 +83,7 @@ _CT_TO_EXT = {
     "text/plain": "txt",
 }
 
-_USER_AGENT = "ADG-OPS-Fetcher2b/0.5.0q resolver-sidecar"
+_USER_AGENT = "ADG-OPS-Fetcher2b/0.6.0g resolver-sidecar"
 _CD_FILENAME_STAR = re.compile(r"filename\*\s*=\s*[^']*'[^']*'([^;]+)", re.IGNORECASE)
 _CD_FILENAME = re.compile(r'filename\s*=\s*"?([^";]+)"?', re.IGNORECASE)
 
@@ -181,12 +182,14 @@ def _magic_kind(body):
     return None
 
 
-def _select_candidates(records, source_domains, candidate_ids, limit):
+def _select_candidates(records, source_domains, candidate_ids, limit, already_done=None):
     """Pick resolver candidates, attaching the owning record for context."""
     dom_filter = set(source_domains)
     id_filter = set(candidate_ids)
+    already_done = already_done or set()
     selected = []
     considered = 0
+    skipped_checkpoint = 0
     for rec in records:
         for c in rec.get("candidates", []):
             needs = c.get("needs_resolver") is True or c.get("extension") in ("gateway", "")
@@ -198,10 +201,13 @@ def _select_candidates(records, source_domains, candidate_ids, limit):
                 continue
             if id_filter and c.get("candidate_id") not in id_filter:
                 continue
+            if c.get("candidate_id") in already_done:
+                skipped_checkpoint += 1
+                continue
             selected.append((rec, c))
             if len(selected) >= limit:
-                return selected, considered
-    return selected, considered
+                return selected, considered, skipped_checkpoint
+    return selected, considered, skipped_checkpoint
 
 
 def _open(url, method, timeout, max_range_bytes):
@@ -414,7 +420,7 @@ def _ratio(num, den):
     return round(num / den, 6) if den else 0.0
 
 
-def _build_quality_summary(resolved_list, considered):
+def _build_quality_summary(resolved_list, considered, candidates_skipped_checkpoint=0):
     attempted = len(resolved_list)
     resolved_count = sum(1 for r in resolved_list if r["resolver_status"] == "resolved")
     unresolved_count = sum(1 for r in resolved_list if r["resolver_status"] == "unresolved")
@@ -441,6 +447,7 @@ def _build_quality_summary(resolved_list, considered):
     return {
         "candidates_considered": considered,
         "candidates_attempted": attempted,
+        "candidates_skipped_checkpoint": candidates_skipped_checkpoint,
         "resolved_count": resolved_count,
         "unresolved_count": unresolved_count,
         "error_count": error_count,
@@ -463,9 +470,43 @@ def _build_quality_summary(resolved_list, considered):
     }
 
 
+def _count_html(resolved_list):
+    count = 0
+    for r in resolved_list:
+        _, base = _clean_content_type(r.get("content_type"))
+        if base in _HTML_CONTENT_TYPES:
+            count += 1
+    return count
+
+
+def _write_checkpoint_atomic(checkpoint_path, source_f2a_input, source_domains, limit,
+                              attempted_ids_all, batch_outputs, created_at):
+    """Write checkpoint atomically: write to .tmp then os.replace() into final path."""
+    tmp_path = checkpoint_path + ".tmp"
+    ck = {
+        "schema": CHECKPOINT_SCHEMA,
+        "created_at": created_at,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "source_f2a_input": source_f2a_input,
+        "filter_params": {
+            "source_domains": source_domains,
+            "limit": limit,
+        },
+        "attempted_candidate_ids": list(attempted_ids_all),
+        "attempted_count": len(attempted_ids_all),
+        "batch_outputs": batch_outputs,
+    }
+    ck_dir = os.path.dirname(tmp_path)
+    if ck_dir:
+        os.makedirs(ck_dir, exist_ok=True)
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(ck, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, checkpoint_path)
+
+
 def parse_args():
     ap = argparse.ArgumentParser(
-        description="F2-B resolver sidecar — resolves gateway/empty candidates (ADG OPS v0.5.0q)",
+        description="F2-B resolver sidecar — resolves gateway/empty candidates (ADG OPS v0.6.0g)",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     ap.add_argument("--input", required=True, help="F2-A manifest (schema f2a/1) path.")
@@ -483,6 +524,15 @@ def parse_args():
                     help="Max bytes read on a fallback Range GET (body never stored).")
     ap.add_argument("--allow-output-outside-safe-area", action="store_true",
                     help="Bypass safe-area restriction on output path.")
+    # Batch / resume / checkpoint
+    ap.add_argument("--checkpoint", metavar="PATH",
+                    help="Path to an f2b_checkpoint/1 JSON sidecar for batch resume.")
+    ap.add_argument("--batch-size", type=int, default=500, dest="batch_size",
+                    help="Write output and update checkpoint every N attempted candidates.")
+    ap.add_argument("--stop-error-rate", type=float, default=0.05, dest="stop_error_rate",
+                    help="Abort if current-invocation resolver error rate exceeds this threshold.")
+    ap.add_argument("--stop-consecutive-errors", type=int, default=10, dest="stop_consecutive_errors",
+                    help="Abort after N consecutive resolver errors.")
     return ap.parse_args()
 
 
@@ -493,6 +543,30 @@ def main():
     if not ok:
         print(f"[F2-B BLOCKED] {msg}", file=sys.stderr)
         return 1
+
+    # Checkpoint load
+    checkpoint_data = None
+    already_done = set()
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    if args.checkpoint:
+        ok, msg = _check_output_safe(args.checkpoint, args.allow_output_outside_safe_area)
+        if not ok:
+            print(f"[F2-B BLOCKED] checkpoint path: {msg}", file=sys.stderr)
+            return 1
+        if os.path.exists(args.checkpoint):
+            try:
+                with open(args.checkpoint, encoding="utf-8") as f:
+                    checkpoint_data = json.load(f)
+            except (OSError, json.JSONDecodeError) as e:
+                print(f"[F2-B BLOCKED] Cannot read checkpoint: {e}", file=sys.stderr)
+                return 1
+            if checkpoint_data.get("schema") != CHECKPOINT_SCHEMA:
+                print(f"[F2-B BLOCKED] Checkpoint schema mismatch: {checkpoint_data.get('schema')}", file=sys.stderr)
+                return 1
+            already_done = set(checkpoint_data.get("attempted_candidate_ids", []))
+            created_at = checkpoint_data.get("created_at", created_at)
+            print(f"[F2-B CHECKPOINT] loaded: attempted={len(already_done)} from {args.checkpoint}")
 
     source_domains = _split_csv(args.source_domains)
     candidate_ids = _split_csv(args.candidate_ids)
@@ -514,7 +588,13 @@ def main():
         print("[F2-B BLOCKED] Manifest 'records' is not a list.", file=sys.stderr)
         return 1
 
-    selected, considered = _select_candidates(records, source_domains, candidate_ids, args.limit)
+    selected, considered, skipped_checkpoint = _select_candidates(
+        records, source_domains, candidate_ids, args.limit, already_done
+    )
+
+    if args.checkpoint and skipped_checkpoint:
+        print(f"[F2-B CHECKPOINT] skipped={skipped_checkpoint}")
+
     mode = "F2-B_RESOLVER_DRY_RUN" if args.dry_run else "F2-B_RESOLVER"
 
     print(f"[F2-B] {mode} | considered={considered} selected={len(selected)} "
@@ -522,56 +602,120 @@ def main():
 
     resolved_list = []
     warnings = []
-    for i, (_rec, cand) in enumerate(selected):
-        short = (cand.get("source_domain") or "")[:40]
-        print(f"  [{i+1}/{len(selected)}] {short} {str(cand.get('candidate_id'))[:16]}", end=" ", flush=True)
-        r = _resolve_one(cand, args.timeout, args.max_range_bytes)
-        resolved_list.append(r)
-        print(f"-> {r['resolver_method']} status={r['http_status']} "
-              f"{r['resolver_status']} doc={r['resolved_is_document']} "
-              f"ct={_clean_content_type(r.get('content_type'))[1] or '-'}")
-        if i < len(selected) - 1:
-            time.sleep(args.sleep)
+    # accumulated set of all attempted IDs (prior runs + current run)
+    attempted_ids_all = set(already_done)
+    batch_outputs = list(checkpoint_data.get("batch_outputs", [])) if checkpoint_data else []
+    consecutive_errors = 0
 
-    quality_summary = _build_quality_summary(resolved_list, considered)
+    def _flush():
+        """Write output sidecar and update checkpoint. Returns quality_summary dict."""
+        qs = _build_quality_summary(resolved_list, considered, skipped_checkpoint)
+        out = {
+            "schema": SCHEMA,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "version": VERSION,
+            "mode": mode,
+            "input": args.input,
+            "source_f2a_schema": src_schema,
+            "source_f2a_version": manifest.get("version"),
+            "filter_params": {
+                "limit": args.limit,
+                "source_domains": source_domains,
+                "candidate_ids": candidate_ids,
+                "timeout": args.timeout,
+                "sleep": args.sleep,
+                "max_range_bytes": args.max_range_bytes,
+                "dry_run": args.dry_run,
+            },
+            "counts": {
+                "candidates_considered": considered,
+                "candidates_attempted": len(resolved_list),
+                "resolved_count": qs["resolved_count"],
+                "unresolved_count": qs["unresolved_count"],
+                "error_count": qs["error_count"],
+                "merge_ready_candidate_count": qs["merge_ready_candidate_count"],
+            },
+            "resolved_candidates": resolved_list,
+            "quality_summary": qs,
+            "warnings": warnings,
+        }
+        out_dir = os.path.dirname(args.output)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        with open(args.output, "w", encoding="utf-8") as f_out:
+            json.dump(out, f_out, ensure_ascii=False, indent=2)
 
-    out = {
-        "schema": SCHEMA,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "version": VERSION,
-        "mode": mode,
-        "input": args.input,
-        "source_f2a_schema": src_schema,
-        "source_f2a_version": manifest.get("version"),
-        "filter_params": {
-            "limit": args.limit,
-            "source_domains": source_domains,
-            "candidate_ids": candidate_ids,
-            "timeout": args.timeout,
-            "sleep": args.sleep,
-            "max_range_bytes": args.max_range_bytes,
-            "dry_run": args.dry_run,
-        },
-        "counts": {
-            "candidates_considered": considered,
-            "candidates_attempted": len(resolved_list),
-            "resolved_count": quality_summary["resolved_count"],
-            "unresolved_count": quality_summary["unresolved_count"],
-            "error_count": quality_summary["error_count"],
-            "merge_ready_candidate_count": quality_summary["merge_ready_candidate_count"],
-        },
-        "resolved_candidates": resolved_list,
-        "quality_summary": quality_summary,
-        "warnings": warnings,
-    }
+        if args.checkpoint:
+            if args.output not in batch_outputs:
+                batch_outputs.append(args.output)
+            _write_checkpoint_atomic(
+                args.checkpoint, args.input, source_domains, args.limit,
+                attempted_ids_all, batch_outputs, created_at,
+            )
+            print(f"[F2-B CHECKPOINT] updated: attempted={len(attempted_ids_all)} path={args.checkpoint}")
+            html_count = _count_html(resolved_list)
+            print(f"[F2-B BATCH] attempted={qs['candidates_attempted']} resolved={qs['resolved_count']} "
+                  f"docs={qs['resolved_document_count']} html={html_count} "
+                  f"errors={qs['error_count']} error_rate={qs['resolver_error_rate']}")
+        return qs
 
-    out_dir = os.path.dirname(args.output)
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
+    try:
+        for i, (_rec, cand) in enumerate(selected):
+            short = (cand.get("source_domain") or "")[:40]
+            print(f"  [{i+1}/{len(selected)}] {short} {str(cand.get('candidate_id'))[:16]}", end=" ", flush=True)
+            r = _resolve_one(cand, args.timeout, args.max_range_bytes)
+            resolved_list.append(r)
 
-    qs = quality_summary
+            cid = cand.get("candidate_id")
+            if cid:
+                attempted_ids_all.add(cid)
+
+            print(f"-> {r['resolver_method']} status={r['http_status']} "
+                  f"{r['resolver_status']} doc={r['resolved_is_document']} "
+                  f"ct={_clean_content_type(r.get('content_type'))[1] or '-'}")
+
+            # Track consecutive network errors only (not skipped/unresolved)
+            if r["resolver_status"] == "error":
+                consecutive_errors += 1
+            else:
+                consecutive_errors = 0
+
+            # Stop threshold checks (only when batch mode active)
+            if args.checkpoint:
+                n = len(resolved_list)
+                cur_errors = sum(1 for x in resolved_list if x["resolver_status"] in ("error", "skipped"))
+                cur_error_rate = _ratio(cur_errors, n)
+
+                if cur_error_rate > args.stop_error_rate:
+                    reason = f"error_rate={cur_error_rate:.4f} > threshold={args.stop_error_rate}"
+                    print(f"[F2-B BATCH ABORT] reason={reason}", file=sys.stderr)
+                    _flush()
+                    return 2
+
+                if consecutive_errors >= args.stop_consecutive_errors:
+                    reason = f"consecutive_errors={consecutive_errors} >= threshold={args.stop_consecutive_errors}"
+                    print(f"[F2-B BATCH ABORT] reason={reason}", file=sys.stderr)
+                    _flush()
+                    return 2
+
+            # Checkpoint at batch-size boundaries (not at final candidate)
+            is_last = (i == len(selected) - 1)
+            if args.checkpoint and not is_last and (i + 1) % args.batch_size == 0:
+                _flush()
+
+            if not is_last:
+                time.sleep(args.sleep)
+
+    except KeyboardInterrupt:
+        print("\n[F2-B] KeyboardInterrupt — writing partial output.", file=sys.stderr)
+        if resolved_list:
+            _flush()
+        print("[F2-B] Exiting.", file=sys.stderr)
+        return 3
+
+    # Final write
+    qs = _flush()
+
     print(f"\n[F2-B] done: attempted={qs['candidates_attempted']} "
           f"resolved={qs['resolved_count']} unresolved={qs['unresolved_count']} "
           f"errors={qs['error_count']} docs={qs['resolved_document_count']} "
