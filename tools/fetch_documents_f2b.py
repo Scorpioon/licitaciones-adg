@@ -23,7 +23,7 @@ import urllib.request
 from collections import Counter
 from datetime import datetime, timezone
 
-VERSION = "v0.6.0g"
+VERSION = "v0.6.0i"
 SCHEMA = "f2b/1"
 CHECKPOINT_SCHEMA = "f2b_checkpoint/1"
 
@@ -83,7 +83,7 @@ _CT_TO_EXT = {
     "text/plain": "txt",
 }
 
-_USER_AGENT = "ADG-OPS-Fetcher2b/0.6.0g resolver-sidecar"
+_USER_AGENT = "ADG-OPS-Fetcher2b/0.6.0i resolver-sidecar"
 _CD_FILENAME_STAR = re.compile(r"filename\*\s*=\s*[^']*'[^']*'([^;]+)", re.IGNORECASE)
 _CD_FILENAME = re.compile(r'filename\s*=\s*"?([^";]+)"?', re.IGNORECASE)
 
@@ -95,6 +95,10 @@ def _check_output_safe(path, allow_outside):
     if not allow_outside and not any(norm.startswith(p) for p in _SAFE_PREFIXES):
         return False, "Output path outside safe area; use --allow-output-outside-safe-area to override"
     return True, None
+
+
+def _norm_path(p):
+    return os.path.normcase(os.path.normpath(p))
 
 
 def _split_csv(values):
@@ -506,7 +510,7 @@ def _write_checkpoint_atomic(checkpoint_path, source_f2a_input, source_domains, 
 
 def parse_args():
     ap = argparse.ArgumentParser(
-        description="F2-B resolver sidecar — resolves gateway/empty candidates (ADG OPS v0.6.0g)",
+        description="F2-B resolver sidecar — resolves gateway/empty candidates (ADG OPS v0.6.0i)",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     ap.add_argument("--input", required=True, help="F2-A manifest (schema f2a/1) path.")
@@ -524,6 +528,9 @@ def parse_args():
                     help="Max bytes read on a fallback Range GET (body never stored).")
     ap.add_argument("--allow-output-outside-safe-area", action="store_true",
                     help="Bypass safe-area restriction on output path.")
+    ap.add_argument("--allow-output-overwrite", action="store_true", dest="allow_output_overwrite",
+                    help="Bypass the output-exists and registered-checkpoint-output guards. "
+                         "For emergency/manual recovery only — do NOT use for normal checkpoint resume.")
     # Batch / resume / checkpoint
     ap.add_argument("--checkpoint", metavar="PATH",
                     help="Path to an f2b_checkpoint/1 JSON sidecar for batch resume.")
@@ -542,6 +549,12 @@ def main():
     ok, msg = _check_output_safe(args.output, args.allow_output_outside_safe_area)
     if not ok:
         print(f"[F2-B BLOCKED] {msg}", file=sys.stderr)
+        return 1
+
+    if os.path.exists(args.output) and not args.allow_output_overwrite:
+        print(f"[F2-B BLOCKED] output path already exists: {args.output}", file=sys.stderr)
+        print("[F2-B BLOCKED] checkpoint resume must use a fresh output sidecar path.", file=sys.stderr)
+        print("[F2-B BLOCKED] Use --allow-output-overwrite only for emergency/manual recovery.", file=sys.stderr)
         return 1
 
     # Checkpoint load
@@ -592,7 +605,21 @@ def main():
         records, source_domains, candidate_ids, args.limit, already_done
     )
 
-    if args.checkpoint and skipped_checkpoint:
+    if already_done:
+        _reg_outputs = checkpoint_data.get("batch_outputs", []) if checkpoint_data else []
+        _norm_req = _norm_path(args.output)
+        _out_exists = os.path.exists(args.output)
+        _out_registered = any(_norm_path(p) == _norm_req for p in _reg_outputs)
+        print(
+            f"[F2-B RESUME] checkpoint_attempted={len(already_done)} "
+            f"batch_outputs={len(_reg_outputs)} "
+            f"requested_output={args.output} "
+            f"output_exists={_out_exists} "
+            f"output_registered={_out_registered} "
+            f"skipped_checkpoint={skipped_checkpoint} "
+            f"selected={len(selected)}"
+        )
+    elif args.checkpoint and skipped_checkpoint:
         print(f"[F2-B CHECKPOINT] skipped={skipped_checkpoint}")
 
     mode = "F2-B_RESOLVER_DRY_RUN" if args.dry_run else "F2-B_RESOLVER"
@@ -605,6 +632,13 @@ def main():
     # accumulated set of all attempted IDs (prior runs + current run)
     attempted_ids_all = set(already_done)
     batch_outputs = list(checkpoint_data.get("batch_outputs", [])) if checkpoint_data else []
+    if batch_outputs and not args.allow_output_overwrite:
+        _norm_req = _norm_path(args.output)
+        if any(_norm_path(p) == _norm_req for p in batch_outputs):
+            print(f"[F2-B BLOCKED] output path already registered in checkpoint batch_outputs: {args.output}", file=sys.stderr)
+            print("[F2-B BLOCKED] continuing would risk replacing evidence for already attempted candidates.", file=sys.stderr)
+            print("[F2-B BLOCKED] Use a fresh sidecar path or --allow-output-overwrite for emergency recovery only.", file=sys.stderr)
+            return 1
     consecutive_errors = 0
 
     def _flush():
@@ -646,7 +680,7 @@ def main():
             json.dump(out, f_out, ensure_ascii=False, indent=2)
 
         if args.checkpoint:
-            if args.output not in batch_outputs:
+            if not any(_norm_path(p) == _norm_path(args.output) for p in batch_outputs):
                 batch_outputs.append(args.output)
             _write_checkpoint_atomic(
                 args.checkpoint, args.input, source_domains, args.limit,
