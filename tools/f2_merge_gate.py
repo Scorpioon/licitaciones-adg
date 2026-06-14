@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-tools/f2_merge_gate.py  —  F2 merge gate v2 (DRY-RUN ONLY)
+tools/f2_merge_gate.py  —  F2 merge gate v3 (DRY-RUN ONLY)
 
 Resolved-aware dry-run merge gate. Reads:
   * an F2-B resolver manifest (schema f2b/1, consolidated) via --resolved-input
   * the originating F2-A manifest (schema f2a/1) via --input
   * the production dataset data/licitaciones.json via --production (READ-ONLY)
 
-It produces a safe f2merge/2 dry-run plan describing which resolved F2-B
+It produces a safe f2merge/3 dry-run plan describing which resolved F2-B
 documents WOULD be accepted as merge-ready document-layer candidates, which are
 blocked (and why), which are duplicates against existing production documents,
 and which cannot be joined back to a production record.
@@ -16,11 +16,15 @@ This tool NEVER writes production data. It NEVER modifies, backs up, or stages
 data/licitaciones.json. It only emits a sidecar plan so an operator can review
 what a real merge would do. production_write_performed is ALWAYS false.
 
-Join path (robust, id-first):
+Join path (robust, id-first, with enriched-copy fallback):
   F2-B candidate_id -> F2-A candidate -> F2-A record id -> production record id.
-When a production id is shared by multiple production records (placeholder vs
-enriched copies), the F2-A record canonical_key is used only as a same-id
-tie-breaker. canonical_key-only joins are never used.
+
+Join resolution order:
+  1. strict_id: production id maps to exactly one record.
+  2. strict_id_canonical_key: shared id group; F2-A canonical_key disambiguates.
+  3. enriched_copy_fallback: shared id group, CK tie-break fails, but invariant
+     holds (exactly one enriched copy, all others placeholder, no collisions).
+  If none resolve, block as ambiguous_record_join.
 """
 
 import argparse
@@ -31,8 +35,8 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
-VERSION = "v0.6.0m"
-SCHEMA = "f2merge/2"
+VERSION = "v0.6.0o"
+SCHEMA = "f2merge/3"
 
 _SAFE_PREFIXES = [
     os.path.normpath("_tmp"),
@@ -80,6 +84,60 @@ def _content_type_base(raw):
         return ""
     return str(raw).strip().lower().split(";", 1)[0].strip()
 
+
+# ---------------------------------------------------------------------------
+# Enriched / placeholder classification helpers
+# ---------------------------------------------------------------------------
+
+def _is_enriched(rec):
+    """A production record is enriched if it has a canonical_key or non-empty documents list."""
+    ck = rec.get("canonical_key")
+    docs = rec.get("documents")
+    return bool(ck) or (isinstance(docs, list) and len(docs) > 0)
+
+
+def _is_placeholder(rec):
+    """A production record is placeholder if it has neither canonical_key nor documents."""
+    return not _is_enriched(rec)
+
+
+def _check_enriched_copy_invariant(recs):
+    """Evaluate the enriched-copy invariant on a production id group.
+
+    Invariant (all must hold):
+      a. group size >= 2
+      b. exactly one record is enriched
+      c. all other records are placeholders
+      d. no non-empty canonical_key collision in the group
+
+    Returns (selected_record | None, invariant_failed_reason | None).
+    If selected_record is not None the invariant passed and that record should be used.
+    If invariant_failed_reason is set the invariant failed; keep blocking.
+    """
+    if len(recs) < 2:
+        return None, f"group_size_{len(recs)}_less_than_2"
+
+    enriched = [r for r in recs if _is_enriched(r)]
+    placeholders = [r for r in recs if _is_placeholder(r)]
+
+    if len(enriched) == 0:
+        return None, "no_enriched_record_in_group"
+    if len(enriched) > 1:
+        return None, f"multiple_enriched_records_{len(enriched)}"
+    if len(placeholders) != len(recs) - 1:
+        return None, "mixed_classification_in_group"
+
+    # Non-empty canonical_key collision check within the group.
+    non_empty_cks = [r.get("canonical_key") for r in recs if r.get("canonical_key")]
+    if len(non_empty_cks) != len(set(non_empty_cks)):
+        return None, "non_empty_canonical_key_collision_in_group"
+
+    return enriched[0], None
+
+
+# ---------------------------------------------------------------------------
+# F2-A bridge + production index
+# ---------------------------------------------------------------------------
 
 def build_f2a_bridge(f2a):
     """candidate_id -> {record_id, canonical_key} bridge from the F2-A manifest.
@@ -163,25 +221,51 @@ def build_production_index(prod):
     return by_id, by_id_ck, doc_urls_by_id, shape_summary, len(data)
 
 
+# ---------------------------------------------------------------------------
+# Production record resolver (v3: id-first + CK tie-break + enriched fallback)
+# ---------------------------------------------------------------------------
+
 def resolve_production_record(record_id, record_ck, by_id, by_id_ck):
     """Resolve an F2-A record id to exactly one production record.
 
-    id-first; canonical_key is only a same-id tie-breaker. Returns
-    (record, reason): record is None when reason is set.
+    Returns (record, join_method, block_reason, join_debug).
+      record      — matched production record or None
+      join_method — "strict_id" | "strict_id_canonical_key" |
+                    "enriched_copy_fallback" | None
+      block_reason — reason string when record is None
+      join_debug   — dict with debug info when blocked, else None
     """
     recs = by_id.get(record_id) or []
     if not recs:
-        return None, "production_record_not_found"
+        return None, None, "production_record_not_found", None
     if len(recs) == 1:
-        return recs[0], None
-    # Shared production id (placeholder vs enriched copies): disambiguate by the
-    # F2-A record canonical_key, scoped to the same id.
+        return recs[0], "strict_id", None, None
+
+    # Shared production id: try canonical_key tie-break (same-id scope only).
     if record_ck:
         m = by_id_ck.get((record_id, record_ck)) or []
         if len(m) == 1:
-            return m[0], None
-    return None, "ambiguous_record_join"
+            return m[0], "strict_id_canonical_key", None, None
 
+    # Enriched-copy fallback (v3).
+    enriched_rec, invariant_reason = _check_enriched_copy_invariant(recs)
+    if enriched_rec is not None:
+        return enriched_rec, "enriched_copy_fallback", None, None
+
+    enriched = [r for r in recs if _is_enriched(r)]
+    placeholders = [r for r in recs if _is_placeholder(r)]
+    join_debug = {
+        "production_id_group_size": len(recs),
+        "enriched_candidates_count": len(enriched),
+        "placeholder_candidates_count": len(placeholders),
+        "invariant_failed_reason": invariant_reason,
+    }
+    return None, None, "ambiguous_record_join", join_debug
+
+
+# ---------------------------------------------------------------------------
+# Document / blocked / duplicate builders
+# ---------------------------------------------------------------------------
 
 def best_title(c):
     return (
@@ -193,7 +277,7 @@ def best_title(c):
     )
 
 
-def build_document_object(c, production_record_id):
+def build_document_object(c, production_record_id, join_method=None):
     """Production-compatible document object a real merge WOULD append (not applied)."""
     return {
         "notice_id": production_record_id,
@@ -213,11 +297,13 @@ def build_document_object(c, production_record_id):
         "http_status": c.get("http_status"),
         "content_length": c.get("content_length"),
         "no_binary_download": True,
+        "join_method": join_method,
+        "production_record_selector": join_method,
     }
 
 
-def _blocked_entry(c, reason, record_id=None):
-    return {
+def _blocked_entry(c, reason, record_id=None, join_debug=None):
+    e = {
         "reason": reason,
         "candidate_id": c.get("candidate_id"),
         "canonical_key": c.get("canonical_key"),
@@ -229,9 +315,13 @@ def _blocked_entry(c, reason, record_id=None):
         "merge_ready_candidate": c.get("merge_ready_candidate"),
         "merge_blockers": c.get("merge_blockers"),
     }
+    if join_debug is not None:
+        e["join_debug"] = join_debug
+    return e
 
 
-def _duplicate_entry(c, reason, record_id=None, existing_match=None):
+def _duplicate_entry(c, reason, record_id=None, existing_match=None,
+                     join_method=None, duplicate_of_join_method=None):
     e = {
         "reason": reason,
         "candidate_id": c.get("candidate_id"),
@@ -239,22 +329,30 @@ def _duplicate_entry(c, reason, record_id=None, existing_match=None):
         "canonical_key": c.get("canonical_key"),
         "final_url": c.get("final_url"),
     }
+    if join_method is not None:
+        e["join_method"] = join_method
+    if duplicate_of_join_method is not None:
+        e["duplicate_of_join_method"] = duplicate_of_join_method
     if existing_match is not None:
         e["existing_document_match"] = existing_match
     return e
 
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
 def parse_args():
     ap = argparse.ArgumentParser(
-        description="F2 merge gate v2 (DRY-RUN ONLY) — resolved-aware plan; never writes production (ADG OPS v0.6.0m)",
+        description="F2 merge gate v3 (DRY-RUN ONLY) — enriched-copy-aware plan; never writes production (ADG OPS v0.6.0o)",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     ap.add_argument("--resolved-input", required=True,
                     help="F2-B consolidated resolver manifest (schema f2b/1) — required.")
     ap.add_argument("--input", required=True,
-                    help="F2-A manifest (schema f2a/1) — required in v2 for the candidate->record bridge.")
+                    help="F2-A manifest (schema f2a/1) — required for the candidate->record bridge.")
     ap.add_argument("--production", required=True,
-                    help="Production dataset (data/licitaciones.json) — required in v2, READ-ONLY.")
+                    help="Production dataset (data/licitaciones.json) — required, READ-ONLY.")
     ap.add_argument("--output", required=True,
                     help="Dry-run plan output path (_tmp/ or data/fetcher2/).")
     ap.add_argument("--domain", default=None,
@@ -318,13 +416,23 @@ def main():
     reason_counter = Counter()
 
     seen_candidate_ids = set()
-    accepted_url_by_record = defaultdict(set)  # record_id -> set(final_url) accepted in this batch
+    # Global within-batch URL dedup keyed by (production record_id, final_url).
+    # Tracks which join_method first accepted the URL so duplicate entries can
+    # report duplicate_of_join_method for operator inspection.
+    accepted_url_by_record = defaultdict(dict)  # record_id -> {final_url: join_method}
 
     candidate_id_matched_to_f2a = 0
     candidate_id_missing_in_f2a = 0
     production_records_matched = 0
     production_records_missing = 0
     merge_ready_seen = 0
+
+    # v3 join-method counters
+    resolved_via_strict_id = 0
+    resolved_via_strict_id_canonical_key = 0
+    resolved_via_enriched_fallback = 0
+    enriched_fallback_invariant_failed = 0
+    invariant_failed_reasons_counter = Counter()
 
     for c in considered:
         if c.get("merge_ready_candidate"):
@@ -380,8 +488,8 @@ def main():
             blocked_documents.append(_blocked_entry(c, "f2a_record_id_missing"))
             continue
 
-        # Production join (id-first, canonical_key tie-break)
-        prod_rec, join_reason = resolve_production_record(
+        # Production join (v3: id-first -> CK tie-break -> enriched-copy fallback)
+        prod_rec, join_method, join_reason, join_debug = resolve_production_record(
             record_id, b.get("canonical_key"), by_id, by_id_ck
         )
         if join_reason == "production_record_not_found":
@@ -390,10 +498,20 @@ def main():
             blocked_documents.append(_blocked_entry(c, "production_record_not_found", record_id))
             continue
         if join_reason == "ambiguous_record_join":
+            enriched_fallback_invariant_failed += 1
             reason_counter["ambiguous_record_join"] += 1
-            blocked_documents.append(_blocked_entry(c, "ambiguous_record_join", record_id))
+            if join_debug and join_debug.get("invariant_failed_reason"):
+                invariant_failed_reasons_counter[join_debug["invariant_failed_reason"]] += 1
+            blocked_documents.append(_blocked_entry(c, "ambiguous_record_join", record_id, join_debug))
             continue
         production_records_matched += 1
+
+        if join_method == "strict_id":
+            resolved_via_strict_id += 1
+        elif join_method == "strict_id_canonical_key":
+            resolved_via_strict_id_canonical_key += 1
+        elif join_method == "enriched_copy_fallback":
+            resolved_via_enriched_fallback += 1
 
         final_url = c.get("final_url")
 
@@ -406,15 +524,28 @@ def main():
             ))
             continue
 
-        # Duplicate final_url for the same record within this batch.
+        # Global within-batch URL dedup by (production record_id, final_url).
+        # If an enriched_copy_fallback candidate reaches a URL already accepted
+        # via strict_id or strict_id_canonical_key, it is duplicate evidence —
+        # the same document is being targeted from the placeholder F2-A path.
+        # Classified separately so operators can inspect without hiding the overlap.
         if final_url in accepted_url_by_record[record_id]:
-            reason_counter["duplicate_final_url_for_record"] += 1
-            duplicates.append(_duplicate_entry(c, "duplicate_final_url_for_record", record_id))
+            original_jm = accepted_url_by_record[record_id][final_url]
+            if join_method == "enriched_copy_fallback":
+                reason_counter["duplicate_evidence_final_url_for_record"] += 1
+                duplicates.append(_duplicate_entry(
+                    c, "duplicate_evidence_final_url_for_record", record_id,
+                    join_method=join_method,
+                    duplicate_of_join_method=original_jm,
+                ))
+            else:
+                reason_counter["duplicate_final_url_for_record"] += 1
+                duplicates.append(_duplicate_entry(c, "duplicate_final_url_for_record", record_id))
             continue
+        accepted_url_by_record[record_id][final_url] = join_method
 
         # Accept.
-        accepted_url_by_record[record_id].add(final_url)
-        accepted_documents.append(build_document_object(c, record_id))
+        accepted_documents.append(build_document_object(c, record_id, join_method))
 
     if any(d.get("content_length") is None for d in accepted_documents):
         warnings.append(
@@ -427,7 +558,7 @@ def main():
     resolved_document_ratio = qs.get("resolved_document_ratio", 0.0) or 0.0
     merge_ready_candidate_count = qs.get("merge_ready_candidate_count", 0) or 0
 
-    # F2A_ARTIFACT_OK — structural artifact validity (NOT pre-resolution MERGE_OK).
+    # F2A_ARTIFACT_OK
     f2a_qs = f2a.get("quality_summary", {})
     f2a_error_rate = f2a_qs.get("error_rate")
     f2a_candidate_total = sum(len(r.get("candidates", [])) for r in f2a.get("records", []))
@@ -469,16 +600,20 @@ def main():
             f"merge_ready_candidate_count={merge_ready_candidate_count}"
         )
 
-    # DOCUMENT_MERGE_READY — honest; do not force PASS on poor join coverage.
-    accepted_rows = len(accepted_documents)
+    # DOCUMENT_MERGE_READY — v3: PASS when all joins resolved, no residual ambiguity,
+    # and duplicate evidence is explicitly classified (not hidden).
+    unique_append_docs = len(accepted_documents)
+    duplicate_evidence_rows = reason_counter.get("duplicate_evidence_final_url_for_record", 0)
+    ambiguous_remaining = reason_counter.get("ambiguous_record_join", 0)
     join_incomplete = (
-        reason_counter.get("ambiguous_record_join", 0)
+        ambiguous_remaining
         + reason_counter.get("production_record_not_found", 0)
         + reason_counter.get("f2a_candidate_not_found", 0)
         + reason_counter.get("f2a_record_id_missing", 0)
     )
+    accepted_rows = unique_append_docs
     dmr_reasons = []
-    if accepted_rows == 0:
+    if unique_append_docs == 0:
         dmr_status = "FAIL"
         dmr_reasons.append("no documents accepted as merge-ready")
     elif f2b_status != "PASS":
@@ -488,21 +623,23 @@ def main():
         dmr_status = "WARN"
         dmr_reasons.append(
             f"join coverage incomplete: {join_incomplete} rows could not be joined to a unique "
-            f"production record (ambiguous_record_join="
-            f"{reason_counter.get('ambiguous_record_join', 0)}, "
+            f"production record (ambiguous_record_join_remaining={ambiguous_remaining}, "
             f"production_record_not_found={reason_counter.get('production_record_not_found', 0)}, "
             f"f2a_candidate_not_found={reason_counter.get('f2a_candidate_not_found', 0)})"
         )
-        dmr_reasons.append(f"{accepted_rows} documents are cleanly merge-ready for a future dry-run persistence plan")
+        dmr_reasons.append(f"{unique_append_docs} documents are cleanly merge-ready for a future dry-run persistence plan")
     else:
         dmr_status = "PASS"
-        dmr_reasons.append(f"{accepted_rows} documents cleanly merge-ready; no join invariant failures")
+        dmr_reasons.append(
+            f"{unique_append_docs} unique appendable documents; {duplicate_evidence_rows} duplicate evidence rows "
+            f"classified (not hidden); no join invariant failures"
+        )
 
     layered_statuses = {
         "F2A_ARTIFACT_OK": {"status": f2a_status, "reasons": f2a_reasons},
         "F2B_RESOLUTION_OK": {"status": f2b_status, "reasons": f2b_reasons},
         "DOCUMENT_MERGE_READY": {"status": dmr_status, "reasons": dmr_reasons},
-        "PRODUCTION_WRITE_OK": {"status": "FAIL", "reasons": ["production_write_disabled_in_v0.6.0m"]},
+        "PRODUCTION_WRITE_OK": {"status": "FAIL", "reasons": ["production_write_disabled_in_v0.6.0o"]},
     }
 
     # ---- Summaries ----------------------------------------------------------------
@@ -525,15 +662,33 @@ def main():
         "blocked_rows": len(blocked_documents),
         "duplicate_rows": len(duplicates),
         "accepted_rows": accepted_rows,
+        # v3 additions
+        "resolved_via_strict_id": resolved_via_strict_id,
+        "resolved_via_strict_id_canonical_key": resolved_via_strict_id_canonical_key,
+        "resolved_via_enriched_fallback": resolved_via_enriched_fallback,
+        "enriched_fallback_invariant_failed": enriched_fallback_invariant_failed,
+        "ambiguous_record_join_remaining": ambiguous_remaining,
+        "duplicate_evidence_rows": duplicate_evidence_rows,
     }
 
     counts = {
         "resolved_seen": len(considered),
-        "accepted_documents": len(accepted_documents),
+        "resolved_evidence_rows": production_records_matched,
+        "merge_ready_evidence_rows": merge_ready_seen,
+        "unique_append_documents": unique_append_docs,
+        "accepted_documents": unique_append_docs,
+        "duplicate_evidence_rows": duplicate_evidence_rows,
         "blocked_documents": len(blocked_documents),
         "duplicates": len(duplicates),
         "html_non_doc_blocked": html_non_doc_blocked,
         "merge_ready_seen": merge_ready_seen,
+    }
+
+    enriched_fallback_summary = {
+        "groups_examined": resolved_via_enriched_fallback + enriched_fallback_invariant_failed,
+        "groups_resolved": resolved_via_enriched_fallback,
+        "groups_blocked": enriched_fallback_invariant_failed,
+        "invariant_failed_reasons": dict(invariant_failed_reasons_counter),
     }
 
     # ---- Backup plan (planned only; nothing is written here) ----------------------
@@ -547,7 +702,7 @@ def main():
     backup_plan = {
         "target": os.path.join("data", "licitaciones.json").replace(os.sep, "/"),
         "target_sha256": target_sha256,
-        "proposed_backup_path": f"_tmp/data_licitaciones_before_f2_document_merge_v060m_{ts}.json",
+        "proposed_backup_path": f"_tmp/data_licitaciones_before_f2_document_merge_v060o_{ts}.json",
         "required_before_future_write": True,
     }
 
@@ -560,7 +715,7 @@ def main():
         "schema": SCHEMA,
         "version": VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "mode": "F2_MERGE_GATE_V2_DRY_RUN",
+        "mode": "F2_MERGE_GATE_V3_DRY_RUN",
         "production_write_performed": False,
         "inputs": {
             "resolved_input": args.resolved_input,
@@ -580,6 +735,7 @@ def main():
         "layered_statuses": layered_statuses,
         "join_summary": join_summary,
         "counts": counts,
+        "enriched_fallback_summary": enriched_fallback_summary,
         "production_shape_summary": production_shape_summary,
         "accepted_documents": accepted_documents,
         "blocked_documents": blocked_documents,
@@ -596,18 +752,27 @@ def main():
         json.dump(report, f, ensure_ascii=False, indent=2)
 
     print(
-        f"[F2-MERGE v2] DRY-RUN | seen={counts['resolved_seen']} "
-        f"accepted={counts['accepted_documents']} blocked={counts['blocked_documents']} "
-        f"dupes={counts['duplicates']}"
+        f"[F2-MERGE v3] DRY-RUN | seen={counts['resolved_seen']} "
+        f"unique_append={counts['unique_append_documents']} "
+        f"blocked={counts['blocked_documents']} "
+        f"dup_evidence={counts['duplicate_evidence_rows']} "
+        f"dupes_other={counts['duplicates'] - counts['duplicate_evidence_rows']}"
     )
     print(
-        f"[F2-MERGE v2] F2A_ARTIFACT_OK={f2a_status} F2B_RESOLUTION_OK={f2b_status} "
+        f"[F2-MERGE v3] F2A_ARTIFACT_OK={f2a_status} F2B_RESOLUTION_OK={f2b_status} "
         f"DOCUMENT_MERGE_READY={dmr_status} PRODUCTION_WRITE_OK=FAIL "
         f"(production_write_performed=False)"
     )
+    print(
+        f"[F2-MERGE v3] join_methods: strict_id={resolved_via_strict_id} "
+        f"ck={resolved_via_strict_id_canonical_key} "
+        f"enriched_fallback={resolved_via_enriched_fallback} "
+        f"ambiguous_remaining={ambiguous_remaining} "
+        f"dup_evidence={duplicate_evidence_rows}"
+    )
     if reason_counter:
-        print(f"[F2-MERGE v2] block/dup reasons: {dict(reason_counter)}")
-    print(f"[F2-MERGE v2] plan -> {args.output}")
+        print(f"[F2-MERGE v3] block/dup reasons: {dict(reason_counter)}")
+    print(f"[F2-MERGE v3] plan -> {args.output}")
     return 0
 
 
