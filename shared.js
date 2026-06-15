@@ -140,11 +140,13 @@ function assessmentBlock(r) {
   adv.notes.forEach(function(msg) { signals.push('<div class="sh-assess__sig sh-assess__sig--note"><i class="bi bi-info-circle"></i><span>' + esc(msg) + '</span></div>'); });
   return (
     '<div class="sh-assess sh-assess--' + tl.verdict + '">' +
-      '<div class="sh-assess__rating">' +
+      '<div class="sh-assess__label-box">' +
         '<span class="sh-assess__dot"></span>' +
         '<span class="sh-assess__label">' + esc(tl.label) + '</span>' +
       '</div>' +
-      (signals.length ? '<div class="sh-assess__signals">' + signals.join('') + '</div>' : '') +
+      '<div class="sh-assess__signal-box">' +
+        (signals.length ? signals.join('') : '<span class="sh-assess__sig sh-assess__sig--note"><i class="bi bi-dash-circle"></i><span>&mdash;</span></span>') +
+      '</div>' +
     '</div>'
   );
 }
@@ -307,14 +309,22 @@ function fichaHTML(r) {
       '<span class="sh-ficha__eyebrow">' + esc(t('fp_eyebrow')) + '</span>' +
       '<button class="sh-ficha__close" aria-label="' + esc(t('fp_close')) + '"><i class="bi bi-x"></i></button>' +
     '</div>' +
-    '<div class="sh-ficha__body">' +
+    '<div class="sh-ficha__top">' +
       '<div class="sh-ficha__title">' + esc(r.titol || '—') + (isNew(r) ? ' <span class="badge-new">' + esc(t('nueva')) + '</span>' : '') + '</div>' +
       factsHTML +
       assessmentBlock(r) +
-      '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_disciplines')) + '</div><div class="sh-ficha__chips">' + discHTML + '</div></div>' +
-      '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_keywords'))    + '</div><div class="sh-ficha__chips">' + kwHTML   + '</div></div>' +
-      '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_documents'))   + '</div><div class="sh-ficha__docs">'  + docsHTML + '</div></div>' +
-      '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_history'))     + '</div>' + histHTML + '</div>' +
+    '</div>' +
+    '<div class="sh-ficha__scroll">' +
+      '<div class="sh-ficha__cols">' +
+        '<div class="sh-ficha__col">' +
+          '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_disciplines')) + '</div><div class="sh-ficha__chips">' + discHTML + '</div></div>' +
+          '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_keywords'))    + '</div><div class="sh-ficha__chips">' + kwHTML   + '</div></div>' +
+          '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_history'))     + '</div>' + histHTML + '</div>' +
+        '</div>' +
+        '<div class="sh-ficha__col">' +
+          '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_documents'))   + '</div><div class="sh-ficha__docs">'  + docsHTML + '</div></div>' +
+        '</div>' +
+      '</div>' +
       relsSection +
     '</div>' +
     '<div class="sh-ficha__footer">' +
