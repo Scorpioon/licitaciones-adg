@@ -9,6 +9,7 @@
  *              ToggleSwitch, AlertasStub).
  *
  * CHANGELOG (newest first)
+ * 0.6.36 Jun 2026 Mobile bottom-sheet detail panel (p179): .detail-col becomes a bottom drawer <=860px (grip, backdrop, slide-up). Desktop p178 side panel preserved.
  * 0.5.0e Jun 2026  Softer selected row treatment (box-shadow accent, natural colors). Removed inverted-black sel overrides.
  * 0.4.3n Apr 2026  Stats/barometro scroll: min-height:0 on .sv-body and .baro-page.
  * 0.4.3m Apr 2026  Detail panel internal scroll: min-height:0 on .sh-ficha__body.
@@ -250,6 +251,10 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .detail-col { width:520px; flex-shrink:0; overflow-y:auto; display:none; animation:slide-in .14s ease; border-left:1px solid var(--border2); }
 .detail-col.open { display:flex; flex-direction:column; overflow:hidden; }
 @keyframes slide-in { from { opacity:0; transform:translateX(8px); } }
+/* p179: drag-grip + backdrop are inert on desktop; activated only in the mobile bottom-sheet media query below */
+.sh-ficha__grip { display:none; }
+.sheet-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.42); z-index:910; opacity:0; pointer-events:none; transition:opacity .22s ease; }
+.sheet-backdrop.show { opacity:1; pointer-events:auto; }
 .dp-head { padding:10px 14px; border-bottom:1px solid var(--border2); background:var(--bg2); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; position:sticky; top:0; z-index:2; }
 .dp-eyebrow { font-size:7.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); }
 .dp-close { width:22px; height:22px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border2); border-radius:var(--radius); background:none; color:var(--text2); cursor:pointer; font-size:14px; transition:all .1s; }
@@ -456,7 +461,7 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 /* ─── RESPONSIVE ──────────────────────────────────────────────────────────── */
 @media (max-width:1100px) { .sv-grid { grid-template-columns:1fr 1fr; } }
 @media (max-width:900px)  { .header { flex-wrap:wrap; row-gap:6px; } .htbtn span { display:none; } .htbtn { padding:0 9px; } .nav-tab span { display:none; } }
-@media (max-width:860px)  { .sv-bignums { grid-template-columns:1fr 1fr; } .sv-grid { grid-template-columns:1fr; } .detail-col { display:none!important; } .main { flex-direction:column; height:auto; overflow:visible; } .list-col { height:auto; overflow:visible; } }
+@media (max-width:860px)  { .sv-bignums { grid-template-columns:1fr 1fr; } .sv-grid { grid-template-columns:1fr; } .main { flex-direction:column; height:auto; overflow:visible; } .list-col { height:auto; overflow:visible; } }
 @media (max-width:860px)  { body.lic-page { height:auto; min-height:100vh; } body.lic-page .lic-main { flex:none; } }
 @media (max-width:800px)  { td:nth-child(4),th:nth-child(4) { display:none; } }
 @media (max-width:640px)  { td:nth-child(3),th:nth-child(3),td:nth-child(6),th:nth-child(6),td:nth-child(7),th:nth-child(7) { display:none; } .adj-wrap { display:none; } .home-grid { grid-template-columns:1fr; } }
@@ -649,6 +654,34 @@ body.lic-page .list-col thead th { padding:5px 8px; }
   .sh-ficha--overlay .sh-ficha__wrap { width:100vw; max-height:100dvh; border-radius:0; }
   .sh-ficha__key { min-width:80px; }
   .sh-ficha__cols { grid-template-columns:1fr; }
+}
+
+/* ─── p179 · MOBILE BOTTOM-SHEET DETAIL ─────────────────────────────────────
+   At mobile widths the detail panel (#detail.detail-col) becomes a bottom sheet:
+   slides up from the bottom, ~82dvh tall, rounded top, drag-grip handle, backdrop.
+   Desktop (>860px) keeps the p178 side panel untouched. */
+@media (max-width:860px) {
+  .detail-col {
+    display:flex; flex-direction:column;
+    position:fixed; left:0; right:0; bottom:0; top:auto;
+    width:100%; height:82dvh; max-height:82dvh;
+    border:none; border-top:1px solid var(--border2);
+    border-radius:14px 14px 0 0;
+    box-shadow:0 -6px 30px rgba(0,0,0,.24);
+    background:var(--bg);
+    z-index:920; overflow:hidden;
+    transform:translateY(100%);
+    transition:transform .26s cubic-bezier(.32,.72,0,1);
+    animation:none;
+  }
+  .detail-col.open { display:flex; transform:translateY(0); }
+  .detail-col .sh-ficha__grip { display:flex; align-items:center; justify-content:center; padding:9px 0 5px; flex-shrink:0; cursor:grab; touch-action:none; background:var(--bg); }
+  .detail-col .sh-ficha__grip-bar { width:40px; height:4px; border-radius:3px; background:var(--border); }
+  .detail-col .sh-ficha__head { cursor:grab; touch-action:none; }
+  body.sheet-open { overflow:hidden; }
+}
+@media (max-width:860px) and (prefers-reduced-motion:reduce) {
+  .detail-col { transition:none; }
 }
 
 /* -- TrafficLight ------------------------------------------------------------- */

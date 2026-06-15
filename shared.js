@@ -10,6 +10,7 @@
  * Exports: window.ADG_Shared
  *
  * CHANGELOG (newest first)
+ * 0.6.36 Jun 2026 fichaHTML emits a drag-grip handle (mobile bottom-sheet, p179). Hidden on desktop via CSS.
  * 0.4.4q May 2026  computeTrafficLight and computeAdvisory use getDisplayStatus/isOpenOpportunity.
  *                   fichaHTML uses stateBadgeRow for current record badge.
  * b4.0  Mar 2026  Initial. FichaPanel, TrafficLight (D8 approved ruleset),
@@ -305,6 +306,7 @@ function fichaHTML(r) {
   var ctaNote = (r.url && r.url.indexOf('http') === 0) ? '' : '<p class="sh-ficha__cta-note">URL directa no disponible</p>';
 
   return (
+    '<div class="sh-ficha__grip" aria-hidden="true"><span class="sh-ficha__grip-bar"></span></div>' +
     '<div class="sh-ficha__head">' +
       '<span class="sh-ficha__eyebrow">' + esc(t('fp_eyebrow')) + '</span>' +
       '<button class="sh-ficha__close" aria-label="' + esc(t('fp_close')) + '"><i class="bi bi-x"></i></button>' +

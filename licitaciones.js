@@ -8,6 +8,8 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.6.36 Jun 2026  Mobile bottom-sheet detail (p179): open/close wired to a bottom drawer with
+ *                  backdrop, body-lock and drag-down-to-close. Desktop side panel unchanged.
  * 0.5.0k Jun 2026  Zone B hardening: stable rowKey for exact detail mapping, fix duplicate-ID
  *                  collision in openDetail, lifecycle variant badge, selectedKey replaces
  *                  selectedId to prevent cross-duplicate selection.
@@ -235,6 +237,7 @@ function openDetailByKey(key) {
     container: el('detail'),
     onClose: closeDetail
   });
+  openMobileSheet(el('detail'));
   updateURL(r.id);
 }
 
@@ -248,14 +251,112 @@ function openDetail(id) {
     container: el('detail'),
     onClose: closeDetail
   });
+  openMobileSheet(el('detail'));
   updateURL(id);
 }
 
 function closeDetail() {
   S.selectedKey = null;
-  ADG_Shared.FichaClose(el('detail'));
   document.querySelectorAll('tbody tr').forEach(function(tr) { tr.classList.remove('sel'); });
   clearURL();
+  var d = el('detail');
+  if (isMobileSheet() && d && d.classList.contains('open')) {
+    finalizeMobileClose(d);
+  } else {
+    if (d) { d.style.transform = ''; d.style.transition = ''; }
+    closeMobileSheet();
+    ADG_Shared.FichaClose(d);
+  }
+}
+
+// ── MOBILE BOTTOM SHEET (p179) ─────────────────────────────────────────────
+// At mobile widths the detail panel behaves as a bottom drawer: slide-up open,
+// backdrop + body lock, drag-down-to-close on the grip/header. Desktop is a no-op.
+var _sheetBackdrop = null;
+
+function isMobileSheet() {
+  return window.matchMedia('(max-width:860px)').matches;
+}
+
+function getBackdrop() {
+  if (_sheetBackdrop) return _sheetBackdrop;
+  _sheetBackdrop = document.createElement('div');
+  _sheetBackdrop.className = 'sheet-backdrop';
+  _sheetBackdrop.addEventListener('click', closeDetail);
+  document.body.appendChild(_sheetBackdrop);
+  return _sheetBackdrop;
+}
+
+function openMobileSheet(panel) {
+  if (!panel || !isMobileSheet()) return;
+  // Clear any leftover inline transform/transition so the CSS open state animates from 100%.
+  panel.style.transform = '';
+  panel.style.transition = '';
+  getBackdrop().classList.add('show');
+  document.body.classList.add('sheet-open');
+  bindSheetDrag(panel);
+}
+
+function closeMobileSheet() {
+  if (_sheetBackdrop) _sheetBackdrop.classList.remove('show');
+  document.body.classList.remove('sheet-open');
+}
+
+function finalizeMobileClose(d) {
+  closeMobileSheet();
+  var reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var finish = function() {
+    d.removeEventListener('transitionend', onEnd);
+    d.style.transform = '';
+    d.style.transition = '';
+    ADG_Shared.FichaClose(d);
+  };
+  var onEnd = function(e) {
+    if (e.target === d && e.propertyName === 'transform') finish();
+  };
+  if (reduce) { finish(); return; }
+  d.style.transition = 'transform .24s cubic-bezier(.32,.72,0,1)';
+  d.addEventListener('transitionend', onEnd);
+  requestAnimationFrame(function() { d.style.transform = 'translateY(100%)'; });
+  // Fallback in case transitionend does not fire.
+  setTimeout(function() { if (d.classList.contains('open')) finish(); }, 360);
+}
+
+function bindSheetDrag(panel) {
+  var zones = [panel.querySelector('.sh-ficha__grip'), panel.querySelector('.sh-ficha__head')]
+    .filter(Boolean);
+  var startY = 0, delta = 0, dragging = false;
+
+  function onDown(e) {
+    if (!isMobileSheet()) return;
+    if (e.target.closest('.sh-ficha__close') || e.target.closest('.sh-ficha__share')) return;
+    dragging = true; delta = 0; startY = e.clientY;
+    panel.style.transition = 'none';
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    delta = e.clientY - startY;
+    if (delta < 0) delta = 0;            // only downward travel
+    panel.style.transform = 'translateY(' + delta + 'px)';
+  }
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    if (delta > 80) {
+      closeDetail();                     // past threshold -> dismiss
+    } else {
+      panel.style.transition = '';       // snap back to open
+      panel.style.transform = '';
+    }
+  }
+
+  zones.forEach(function(z) {
+    z.addEventListener('pointerdown', onDown);
+    z.addEventListener('pointermove', onMove);
+    z.addEventListener('pointerup', onUp);
+    z.addEventListener('pointercancel', onUp);
+  });
 }
 
 // ── PAGINATION ────────────────────────────────────────────────────────────
