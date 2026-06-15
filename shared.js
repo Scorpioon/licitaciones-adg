@@ -149,6 +149,12 @@ function assessmentBlock(r) {
   );
 }
 
+function isValidDocUrl(url) {
+  if (typeof url !== 'string') return false;
+  var u = url.trim();
+  return u.length > 0 && u !== '#';
+}
+
 // -- FICHA PANEL --------------------------------------------------------------
 // Renders a full 1:1 analytical record for a tender.
 //
@@ -239,20 +245,31 @@ function fichaHTML(r) {
   } else {
     var hasMeaningfulTitle = docs.some(function(d){ return d.title && d.title.trim().length > 0; });
     if (hasMeaningfulTitle) {
-      docsHTML = docs.map(function(d){
-        var docLabel = (d.title && d.title.trim())
-          ? d.title.trim()
-          : (d.notice_type
-              ? (d.published_at && d.published_at.trim()
-                  ? d.notice_type + ' · ' + d.published_at.trim()
-                  : d.notice_type)
-              : 'Documento disponible');
-        return '<a class="sh-ficha__doc" href="' + esc(d.url || '#') + '" target="_blank" rel="noopener">' +
-          '<i class="bi bi-file-earmark-text"></i>' +
-          '<span>' + esc(docLabel) + '</span>' +
-          (d.date ? '<span class="sh-ficha__hist-date">' + esc(d.date) + '</span>' : '') +
-        '</a>';
-      }).join('');
+      var validDocs = docs.filter(function(d){ return isValidDocUrl(d.url); });
+      if (validDocs.length) {
+        docsHTML = validDocs.map(function(d){
+          var docLabel = (d.title && d.title.trim())
+            ? d.title.trim()
+            : (d.notice_type
+                ? (d.published_at && d.published_at.trim()
+                    ? d.notice_type + ' · ' + d.published_at.trim()
+                    : d.notice_type)
+                : 'Documento disponible');
+          return '<a class="sh-ficha__doc" href="' + esc(d.url) + '" target="_blank" rel="noopener">' +
+            '<i class="bi bi-file-earmark-text"></i>' +
+            '<span>' + esc(docLabel) + '</span>' +
+            (d.date ? '<span class="sh-ficha__hist-date">' + esc(d.date) + '</span>' : '') +
+          '</a>';
+        }).join('');
+      } else {
+        var fbHref = (r.url && r.url.indexOf('http') === 0) ? r.url : null;
+        docsHTML = fbHref
+          ? '<a class="sh-ficha__doc" href="' + esc(fbHref) + '" target="_blank" rel="noopener">' +
+              '<i class="bi bi-files"></i>' +
+              '<span>' + docs.length + ' ' + esc(t('fp_docs_available')) + '</span>' +
+            '</a>'
+          : '<span class="sh-ficha__empty">' + esc(t('fp_docs_available')) + '</span>';
+      }
     } else {
       var summaryHref = (r.url && r.url.indexOf('http') === 0) ? r.url : '#';
       docsHTML =

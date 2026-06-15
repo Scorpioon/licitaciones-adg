@@ -257,6 +257,8 @@ const I18N = {
     sv_top_disc_vol:'Diziplinak bolumenaren arabera', sv_top_terr:'Lurraldeak bolumenaren arabera',
     sv_no_data:'Ez dago datu nahikorik', sv_no_adj:'Ez da esleipendunik identifikatu',
     sv_filter_label:'Iragazten', sv_of:'/',
+    fp_no_docs:'Oraindik ez dago dokumentu erantsirik',
+    fp_f2_ready:'Fetcher 2 aberasterako prestatuta',
   },
   gl:{
     lang:'gl',dir:'ltr',
@@ -305,6 +307,7 @@ const I18N = {
     fp_disciplines:'Disciplinas', fp_keywords:'Palabras clave',
     fp_history:'Historial', fp_no_history:'Sen historial de estados',
     fp_documents:'Documentos', fp_no_docs:'Sen documentos adxuntos aínda',
+    fp_f2_ready:'Preparado para enriquecemento Fetcher 2',
     fp_terr:'Territorio', fp_status:'Estado',
     fp_relations:'Licitacions relacionadas', fp_no_relations:'Sen relacions',
     fp_view_official:'Ver en contrataciondelestado.es',
