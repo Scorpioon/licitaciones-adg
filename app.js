@@ -345,6 +345,7 @@ const SAMPLE = [
 // ── SHARED STATE ─────────────────────────────────────────────────────────
 window.ADG = window.ADG || {};
 ADG.data = [];
+ADG.canonicalData = [];
 ADG.generatedAt = null;
 ADG.dataRefreshedAt = null;
 ADG.datasetMeta = {};
@@ -471,6 +472,7 @@ function applyTheme(theme) {
 
 async function loadData() {
   ADG.data = SAMPLE;
+  ADG.canonicalData = SAMPLE;
   ADG.isSample = true;
   try {
     const controller = new AbortController();
@@ -483,6 +485,7 @@ async function loadData() {
     if (items.length) {
       items.forEach(normalizeItem);
       ADG.data = items;
+      ADG.canonicalData = buildCanonicalRecords(items);
       ADG.datasetMeta = raw.meta || {};
       ADG.generatedAt = raw.meta?.generated_at || raw.generated_at || null;
       ADG.dataRefreshedAt = raw.meta?.scheduled_merge_applied_at || raw.meta?.generated_at || raw.generated_at || null;
@@ -493,6 +496,49 @@ async function loadData() {
     console.warn('[ADG] licitaciones.json failed or timed out, using sample:', e.message);
   }
   document.dispatchEvent(new Event('adg:loaded'));
+}
+
+// ── CANONICAL COLLAPSE ────────────────────────────────────────────────────
+function pickCanonicalEntry(a, b) {
+  var ar = a.rec, br = b.rec;
+  var aHasKey = !!(ar.canonical_key || ar.contract_folder_id);
+  var bHasKey = !!(br.canonical_key || br.contract_folder_id);
+  if (bHasKey && !aHasKey) return b;
+  if (aHasKey && !bHasKey) return a;
+  var aRank = ar.status_rank != null ? Number(ar.status_rank) : -1;
+  var bRank = br.status_rank != null ? Number(br.status_rank) : -1;
+  if (bRank !== aRank) return bRank > aRank ? b : a;
+  var aDate = ar.last_notice_date || '';
+  var bDate = br.last_notice_date || '';
+  if (bDate !== aDate) return bDate > aDate ? b : a;
+  var aPub = ar.data_pub || '';
+  var bPub = br.data_pub || '';
+  if (bPub !== aPub) return bPub > aPub ? b : a;
+  var aHasAdj = !!(ar.adjudicatari || (ar.award_results && ar.award_results.length > 0));
+  var bHasAdj = !!(br.adjudicatari || (br.award_results && br.award_results.length > 0));
+  if (bHasAdj && !aHasAdj) return b;
+  if (aHasAdj && !bHasAdj) return a;
+  var aDocs = (ar.documents || []).length;
+  var bDocs = (br.documents || []).length;
+  if (bDocs !== aDocs) return bDocs > aDocs ? b : a;
+  return b.origIdx > a.origIdx ? b : a;
+}
+
+function buildCanonicalRecords(records) {
+  var groups = new Map();
+  records.forEach(function(r, idx) {
+    var key = r.id || r.url || ('__idx__' + idx);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ rec: r, origIdx: idx });
+  });
+  var result = [];
+  groups.forEach(function(entries) {
+    if (entries.length === 1) { result.push(entries[0].rec); return; }
+    var best = entries[0];
+    for (var i = 1; i < entries.length; i++) best = pickCanonicalEntry(best, entries[i]);
+    result.push(best.rec);
+  });
+  return result;
 }
 
 function normalizeItem(r) {
@@ -532,13 +578,13 @@ function initShared() {
 
 function updateTicker() {
   const tk = t('st_total') || 'licitaciones';
-  const count = ADG.data.length || '';
+  const count = (ADG.canonicalData || ADG.data).length || '';
   const msg = count ? `${count} ${tk}` : '';
   ['tk-a','tk-b'].forEach(id => { const e = el(id); if (e) e.textContent = msg; });
 }
 
 function updateStrip() {
-  const d = ADG.data;
+  const d = ADG.canonicalData || ADG.data;
   const setEl = (id, val) => { const e = el(id); if (e) e.textContent = val; };
   setEl('s-total',  d.length);
   setEl('s-vigent', d.filter(r => isOpenOpportunity(r)).length);
@@ -581,7 +627,7 @@ function initModal() {
   });
 }
 
-window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON };
+window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON, buildCanonicalRecords };
 
 async function loadJSON(path, timeoutMs) {
   try {

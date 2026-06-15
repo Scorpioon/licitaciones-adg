@@ -38,7 +38,7 @@ const S = {
 
 // ── FILTERING ─────────────────────────────────────────────────────────────
 function getFiltered() {
-  let rows = ADG.data;
+  let rows = ADG.canonicalData || ADG.data;
   if (S.estat)   rows = rows.filter(r => r.estat === S.estat);
   if (S.ccaa)    rows = rows.filter(r => r.ccaa === S.ccaa);
   if (S.year)    rows = rows.filter(r => (r.data_pub||'').startsWith(S.year));
@@ -151,7 +151,7 @@ function rowHTML(r) {
 
 // ── DETAIL PANEL ──────────────────────────────────────────────────────────
 function openDetail(id) {
-  const r = ADG.data.find(x => x.id === id);
+  const r = (ADG.canonicalData || ADG.data).find(x => x.id === id);
   if (!r) return;
   S.selectedId = id;
   document.querySelectorAll('tbody tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.id === id));

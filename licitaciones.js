@@ -86,7 +86,7 @@ function normalizeStatusKey(value) {
 
 // ── FILTERING ─────────────────────────────────────────────────────────────
 function getFiltered() {
-  let rows = ADG.data;
+  let rows = ADG.canonicalData || ADG.data;
   const statusKey = normalizeStatusKey(S.estat);
   if (statusKey) rows = rows.filter(r => getDisplayStatus(r).key === statusKey);
   if (S.soloActivas) rows = rows.filter(r => r.active_opportunity_eligible === true);
@@ -239,10 +239,10 @@ function openDetailByKey(key) {
 }
 
 function openDetail(id) {
-  // URL restore path — find first visible row matching id, else fall back to raw data
+  // URL restore path — find first visible row matching id, else fall back to canonical data
   var key = Object.keys(ROW_BY_KEY).find(function(k) { return ROW_BY_KEY[k].id === id; });
   if (key) { openDetailByKey(key); return; }
-  var r = ADG.data.find(function(x) { return x.id === id; });
+  var r = (ADG.canonicalData || ADG.data).find(function(x) { return x.id === id; });
   if (!r) return;
   ADG_Shared.FichaPanel(r, {
     container: el('detail'),
@@ -572,12 +572,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function _updateActiveStats() {
-  const activeCount = ADG.data.filter(r => r.active_opportunity_eligible === true).length;
+  const activeCount = (ADG.canonicalData || ADG.data).filter(r => r.active_opportunity_eligible === true).length;
   const sVig = el('s-vigent');
   if (sVig) sVig.textContent = activeCount.toLocaleString('es-ES');
   const sacCount = el('solo-activas-count');
   if (sacCount) sacCount.textContent = activeCount.toLocaleString('es-ES');
-  const recentCount = ADG.data.filter(r => isNew(r)).length;
+  const recentCount = (ADG.canonicalData || ADG.data).filter(r => isNew(r)).length;
   const sNew = el('s-new');
   if (sNew) sNew.textContent = recentCount;
 }
