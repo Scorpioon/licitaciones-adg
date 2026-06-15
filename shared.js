@@ -413,6 +413,59 @@ function _showAlertasModal() {
   });
 }
 
+// -- GLOBAL NAV INJECTOR ------------------------------------------------------
+// Config-driven core global nav. Pages carry only <nav class="nav-tabs"
+// data-adg-nav></nav>; this fills it with the 7 canonical core items, using
+// the existing nav-tabs/nav-tab/current classes and data-i18n keys so the
+// existing applyI18n() pass localizes labels. Extension surfaces (LAUS,
+// Oportunidades, Directorio, Barometro) are intentionally NOT included.
+
+var NAV_ITEMS = [
+  { file:'index.html',        href:'./index.html',        icon:'bi-house',          i18n:'nav_home',     label:'Inicio' },
+  { file:'licitaciones.html', href:'./licitaciones.html', icon:'bi-table',          i18n:'nav_list',     label:'Licitaciones' },
+  { file:'estadisticas.html', href:'./estadisticas.html', icon:'bi-bar-chart-fill', i18n:'nav_stats',    label:'Estadísticas' },
+  { file:'recursos.html',     href:'./recursos.html',     icon:'bi-calculator',     i18n:'nav_recursos', label:'Recursos' },
+  { file:'mapa.html',         href:'./mapa.html',         icon:'bi-geo-alt',        i18n:'nav_mapa',     label:'Mapa' },
+  { file:'alertas.html',      href:'./alertas.html',      icon:'bi-bell',           i18n:'nav_alertas',  label:'Alertas' },
+  { file:'about.html',        href:'./about.html',        icon:'bi-info-circle',    i18n:'nav_about',    label:'Acerca de' }
+];
+
+// Prehubs inherit their parent core tab's active state. Extension pages have
+// no entry here, so they resolve to no current tab.
+var NAV_ALIAS = {
+  'estadisticas-prehub.html': 'estadisticas.html',
+  'recursos-prehub.html':     'recursos.html'
+};
+
+function currentNavFile() {
+  var p = location.pathname;
+  var f = p.substring(p.lastIndexOf('/') + 1);
+  if (!f) f = 'index.html';
+  return NAV_ALIAS[f] || f;
+}
+
+function renderNav() {
+  var navs = document.querySelectorAll('nav.nav-tabs[data-adg-nav]');
+  if (!navs.length) return;
+  var current = currentNavFile();
+  var html = NAV_ITEMS.map(function(item){
+    return '<a class="nav-tab' + (item.file === current ? ' current' : '') +
+      '" href="' + item.href + '"><i class="bi ' + item.icon + '"></i>' +
+      '<span data-i18n="' + item.i18n + '">' + esc(item.label) + '</span></a>';
+  }).join('');
+  navs.forEach(function(nav){ nav.innerHTML = html; });
+}
+
+// Wrap initShared so the nav renders before initShared's own applyI18n() pass
+// (app.js stays untouched; the wrapper is installed before any page init runs).
+if (_utils && typeof _utils.initShared === 'function') {
+  var _origInitShared = _utils.initShared;
+  _utils.initShared = function() {
+    renderNav();
+    return _origInitShared.apply(this, arguments);
+  };
+}
+
 // -- EXPORTS ------------------------------------------------------------------
 
 window.ADG_Shared = {
@@ -424,7 +477,8 @@ window.ADG_Shared = {
   FichaPanel          : FichaPanel,
   FichaClose          : FichaClose,
   ToggleSwitch        : ToggleSwitch,
-  AlertasStub         : AlertasStub
+  AlertasStub         : AlertasStub,
+  renderNav           : renderNav
 };
 
 })();
