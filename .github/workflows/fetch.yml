@@ -25,7 +25,10 @@ name: Fetch Licitaciones (Scheduled Safe Merge)
 
 on:
   schedule:
-    - cron: "0 6,7,15,16 * * *"
+    - cron: "0 6 * * *"   # CEST morning  -> 08:00 Madrid (summer, UTC+2)
+    - cron: "0 7 * * *"   # CET  morning  -> 08:00 Madrid (winter, UTC+1)
+    - cron: "0 15 * * *"  # CEST evening  -> 17:00 Madrid (summer, UTC+2)
+    - cron: "0 16 * * *"  # CET  evening  -> 17:00 Madrid (winter, UTC+1)
   workflow_dispatch:
     inputs:
       dry_run:
@@ -57,9 +60,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests
+          pip install requests tzdata
 
-      - name: Local-time guard (Europe/Madrid)
+      - name: Nominal-schedule guard (Europe/Madrid)
         id: time_guard
         run: |
           python - <<'PYEOF'
@@ -67,25 +70,47 @@ jobs:
           from zoneinfo import ZoneInfo
           import os
 
-          force     = os.environ.get("INPUT_FORCE_RUN", "false").lower() == "true"
-          is_manual = os.environ.get("GITHUB_EVENT_NAME", "") == "workflow_dispatch"
-          dry_run   = os.environ.get("INPUT_DRY_RUN", "false").lower() == "true"
+          force          = os.environ.get("INPUT_FORCE_RUN", "false").lower() == "true"
+          is_manual      = os.environ.get("GITHUB_EVENT_NAME", "") == "workflow_dispatch"
+          dry_run        = os.environ.get("INPUT_DRY_RUN", "false").lower() == "true"
+          event_name     = os.environ.get("GITHUB_EVENT_NAME", "unknown")
+          event_schedule = os.environ.get("EVENT_SCHEDULE", "").strip()
 
-          now       = datetime.now(ZoneInfo("Europe/Madrid"))
-          hour      = now.hour
-          in_window = hour in (8, 17)
+          now          = datetime.now(ZoneInfo("Europe/Madrid"))
+          offset_hours = int(now.utcoffset().total_seconds() // 3600)
+
+          # Each nominal slot is valid only when Madrid is at the matching UTC offset.
+          # This makes the guard robust to delayed cron start times.
+          SLOT_OFFSET = {
+              "0 6 * * *":  2,   # CEST morning  -> 08:00 Madrid
+              "0 15 * * *": 2,   # CEST evening  -> 17:00 Madrid
+              "0 7 * * *":  1,   # CET  morning  -> 08:00 Madrid
+              "0 16 * * *": 1,   # CET  evening  -> 17:00 Madrid
+          }
 
           if force or is_manual:
               run_fetch = "true"
               reason    = "manual/forced dispatch"
-          elif in_window:
-              run_fetch = "true"
-              reason    = f"Madrid hour={hour} in window {{8,17}}"
+          elif event_schedule in SLOT_OFFSET:
+              expected = SLOT_OFFSET[event_schedule]
+              if offset_hours == expected:
+                  run_fetch = "true"
+                  reason    = f"nominal slot '{event_schedule}' matches Madrid UTC+{offset_hours}h"
+              else:
+                  run_fetch = "skip"
+                  reason    = f"nominal slot '{event_schedule}' expects UTC+{expected}h but Madrid is UTC+{offset_hours}h — DST mismatch, skipping"
           else:
               run_fetch = "skip"
-              reason    = f"Madrid hour={hour} not in window — scheduled slot, skipping"
+              reason    = f"unrecognised schedule '{event_schedule}' — skipping"
 
-          print(f"Madrid time: {now.strftime('%Y-%m-%d %H:%M %Z')} — {reason} — RUN_FETCH={run_fetch}")
+          print(
+              f"[guard] event={event_name}"
+              f" schedule='{event_schedule}'"
+              f" Madrid={now.strftime('%Y-%m-%d %H:%M %Z')}"
+              f" UTC_offset=+{offset_hours}h"
+              f" reason={reason}"
+              f" RUN_FETCH={run_fetch}"
+          )
 
           with open(os.environ["GITHUB_ENV"], "a") as fh:
               fh.write(f"RUN_FETCH={run_fetch}\n")
@@ -94,6 +119,7 @@ jobs:
         env:
           INPUT_FORCE_RUN: ${{ inputs.force_run || 'false' }}
           INPUT_DRY_RUN:   ${{ inputs.dry_run   || 'false' }}
+          EVENT_SCHEDULE:  ${{ github.event.schedule || '' }}
 
       - name: Run scheduled helper (live fetch + lifecycle-safe merge)
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
