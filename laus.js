@@ -1,4 +1,4 @@
-/* ADG Plataforma Digital — laus.js | 0.1.3.1 May 2026 | Phase 2R-4A */
+/* ADG Plataforma Digital — laus.js | 0.1.3.5 Jun 2026 | Phase 2R-4A */
 /* Renderer / adapter only. No data arrays. Fetches local JSON. */
 (function () {
   "use strict";
@@ -18,6 +18,7 @@
 
         var years = editions
           .map(function (e) { return e.year; })
+          .filter(function (y) { return y <= 2025; })
           .sort(function (a, b) { return b - a; });
 
         var activeYear = years[0];
@@ -162,7 +163,7 @@
       var el = document.getElementById(id);
       if (el) {
         el.innerHTML =
-          '<p class="laus-error">Error cargando datos. Asegúrate de servir la página desde un servidor local (<code>python -m http.server</code>).</p>';
+          '<p class="laus-error">Error cargando datos. Verifica que los archivos de datos estáticos del proyecto estén accesibles.</p>';
       }
     });
   }
