@@ -132,17 +132,24 @@ jobs:
       - name: Run scheduled helper (live fetch + lifecycle-safe merge)
         id: helper
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p _tmp
-          # pipefail (default for GH bash) propagates the helper's exit code through tee,
-          # so a fail-closed refusal still fails the step/workflow.
+          # set -o pipefail: the helper's exit code propagates through tee, so a
+          # fail-closed refusal (EMPTY_FAILURE / partial candidate) fails the step
+          # instead of being masked by tee's own exit 0.
           python tools/scheduled_fetch_merge.py --run-live --allow-production-write 2>&1 | tee _tmp/run_helper.log
 
       - name: Diagnostic only (dry_run=true)
         id: dryrun
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'true'
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p _tmp
+          # set -o pipefail: a non-zero --check / --validate-production must fail the
+          # step even though it is piped through tee.
           echo "[workflow] dry_run=true — running --check only, no production write" | tee _tmp/run_helper.log
           python tools/scheduled_fetch_merge.py --check | tee -a _tmp/run_helper.log
           python tools/scheduled_fetch_merge.py --validate-production | tee -a _tmp/run_helper.log
@@ -245,6 +252,18 @@ jobs:
                   return "FAIL_CLOSED_PARSER_NON_ATOM"
               return "FAIL_CLOSED_PARTIAL_SOURCE_OUTAGE"
 
+          def candidate_failed_closed():
+              # Truthful operational status must follow the candidate envelope, not just
+              # the helper step's exit code. If tee (or anything else) masks the helper's
+              # non-zero exit, a partial/EMPTY_FAILURE candidate must still classify
+              # fail-closed — it was never an accepted production write.
+              if cand_partial is True and "success" not in cand_run_status.lower():
+                  return True
+              rs = cand_run_status.upper()
+              if "EMPTY_FAILURE" in rs or "FAILURE" in rs:
+                  return True
+              return False
+
           helper_ran = helper_out not in ("skipped", "")
           failed = ("failure", "cancelled")
           if run_fetch == "skip":
@@ -264,6 +283,11 @@ jobs:
                   status = classify_source_failure()
               else:
                   status = "FAIL_CLOSED"
+          elif candidate_failed_closed():
+              # Helper step reported success but the live candidate is partial/failed —
+              # treat as fail-closed (e.g. run #138: EMPTY_FAILURE + ConnectTimeout while
+              # the step exit was masked). Checked BEFORE the success branch.
+              status = classify_source_failure()
           elif helper_out == "success":
               # Helper wrote production; account for failures in the steps that follow it.
               if validate_out in failed:
@@ -287,9 +311,25 @@ jobs:
           def yn(v):
               return "yes" if v else "no"
 
-          # data write: production was (re)written iff the live helper ran and succeeded.
+          # candidate accepted: was the live candidate eligible for a production write?
+          # A partial/EMPTY_FAILURE candidate is refused (fail-closed), so it is never
+          # "accepted" even if the helper step exit was masked.
+          if dry_mode == "true" or run_fetch == "skip" or not helper_ran:
+              candidate_accepted = "n/a"
+          elif candidate_failed_closed():
+              candidate_accepted = "no"
+          elif cand_partial is None:
+              candidate_accepted = "n/a"
+          else:
+              candidate_accepted = "yes"
+
+          # data write: production was (re)written iff the live helper succeeded AND the
+          # candidate was not failed-closed. A masked helper exit on an EMPTY_FAILURE
+          # candidate must NOT report "yes".
           if dry_mode == "true" or run_fetch == "skip":
               data_write = "n/a"
+          elif candidate_failed_closed():
+              data_write = "no"
           elif helper_out == "success":
               data_write = "yes"
           elif helper_out in failed:
@@ -317,6 +357,7 @@ jobs:
               ("candidate path",   cand_path or "n/a"),
               ("candidate partial", "n/a" if cand_partial is None else yn(cand_partial)),
               ("candidate run_status", cand_run_status or "n/a"),
+              ("candidate accepted", candidate_accepted),
               ("source failures",  ", ".join(failed_sources) if failed_sources else "none"),
               ("validate outcome", validate_out),
               ("diff summary outcome", diff_out),
