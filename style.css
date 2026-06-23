@@ -831,3 +831,38 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .list-col, .page-body { overscroll-behavior:contain; }
 body.sheet-open .shell-foot { pointer-events:none; }
 .sstat-clickable.active .sstat-lbl { color:var(--s-ok); }
+
+/* ─── p181 · MOBILE LIST CONTROLS COMPACTION ───────────────────────────────
+   v0.6.38. The four control rows above the list (stats, filters, disciplines,
+   toolbar) are too tall/dense on mobile and push the table down. This pass is
+   CSS-only and scoped to <=860px: it tightens the rails and — the key fix —
+   turns the wrapping discipline block into a single horizontal scroll rail so
+   it stops forming a vertical wall. No DOM/JS/ID changes; every control keeps
+   its handler and stays reachable. Desktop (>860px) is untouched. */
+@media (max-width:860px) {
+  /* 1 · Stats — keep the horizontal rail, just compact it. */
+  .stats-strip { min-height:28px; }
+  .sstat { padding:0 10px; min-height:28px; }
+  .sstat-val { font-size:13px; }
+  .sstat-lbl { font-size:6.5px; letter-spacing:.12em; }
+
+  /* 2 · Filter row 1 (CCAA/Año/Estado/Solo activas) — already a scroll rail; tighten. */
+  .filter-group { padding:3px 10px; }
+  .filter-group:first-child { padding-left:14px; }
+  .terr-sel { min-width:118px; height:24px; font-size:10.5px; }
+  .pill { font-size:9px; padding:3px 7px; }
+
+  /* 3 · Disciplines — single-row rail instead of a wrapping wall. The group sizes
+     to its content and the parent .filter-row (overflow-x:auto) scrolls; "Todas"
+     stays first so it is always reachable at the rail's start. */
+  .filter-group.stretch { flex:0 0 auto; flex-wrap:nowrap; row-gap:0; padding:3px 14px; }
+
+  /* 4 · Toolbar — search stays primary full-width; sort/Mostrar/CSV/result wrap
+     into one compact secondary row instead of overflowing off-screen. */
+  .toolbar { flex-wrap:wrap; gap:5px; padding:5px 14px; }
+  .search-wrap, .adj-wrap { flex:1 1 100%; max-width:none; }
+  .sort-sel { height:26px; }
+
+  /* Active-filters summary (shown only when filters are set) — match the tighter gutter. */
+  .active-filters-bar { padding:4px 14px; min-height:26px; }
+}
