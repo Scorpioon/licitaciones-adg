@@ -737,6 +737,19 @@ def run_live(args) -> None:
         sys.exit(f"[ERROR] Candidate invalid: {errs}")
 
     cand_meta = cand_data.get("meta", {})
+
+    # Surface candidate run semantics for operational diagnostics (no behaviour change).
+    cand_run_status = cand_meta.get("run_status", "UNKNOWN")
+    cand_is_partial = cand_meta.get("is_partial", False)
+    cand_failed     = cand_meta.get("failed_sources", []) or []
+    cand_src_errs   = cand_meta.get("source_errors", {}) or {}
+    print(
+        f"[run-live] candidate run_status={cand_run_status} "
+        f"is_partial={cand_is_partial} failed_sources={cand_failed}"
+    )
+    for _sname, _err in cand_src_errs.items():
+        print(f"[run-live] source_error {_sname}: {_err}")
+
     if cand_meta.get("is_partial") is True:
         rs = str(cand_meta.get("run_status", "")).lower()
         if "success" not in rs:

@@ -115,6 +115,14 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a") as fh:
               fh.write(f"RUN_FETCH={run_fetch}\n")
               fh.write(f"DRY_RUN_MODE={'true' if dry_run else 'false'}\n")
+              # Context for the operational summary step (single-line values).
+              fh.write(f"GUARD_EVENT={event_name}\n")
+              fh.write(f"GUARD_SCHEDULE={event_schedule}\n")
+              fh.write(f"GUARD_MADRID={now.strftime('%Y-%m-%d %H:%M %Z')}\n")
+              fh.write(f"GUARD_OFFSET=+{offset_hours}h\n")
+              fh.write(f"GUARD_REASON={reason}\n")
+              fh.write(f"GUARD_FORCE={'true' if force else 'false'}\n")
+              fh.write(f"GUARD_DRY_RUN_INPUT={'true' if dry_run else 'false'}\n")
           PYEOF
         env:
           INPUT_FORCE_RUN: ${{ inputs.force_run || 'false' }}
@@ -122,37 +130,242 @@ jobs:
           EVENT_SCHEDULE:  ${{ github.event.schedule || '' }}
 
       - name: Run scheduled helper (live fetch + lifecycle-safe merge)
+        id: helper
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         run: |
-          python tools/scheduled_fetch_merge.py --run-live --allow-production-write
+          mkdir -p _tmp
+          # pipefail (default for GH bash) propagates the helper's exit code through tee,
+          # so a fail-closed refusal still fails the step/workflow.
+          python tools/scheduled_fetch_merge.py --run-live --allow-production-write 2>&1 | tee _tmp/run_helper.log
 
       - name: Diagnostic only (dry_run=true)
+        id: dryrun
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'true'
         run: |
-          echo "[workflow] dry_run=true — running --check only, no production write"
-          python tools/scheduled_fetch_merge.py --check
-          python tools/scheduled_fetch_merge.py --validate-production
+          mkdir -p _tmp
+          echo "[workflow] dry_run=true — running --check only, no production write" | tee _tmp/run_helper.log
+          python tools/scheduled_fetch_merge.py --check | tee -a _tmp/run_helper.log
+          python tools/scheduled_fetch_merge.py --validate-production | tee -a _tmp/run_helper.log
 
       - name: Validate production JSON
+        id: validate
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         run: |
           python -m json.tool data/licitaciones.json > /dev/null
           echo "data/licitaciones.json: valid JSON"
 
       - name: Diff summary
+        id: diffsummary
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         run: |
           git diff --stat
 
       - name: Commit data if changed
+        id: commit
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/licitaciones.json
-          git diff --cached --quiet || git commit -m "scheduled fetch/merge $(date -u +'%Y-%m-%d %H:%M UTC') [run #${{ github.run_number }}]"
+          if git diff --cached --quiet; then
+            echo "no data changes to commit"
+            echo "DATA_CHANGED=false" >> "$GITHUB_ENV"
+          else
+            git commit -m "scheduled fetch/merge $(date -u +'%Y-%m-%d %H:%M UTC') [run #${{ github.run_number }}]"
+            echo "DATA_CHANGED=true" >> "$GITHUB_ENV"
+          fi
 
       - name: Push
-        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        id: push
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.DATA_CHANGED == 'true'
         run: |
           git push
+
+      - name: Operational summary
+        if: always()
+        env:
+          HELPER_OUTCOME:      ${{ steps.helper.outcome }}
+          DRYRUN_OUTCOME:      ${{ steps.dryrun.outcome }}
+          VALIDATE_OUTCOME:    ${{ steps.validate.outcome }}
+          DIFFSUMMARY_OUTCOME: ${{ steps.diffsummary.outcome }}
+          COMMIT_OUTCOME:      ${{ steps.commit.outcome }}
+          PUSH_OUTCOME:        ${{ steps.push.outcome }}
+          GH_EVENT_NAME:       ${{ github.event_name }}
+          GH_RUN_NUMBER:       ${{ github.run_number }}
+        run: |
+          mkdir -p _tmp
+          python - <<'PYEOF'
+          import os, glob, json
+
+          def env(k, d=""):
+              return os.environ.get(k, d)
+
+          run_fetch    = env("RUN_FETCH", "")
+          dry_mode     = env("DRY_RUN_MODE", "false")
+          helper_out   = env("HELPER_OUTCOME", "skipped")
+          dryrun_out   = env("DRYRUN_OUTCOME", "skipped")
+          validate_out = env("VALIDATE_OUTCOME", "skipped")
+          diff_out     = env("DIFFSUMMARY_OUTCOME", "skipped")
+          commit_out   = env("COMMIT_OUTCOME", "skipped")
+          push_out     = env("PUSH_OUTCOME", "skipped")
+          data_changed = env("DATA_CHANGED", "")  # 'true' / 'false' / ''
+
+          # Load the most recent live candidate envelope, if the fetcher produced one.
+          cand_path = ""
+          cand_partial = None
+          cand_run_status = ""
+          failed_sources = []
+          source_errors = {}
+          cands = sorted(glob.glob("_tmp/scheduled_live_candidate_*.json"))
+          if cands:
+              cand_path = cands[-1]
+              try:
+                  with open(cand_path, encoding="utf-8") as fh:
+                      cj = json.load(fh)
+                  meta = cj.get("meta") if isinstance(cj.get("meta"), dict) else cj
+                  cand_partial    = meta.get("is_partial")
+                  cand_run_status = str(meta.get("run_status", ""))
+                  failed_sources  = meta.get("failed_sources", []) or []
+                  source_errors   = meta.get("source_errors", {}) or {}
+              except Exception as e:
+                  cand_run_status = f"(candidate unreadable: {e})"
+
+          # Helper log (captured via tee) used to classify fail-closed sub-types.
+          helper_log = ""
+          if os.path.exists("_tmp/run_helper.log"):
+              try:
+                  with open("_tmp/run_helper.log", encoding="utf-8", errors="replace") as fh:
+                      helper_log = fh.read()
+              except Exception:
+                  helper_log = ""
+
+          def classify_source_failure():
+              blob = " ".join(str(v).lower() for v in source_errors.values()) + " " + helper_log.lower()
+              if "non-atom" in blob:
+                  return "FAIL_CLOSED_PARSER_NON_ATOM"
+              return "FAIL_CLOSED_PARTIAL_SOURCE_OUTAGE"
+
+          helper_ran = helper_out not in ("skipped", "")
+          failed = ("failure", "cancelled")
+          if run_fetch == "skip":
+              status = "SKIPPED_BY_GUARD"
+          elif dry_mode == "true":
+              status = "MANUAL_DRY_RUN_SUCCESS" if dryrun_out == "success" else "FAIL_CLOSED_VALIDATION"
+          elif helper_out in failed:
+              # Helper (fetch + lifecycle-safe merge) failed — classify the fail-closed cause.
+              lg = helper_log.lower()
+              if "lifecycle integrity failed" in lg:
+                  status = "FAIL_CLOSED_MERGE_POLICY"
+              elif "candidate invalid" in lg or "production invalid" in lg:
+                  status = "FAIL_CLOSED_VALIDATION"
+              elif "refusing production write" in lg or "partial/failed candidate" in lg:
+                  status = classify_source_failure()
+              elif cand_partial is True and "success" not in cand_run_status.lower():
+                  status = classify_source_failure()
+              else:
+                  status = "FAIL_CLOSED"
+          elif helper_out == "success":
+              # Helper wrote production; account for failures in the steps that follow it.
+              if validate_out in failed:
+                  status = "FAIL_CLOSED_VALIDATION"
+              elif diff_out in failed:
+                  status = "FAIL_CLOSED_VALIDATION"
+              elif commit_out in failed:
+                  status = "FAIL_CLOSED_GIT_COMMIT"
+              elif data_changed == "true" and push_out != "success":
+                  # Changes committed but push did not succeed (failed/cancelled/unexpectedly skipped).
+                  status = "FAIL_CLOSED_GIT_PUSH"
+              elif data_changed == "true" and push_out == "success":
+                  status = "SUCCESS_REAL_FETCH_WRITE"
+              elif data_changed == "false":
+                  status = "SUCCESS_REAL_FETCH_NO_CHANGES"
+              else:
+                  status = "UNKNOWN"
+          else:
+              status = "UNKNOWN"
+
+          def yn(v):
+              return "yes" if v else "no"
+
+          # data write: production was (re)written iff the live helper ran and succeeded.
+          if dry_mode == "true" or run_fetch == "skip":
+              data_write = "n/a"
+          elif helper_out == "success":
+              data_write = "yes"
+          elif helper_out in failed:
+              data_write = "no"
+          else:
+              data_write = "n/a"
+
+          # commit pushed: yes only when data changed AND push succeeded.
+          if data_changed == "true" and push_out == "success":
+              commit_pushed = "yes"
+          elif data_changed == "false":
+              commit_pushed = "no"
+          else:
+              commit_pushed = "n/a"
+
+          rows = [
+              ("event",            env("GUARD_EVENT") or env("GH_EVENT_NAME") or "n/a"),
+              ("schedule",         env("GUARD_SCHEDULE") or "(manual / none)"),
+              ("Madrid time",      f"{env('GUARD_MADRID') or 'n/a'} ({env('GUARD_OFFSET') or '?'})"),
+              ("guard reason",     env("GUARD_REASON") or "n/a"),
+              ("RUN_FETCH",        run_fetch or "n/a"),
+              ("dry_run input",    env("GUARD_DRY_RUN_INPUT", "false")),
+              ("force_run input",  env("GUARD_FORCE", "false")),
+              ("helper ran",       yn(helper_ran)),
+              ("candidate path",   cand_path or "n/a"),
+              ("candidate partial", "n/a" if cand_partial is None else yn(cand_partial)),
+              ("candidate run_status", cand_run_status or "n/a"),
+              ("source failures",  ", ".join(failed_sources) if failed_sources else "none"),
+              ("validate outcome", validate_out),
+              ("diff summary outcome", diff_out),
+              ("commit outcome",   commit_out),
+              ("push outcome",     push_out),
+              ("data write",       data_write),
+              ("commit pushed",    commit_pushed),
+              ("run number",       f"#{env('GH_RUN_NUMBER')}"),
+          ]
+
+          lines = [
+              "## Scheduled Fetcher — Operational Summary",
+              "",
+              f"**Final operational status:** `{status}`",
+              "",
+              "| Field | Value |",
+              "| --- | --- |",
+          ]
+          for k, v in rows:
+              v = str(v).replace("|", "\\|")
+              lines.append(f"| {k} | {v} |")
+
+          if source_errors:
+              lines.append("")
+              lines.append("### Source errors")
+              for k, v in source_errors.items():
+                  lines.append(f"- **{k}**: {str(v)[:300]}")
+
+          out = "\n".join(lines) + "\n"
+          sp = os.environ.get("GITHUB_STEP_SUMMARY")
+          if sp:
+              with open(sp, "a", encoding="utf-8") as fh:
+                  fh.write(out)
+          ge = os.environ.get("GITHUB_ENV")
+          if ge:
+              with open(ge, "a", encoding="utf-8") as fh:
+                  fh.write(f"OPERATIONAL_STATUS={status}\n")
+          print(out)
+          print(f"OPERATIONAL_STATUS={status}")
+          PYEOF
+
+      - name: Upload fail-closed diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-fetch-diagnostics-${{ github.run_number }}
+          path: |
+            _tmp/scheduled_live_candidate_*.json
+            _tmp/scheduled_merge_conflicts_live_*.json
+            _tmp/run_helper.log
+          retention-days: 7
+          if-no-files-found: ignore

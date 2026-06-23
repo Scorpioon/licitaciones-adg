@@ -1337,6 +1337,41 @@ def retry_sleep(attempt: int, retry_delay: float, retry_backoff: float) -> float
     return base * random.uniform(0.8, 1.2)
 
 
+def _sanitize_snippet(raw_bytes: bytes, encoding: str = None, limit: int = 160) -> str:
+    """Single-line, length-capped, printable-only snippet of response bytes.
+
+    Used only for non-Atom diagnostics — never dumps full HTML or binary noise.
+    Collapses all whitespace to single spaces and drops control characters.
+    """
+    try:
+        text = raw_bytes[:600].decode(encoding or "utf-8", errors="replace")
+    except (LookupError, TypeError):
+        text = raw_bytes[:600].decode("utf-8", errors="replace")
+    text = re.sub(r"\s+", " ", text)                      # newlines/tabs/spaces -> single space
+    text = "".join(ch for ch in text if ch >= " " and ch != "\x7f")  # drop control / binary noise
+    text = text.strip()
+    if len(text) > limit:
+        text = text[:limit - 1].rstrip() + "…"
+    return text
+
+
+def _describe_non_atom_response(resp) -> str:
+    """Enriched non-Atom diagnostic string: status, content-type, final URL, snippet.
+
+    Shape: non-Atom response status=503 content-type=text/html final_url=https://... snippet="..."
+    Does not change retry/outcome semantics — only the recorded error text.
+    """
+    status = getattr(resp, "status_code", "?")
+    headers = getattr(resp, "headers", None)
+    ctype = (headers.get("Content-Type", "") if headers else "").split(";")[0].strip() or "?"
+    final_url = getattr(resp, "url", "") or "?"
+    snippet = _sanitize_snippet(getattr(resp, "content", b"") or b"", getattr(resp, "encoding", None))
+    return (
+        f"non-Atom response status={status} content-type={ctype} "
+        f'final_url={final_url} snippet="{snippet}"'
+    )
+
+
 def fetch_source(session, source: dict, max_pages: int, min_score: int,
                  retries: int = 3, retry_delay: float = 2.0, retry_backoff: float = 2.0) -> dict:
     """Returns dict: {results, pages_done, had_error, error_msg, retry_count, retried_pages, retry_errors}.
@@ -1399,7 +1434,7 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
             else:
                 head = r.content[:3000].lower()
                 if b"<feed" not in head and b"<entry" not in head:
-                    page_retry_errs.append("non-Atom response")
+                    page_retry_errs.append(_describe_non_atom_response(r))
                 else:
                     try:
                         root = ET.fromstring(r.content)
