@@ -573,7 +573,53 @@ function initShared() {
   });
   applyI18n();
   document.querySelectorAll('[data-adg-version]').forEach(function(vEl){ vEl.textContent = ADG.version; });
+  initMobileNav();
   updateTicker();
+}
+
+// ── MOBILE NAV MENU (p180) ────────────────────────────────────────────────
+// At mobile widths the header actions (nav tabs, language, theme) collapse
+// behind a single menu toggle. Injected here so every page inherits the same
+// control without duplicating markup that could drift. Desktop is untouched:
+// the toggle stays display:none > 860px and .header-actions renders inline.
+function initMobileNav() {
+  const header = document.querySelector('.header');
+  const actions = header && header.querySelector('.header-actions');
+  if (!header || !actions || header.querySelector('.nav-toggle')) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'nav-toggle hbtn';
+  btn.type = 'button';
+  btn.setAttribute('aria-label', 'Menú');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.innerHTML = '<i class="bi bi-list"></i>';
+  header.appendChild(btn);
+
+  const setOpen = (open) => {
+    header.classList.toggle('nav-open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const i = btn.querySelector('i');
+    if (i) i.className = open ? 'bi bi-x' : 'bi bi-list';
+  };
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setOpen(!header.classList.contains('nav-open'));
+  });
+  // Selecting a nav target or language closes the menu.
+  actions.addEventListener('click', (e) => {
+    if (e.target.closest('.nav-tab') || e.target.closest('.lang-btn')) setOpen(false);
+  });
+  // Click outside the menu/toggle closes it.
+  document.addEventListener('click', (e) => {
+    if (!header.classList.contains('nav-open')) return;
+    if (e.target.closest('.header-actions') || e.target.closest('.nav-toggle')) return;
+    setOpen(false);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 860 && header.classList.contains('nav-open')) setOpen(false);
+  });
 }
 
 function updateTicker() {

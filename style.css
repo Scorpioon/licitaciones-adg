@@ -644,7 +644,7 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sh-ficha__footer { flex-shrink:0; padding:7px 12px; border-top:1px solid var(--border2); background:var(--bg); }
 .sh-ficha__footer .sh-ficha__actions { margin-top:0; }
 .sh-ficha__top { flex-shrink:0; padding:14px; display:flex; flex-direction:column; gap:12px; border-bottom:1px solid var(--border2); }
-.sh-ficha__scroll { flex:1; min-height:0; overflow-y:auto; padding:12px 14px 14px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+.sh-ficha__scroll { flex:1; min-height:0; overflow-y:auto; padding:12px 14px 14px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; overscroll-behavior:contain; touch-action:pan-y; }
 .sh-ficha__scroll::-webkit-scrollbar { display:block; width:3px; }
 .sh-ficha__scroll::-webkit-scrollbar-track { background:transparent; }
 .sh-ficha__scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
@@ -678,7 +678,11 @@ body.lic-page .list-col thead th { padding:5px 8px; }
   .detail-col .sh-ficha__grip { display:flex; align-items:center; justify-content:center; padding:9px 0 5px; flex-shrink:0; cursor:grab; touch-action:none; background:var(--bg); }
   .detail-col .sh-ficha__grip-bar { width:40px; height:4px; border-radius:3px; background:var(--border); }
   .detail-col .sh-ficha__head { cursor:grab; touch-action:none; }
-  body.sheet-open { overflow:hidden; }
+  /* Lock the background scroller while the sheet is open (p180): overflow:hidden
+     freezes body scroll, touch-action:none stops touch panning the background,
+     overscroll-behavior:none kills rubber-band/scroll-chaining jumps. The sheet's
+     own .sh-ficha__scroll opts back in with touch-action:pan-y. */
+  body.sheet-open { overflow:hidden; touch-action:none; overscroll-behavior:none; }
 }
 @media (max-width:860px) and (prefers-reduced-motion:reduce) {
   .detail-col { transition:none; }
@@ -788,4 +792,42 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sstat-clickable:hover { background:var(--hover); }
 .sstat-clickable.active { background:var(--s-ok-bg); }
 .sstat-clickable.active .sstat-val { color:var(--s-ok)!important; }
+
+/* ─── p180 · MOBILE NAV MENU + FOOTER/SCROLL HARDENING ──────────────────────
+   v0.6.37. The dense header cluster (nav tabs, language, theme) collapses behind
+   a single .nav-toggle at <=860px so the mobile top shell is just brand + menu.
+   app.js initMobileNav() injects the toggle on every page and drives .nav-open.
+   Desktop (>860px) is untouched: .nav-toggle stays hidden, .header-actions inline.
+   Z-index order kept clean: page < menu(880) < sheet-backdrop(910) < sheet(920). */
+.nav-toggle { display:none; }   /* injected on every page; only shown on mobile */
+
+@media (max-width:860px) {
+  /* Keep brand + toggle on a single row; the actions move into a dropdown. */
+  .header { position:relative; flex-wrap:nowrap; }
+  .logo-wrap { flex-shrink:1; min-width:0; }
+  .logo-eyebrow, .logo-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nav-toggle { display:flex; margin-left:auto; }
+
+  .header-actions {
+    display:none;
+    position:absolute; top:100%; left:0; right:0;
+    flex-direction:column; align-items:stretch; gap:10px;
+    margin-left:0; padding:12px 20px 16px;
+    background:var(--bg); border-bottom:1px solid var(--border);
+    box-shadow:0 14px 26px rgba(0,0,0,.18);
+    z-index:880;
+  }
+  .header.nav-open .header-actions { display:flex; }
+  .header.nav-open .nav-tabs { flex-direction:column; align-items:stretch; gap:4px; }
+  .header.nav-open .nav-tab { height:36px; padding:0 12px; }
+  .header.nav-open .nav-tab span { display:inline; }   /* re-show labels hidden by the <=900px rule */
+  .header.nav-open .lang-wrap { align-self:flex-start; }
+}
+
+/* Footer / scroll hardening: stop scroll-chaining from the scrollers into the
+   page (prevents rubber-band jumps near the footer), and make the footer inert
+   while the mobile sheet is open (the backdrop already covers it; belt and
+   suspenders so it never reads as an active surface behind the drawer). */
+.list-col, .page-body { overscroll-behavior:contain; }
+body.sheet-open .shell-foot { pointer-events:none; }
 .sstat-clickable.active .sstat-lbl { color:var(--s-ok); }

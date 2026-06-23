@@ -352,6 +352,11 @@ function bindSheetDrag(panel) {
   }
 
   zones.forEach(function(z) {
+    // Guard against stacking listeners. FichaPanel rebuilds the inner markup on
+    // every open so the grip/head are normally fresh nodes, but flag them so a
+    // future change that reuses nodes can never accumulate handlers (p180).
+    if (z.__sheetDragBound) return;
+    z.__sheetDragBound = true;
     z.addEventListener('pointerdown', onDown);
     z.addEventListener('pointermove', onMove);
     z.addEventListener('pointerup', onUp);
