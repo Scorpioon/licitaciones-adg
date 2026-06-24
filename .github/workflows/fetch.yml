@@ -419,6 +419,83 @@ jobs:
           if ge:
               with open(ge, "a", encoding="utf-8") as fh:
                   fh.write(f"OPERATIONAL_STATUS={status}\n")
+
+          # ------------------------------------------------------------------
+          # Machine-readable run report (p188 / v0.6.42).
+          # Emitted from this same Operational summary step, after status and all
+          # field calculations are known, so every run leaves a stable structured
+          # truth record alongside the human-readable Step Summary. Wrapped in
+          # try/except so a report-write failure can never block the summary.
+          report_schema  = "ADGOPS_SCHEDULED_RUN_REPORT_V1"
+          report_version = "1.0"
+          try:
+              from datetime import datetime, timezone
+              # Truncate each source error so the report stays diagnostic but bounded;
+              # never embed raw run_helper.log content here.
+              report_source_errors = {
+                  str(k): str(v)[:500] for k, v in source_errors.items()
+              }
+              report = {
+                  "schema": report_schema,
+                  "schema_version": report_version,
+                  "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                  "automation": {
+                      "id": env("AUTOMATION_ID") or None,
+                      "kind": env("AUTOMATION_KIND") or None,
+                      "data_file": env("AUTOMATION_DATA_FILE") or None,
+                      "sources": [s.strip() for s in env("AUTOMATION_SOURCES").split(",") if s.strip()],
+                  },
+                  "github": {
+                      "event": env("GUARD_EVENT") or env("GH_EVENT_NAME") or None,
+                      "run_number": env("GH_RUN_NUMBER") or None,
+                      "workflow": "Fetch Licitaciones Scheduled Safe Merge",
+                  },
+                  "guard": {
+                      "run_fetch": run_fetch or None,
+                      "dry_run_input": env("GUARD_DRY_RUN_INPUT", "false"),
+                      "force_run_input": env("GUARD_FORCE", "false"),
+                      "schedule": env("GUARD_SCHEDULE") or "manual",
+                      "madrid_time": env("GUARD_MADRID") or None,
+                      "utc_offset": env("GUARD_OFFSET") or None,
+                      "reason": env("GUARD_REASON") or None,
+                  },
+                  "operational": {
+                      "status": status,
+                      "helper_ran": helper_ran,
+                      "candidate_accepted": candidate_accepted,
+                      "data_write": data_write,
+                      "commit_pushed": commit_pushed,
+                  },
+                  "candidate": {
+                      "path": cand_path or None,
+                      "partial": cand_partial,
+                      "run_status": cand_run_status or None,
+                      "failed_sources": failed_sources,
+                      "source_errors": report_source_errors,
+                  },
+                  "outcomes": {
+                      "helper": helper_out,
+                      "dryrun": dryrun_out,
+                      "validate": validate_out,
+                      "diff_summary": diff_out,
+                      "commit": commit_out,
+                      "push": push_out,
+                  },
+                  "data": {
+                      "data_changed": data_changed,
+                      "write_intent": data_write,
+                      "target_file": env("AUTOMATION_DATA_FILE") or "data/licitaciones.json",
+                  },
+              }
+              os.makedirs("_tmp", exist_ok=True)
+              report_path = f"_tmp/scheduled_run_report_{env('GH_RUN_NUMBER')}.json"
+              with open(report_path, "w", encoding="utf-8") as fh:
+                  json.dump(report, fh, sort_keys=True, indent=2)
+                  fh.write("\n")
+              print(f"[report] wrote {report_path}")
+          except Exception as e:
+              print(f"[report] WARNING: failed to write run report JSON: {e}")
+
           print(out)
           print(f"OPERATIONAL_STATUS={status}")
           PYEOF
@@ -431,6 +508,7 @@ jobs:
           path: |
             _tmp/scheduled_live_candidate_*.json
             _tmp/scheduled_merge_conflicts_live_*.json
+            _tmp/scheduled_run_report_*.json
             _tmp/run_helper.log
           retention-days: 7
           if-no-files-found: ignore
