@@ -45,6 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      AUTOMATION_ID: ADGOPS_AUTO_FETCHER1_SCHEDULED
+      AUTOMATION_KIND: fetcher1-scheduled
+      AUTOMATION_DATA_FILE: data/licitaciones.json
+      AUTOMATION_SOURCES: "PLACSP-643, PLACSP-1044"
 
     steps:
       - name: Checkout repo (main)
@@ -170,6 +175,7 @@ jobs:
       - name: Commit data if changed
         id: commit
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        shell: bash
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -178,7 +184,21 @@ jobs:
             echo "no data changes to commit"
             echo "DATA_CHANGED=false" >> "$GITHUB_ENV"
           else
-            git commit -m "scheduled fetch/merge $(date -u +'%Y-%m-%d %H:%M UTC') [run #${{ github.run_number }}]"
+            # A commit is created only when the helper succeeded, validation passed and
+            # data changed — so the commit-time operational status is, by construction,
+            # SUCCESS_REAL_FETCH_WRITE. A later push failure cannot be known here; the
+            # operational summary (not the commit body) reports FAIL_CLOSED_GIT_PUSH.
+            COMMIT_SUBJECT="data(auto/fetcher1-scheduled): update licitaciones [run #${{ github.run_number }} | SUCCESS_REAL_FETCH_WRITE]"
+            COMMIT_TRAILERS="Automation-ID: ${AUTOMATION_ID}
+          Workflow: Fetch Licitaciones Scheduled Safe Merge
+          GitHub-Run: ${{ github.run_number }}
+          Operational-Status: SUCCESS_REAL_FETCH_WRITE
+          Data-File: ${AUTOMATION_DATA_FILE}
+          Sources: ${AUTOMATION_SOURCES}
+          Trigger: ${GUARD_EVENT:-unknown} ${GUARD_SCHEDULE:-}
+          Madrid-Time: ${GUARD_MADRID:-unknown} (${GUARD_OFFSET:-?})
+          Guard-Reason: ${GUARD_REASON:-unknown}"
+            git commit -m "$COMMIT_SUBJECT" -m "$COMMIT_TRAILERS"
             echo "DATA_CHANGED=true" >> "$GITHUB_ENV"
           fi
 
@@ -346,6 +366,10 @@ jobs:
               commit_pushed = "n/a"
 
           rows = [
+              ("automation id",    env("AUTOMATION_ID") or "n/a"),
+              ("automation kind",  env("AUTOMATION_KIND") or "n/a"),
+              ("data file",        env("AUTOMATION_DATA_FILE") or "n/a"),
+              ("sources",          env("AUTOMATION_SOURCES") or "n/a"),
               ("event",            env("GUARD_EVENT") or env("GH_EVENT_NAME") or "n/a"),
               ("schedule",         env("GUARD_SCHEDULE") or "(manual / none)"),
               ("Madrid time",      f"{env('GUARD_MADRID') or 'n/a'} ({env('GUARD_OFFSET') or '?'})"),
@@ -403,7 +427,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scheduled-fetch-diagnostics-${{ github.run_number }}
+          name: adgops-auto-fetcher1-scheduled-diagnostics-${{ github.run_number }}
           path: |
             _tmp/scheduled_live_candidate_*.json
             _tmp/scheduled_merge_conflicts_live_*.json
