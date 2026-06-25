@@ -1,0 +1,207 @@
+{
+  "schema": "ADGOPS_FETCHER_ARCHITECTURE_REGISTRY_V1",
+  "schema_version": "1.0",
+  "generated_by_prompt": "p193",
+  "target_version": "v0.6.46",
+  "canonical_naming_rule": "Use responsibility-based English engineering names in code and documentation. UI-facing labels may remain Spanish/Castilian. Do not use Fetcher 1 / 1.1 / 2 / 2.1 as canonical names.",
+  "components": [
+    {
+      "canonical_name": "Harvester",
+      "legacy_names": ["Fetcher 1", "Fetcher 1.1"],
+      "status": "installed_frozen",
+      "files": ["fetch_licitaciones.py"],
+      "responsibility": "Fetch PLACSP ATOM feeds; score, classify, enrich, and merge licitaciones into candidate envelope.",
+      "inputs": ["PLACSP source feeds (ATOM/ZIP)"],
+      "outputs": ["data/licitaciones.json (candidate envelope)"],
+      "schemas": [],
+      "missing": [],
+      "next_action": "freeze"
+    },
+    {
+      "canonical_name": "Merger",
+      "legacy_names": ["scheduled merge helper", "Fetcher 1 orchestrator"],
+      "status": "installed_frozen",
+      "files": ["tools/scheduled_fetch_merge.py"],
+      "responsibility": "Lifecycle-safe scheduled append/merge of Harvester candidate into production data/licitaciones.json.",
+      "inputs": ["Harvester candidate envelope", "data/licitaciones.json (production, read)"],
+      "outputs": ["data/licitaciones.json (updated production)"],
+      "schemas": [],
+      "missing": [],
+      "next_action": "freeze"
+    },
+    {
+      "canonical_name": "RunReporter",
+      "legacy_names": ["operational classifier", "fetch.yml heredoc classifier"],
+      "status": "installed_frozen",
+      "files": ["tools/scheduled_run_classify.py"],
+      "responsibility": "Classify scheduled-run outcome; emit ADGOPS_SCHEDULED_RUN_REPORT_V1 and GitHub step summary. Never mutates production data.",
+      "inputs": ["GitHub Actions env vars", "_tmp/ helper logs and candidate files"],
+      "outputs": ["_tmp/scheduled_run_report_<run>.json (ADGOPS_SCHEDULED_RUN_REPORT_V1)", "GITHUB_STEP_SUMMARY", "OPERATIONAL_STATUS env var"],
+      "schemas": ["ADGOPS_SCHEDULED_RUN_REPORT_V1 / schema_version 1.0"],
+      "missing": [],
+      "next_action": "freeze"
+    },
+    {
+      "canonical_name": "RegressionHarness",
+      "legacy_names": ["offline regression harness", "fixture regression"],
+      "status": "installed_frozen",
+      "files": [
+        "tools/fetcher_fixture_regression.py",
+        "tools/fixtures/fetcher/production_min.json",
+        "tools/fixtures/fetcher/cand_full_success.json",
+        "tools/fixtures/fetcher/cand_empty_success.json",
+        "tools/fixtures/fetcher/cand_partial_acceptable.json",
+        "tools/fixtures/fetcher/cand_empty_failure.json",
+        "tools/fixtures/fetcher/cand_non_atom.json",
+        "tools/fixtures/fetcher/cand_missing_data.json",
+        "tools/fixtures/fetcher/cand_fetcher_shape.json",
+        "tools/fixtures/fetcher/cand_malformed.json"
+      ],
+      "responsibility": "Table-driven offline regression of Merger and RunReporter semantics. Proves production data/licitaciones.json untouched. No network. No GitHub Actions dispatch.",
+      "inputs": ["Fixture JSON files", "tools/scheduled_fetch_merge module", "tools/scheduled_run_classify module"],
+      "outputs": ["Terminal PASS/FAIL report"],
+      "schemas": [],
+      "missing": [],
+      "next_action": "freeze"
+    },
+    {
+      "canonical_name": "DocIndexer",
+      "legacy_names": ["Fetcher 2", "Fetcher 2-A", "F2-A", "document-link discovery"],
+      "status": "installed_operator_run",
+      "files": ["tools/fetch_documents_f2.py"],
+      "responsibility": "Read licitaciones detail pages; extract and classify candidate document/pliego/anexo links. Never downloads binary files. Never mutates production data.",
+      "inputs": ["data/licitaciones.json (read-only)", "PLACSP detail page HTML (via HTTP)"],
+      "outputs": ["F2-A sidecar manifest (schema f2a/1) under _tmp/ or data/fetcher2/"],
+      "schemas": ["f2a/1"],
+      "missing": [],
+      "next_action": "maintain"
+    },
+    {
+      "canonical_name": "LinkResolver",
+      "legacy_names": ["Fetcher 2-B", "F2-B resolver", "document resolver"],
+      "status": "installed_operator_run",
+      "files": ["tools/fetch_documents_f2b.py"],
+      "responsibility": "Probe F2-A candidate URLs; resolve final URL, content-type, MIME, filename, and content length. HEAD-first, bounded Range GET fallback. Never persists response bodies. Never writes production data.",
+      "inputs": ["F2-A manifest (schema f2a/1)"],
+      "outputs": ["F2-B sidecar manifest (schema f2b/1) under _tmp/ or data/fetcher2/"],
+      "schemas": ["f2b/1", "f2b_checkpoint/1"],
+      "missing": [],
+      "next_action": "maintain"
+    },
+    {
+      "canonical_name": "DocEvidenceChain",
+      "legacy_names": ["F2 pipeline", "F2 consolidate/gate/merge/persist", "document evidence pipeline"],
+      "status": "installed_operator_run",
+      "files": [
+        "tools/f2b_consolidate.py",
+        "tools/f2_quality_gate.py",
+        "tools/f2_merge_gate.py",
+        "tools/f2_persist_plan.py",
+        "tools/f2_apply_persist_plan.py"
+      ],
+      "responsibility": "Consolidate F2-B batches; run quality and merge gates; produce a dry-run persistence plan; apply accepted document evidence to production documents[] under explicit operator approval.",
+      "inputs": [
+        "F2-B manifests (schema f2b/1)",
+        "F2-A manifest (schema f2a/1)",
+        "data/licitaciones.json (read-only for planning; write for apply)"
+      ],
+      "outputs": [
+        "Consolidated f2b/1 artifact",
+        "f2_quality_gate/1 verdict report",
+        "f2merge/3 dry-run plan",
+        "f2persist/1 persistence plan",
+        "data/licitaciones.json documents[] update (apply only, guarded)"
+      ],
+      "schemas": ["f2b/1", "f2_quality_gate/1", "f2merge/3", "f2persist/1", "f2apply/1"],
+      "installed_inventory": {
+        "records_with_documents": 3211,
+        "total_documents": 19574,
+        "confirmed_pdf": 8316
+      },
+      "missing": [],
+      "next_action": "maintain"
+    },
+    {
+      "canonical_name": "DocReader",
+      "legacy_names": [],
+      "status": "not_built",
+      "files": [],
+      "responsibility": "Fetch and extract text/structured metadata from confirmed document URLs (primarily PDFs). Produce per-document content sidecar.",
+      "inputs": ["documents[] confirmed links from production data"],
+      "outputs": ["Per-document content sidecar"],
+      "schemas": [],
+      "missing": ["full design", "implementation", "schema definition"],
+      "next_action": "build — first priority after p193"
+    },
+    {
+      "canonical_name": "Appendix",
+      "legacy_names": [],
+      "status": "not_built",
+      "files": [],
+      "responsibility": "Produce per-licitación document intelligence summary (Apéndice) from DocReader output. Feed the UI doc-intel panel.",
+      "inputs": ["DocReader content sidecars"],
+      "outputs": ["Appendix sidecar / UI panel data"],
+      "schemas": [],
+      "missing": ["DocReader prerequisite", "schema design", "implementation"],
+      "next_action": "build after DocReader"
+    },
+    {
+      "canonical_name": "StatsEngine",
+      "legacy_names": ["estadísticas", "estadisticas"],
+      "status": "installed_partial",
+      "files": ["estadisticas.js", "estadisticas.html"],
+      "responsibility": "Descriptive analytics over the licitaciones corpus: counts, distributions, timelines.",
+      "inputs": ["data/licitaciones.json"],
+      "outputs": ["Estadísticas UI"],
+      "schemas": [],
+      "missing": ["deeper analytics design", "integration with Appendix/DocReader output"],
+      "next_action": "redesign later — after DocReader/Appendix"
+    },
+    {
+      "canonical_name": "BarometerEngine",
+      "legacy_names": ["Barómetro", "barometre"],
+      "status": "not_built",
+      "files": [],
+      "responsibility": "Interpretive signal layer: opportunity/risk/pressure scoring over the licitaciones corpus. Distinct from StatsEngine (descriptive). Feeds Barómetro UI.",
+      "inputs": ["licitaciones corpus", "Appendix intel (future)"],
+      "outputs": ["Barómetro UI signals"],
+      "schemas": [],
+      "missing": ["full design", "signal model", "implementation"],
+      "next_action": "design after Appendix"
+    },
+    {
+      "canonical_name": "ExtensionsLane",
+      "legacy_names": ["extensions"],
+      "status": "separate_lane",
+      "files": [],
+      "responsibility": "Community/partner extensions. Must be classified per item (KEEP/PORT/REWRITE/DROP/DEFER) before any merge into the main pipeline.",
+      "inputs": ["Extensions repo / lane"],
+      "outputs": ["TBD per item"],
+      "schemas": [],
+      "missing": ["classification audit"],
+      "next_action": "audit and classify — no blind merge"
+    }
+  ],
+  "paused": [
+    {
+      "name": "SourceHealth",
+      "canonical_name": "SourceHealth",
+      "reason": "p192 decision: PAUSE SAFELY. No runtime component depends on source-health monitoring. Reopen only if source-freshness or outage observability becomes product-critical.",
+      "status": "paused_safe"
+    }
+  ],
+  "not_built_yet": ["DocReader", "Appendix", "BarometerEngine"],
+  "ui_labels": {
+    "Appendix": "Apéndice",
+    "BarometerEngine": "Barómetro",
+    "StatsEngine": "Estadísticas"
+  },
+  "decisions_locked": {
+    "source_health": "PAUSED SAFELY — p192",
+    "document_inventory_vs_content_gap": "Inventory layer (DocIndexer/LinkResolver/DocEvidenceChain) is installed. The missing layer is DocReader + Appendix (content extraction), not more link discovery.",
+    "stats_vs_barometro": "StatsEngine = descriptive analytics. BarometerEngine = interpretive signals. Do not conflate.",
+    "extensions_merge_posture": "No blind merge. Classify each item KEEP/PORT/REWRITE/DROP/DEFER before integrating."
+  },
+  "proposed_next_commit": "docs(fetch): codify fetcher architecture naming (v0.6.46 / p193)",
+  "proposed_next_tag": "adgops-v0.6.46-p193"
+}
