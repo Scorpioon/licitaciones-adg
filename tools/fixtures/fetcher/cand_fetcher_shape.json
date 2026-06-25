@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-06-25T06:00:00Z",
+  "run_status": "FULL_SUCCESS",
+  "is_partial": false,
+  "failed_sources": [],
+  "source_errors": {},
+  "data": [
+    {
+      "id": "FIX-NEW-003",
+      "contract_folder_id": "CFID-NEW-003",
+      "titol": "Synthetic fetcher-shape new open tender zeta",
+      "organisme": "Patronat Fixtici",
+      "estat": "publicada",
+      "adjudicatari": "",
+      "pressupost": 75000,
+      "data_pub": "2026-06-24",
+      "data_limit": "2027-01-31",
+      "url": "https://example.invalid/fixture/new-003",
+      "historial": [],
+      "award_results": []
+    }
+  ]
+}

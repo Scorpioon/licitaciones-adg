@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "generated_at": "2026-06-25T06:00:00Z",
+    "run_status": "PARTIAL_SUCCESS",
+    "is_partial": true,
+    "failed_sources": ["PLACSP-1044"],
+    "source_errors": {
+      "PLACSP-1044": "HTTP 503 from secondary source; primary source returned valid data"
+    }
+  },
+  "data": [
+    {
+      "id": "FIX-NEW-002",
+      "contract_folder_id": "CFID-NEW-002",
+      "titol": "Synthetic partial-run new open tender epsilon",
+      "organisme": "Mancomunitat Fixticia",
+      "estat": "vigent",
+      "adjudicatari": "",
+      "pressupost": 90000,
+      "data_pub": "2026-06-22",
+      "data_limit": "2027-02-01",
+      "url": "https://example.invalid/fixture/new-002",
+      "historial": [],
+      "award_results": []
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "generated_at": "2026-06-25T06:00:00Z",
+    "run_status": "EMPTY_FAILURE",
+    "is_partial": true,
+    "failed_sources": ["PLACSP-643", "PLACSP-1044"],
+    "source_errors": {
+      "PLACSP-643": "HTTPSConnectionPool(host='example.invalid', port=443): Max retries exceeded (ConnectTimeout: connection timed out after 30s)",
+      "PLACSP-1044": "ConnectTimeout: read operation timed out"
+    }
+  },
+  "data": []
+}

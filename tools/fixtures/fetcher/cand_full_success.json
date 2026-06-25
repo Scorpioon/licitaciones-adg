@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "generated_at": "2026-06-25T06:00:00Z",
+    "run_status": "FULL_SUCCESS",
+    "is_partial": false,
+    "failed_sources": [],
+    "source_errors": {}
+  },
+  "data": [
+    {
+      "id": "FIX-OVERLAP-001",
+      "contract_folder_id": "CFID-OVERLAP-001",
+      "titol": "Synthetic overlap tender beta (refreshed)",
+      "organisme": "Diputacio Fixticia",
+      "estat": "vigent",
+      "adjudicatari": "",
+      "pressupost": 260000,
+      "data_pub": "2026-04-15",
+      "data_limit": "2026-11-30",
+      "url": "https://example.invalid/fixture/overlap-001",
+      "historial": [],
+      "award_results": []
+    },
+    {
+      "id": "FIX-NEW-001",
+      "contract_folder_id": "CFID-NEW-001",
+      "titol": "Synthetic new open tender delta",
+      "organisme": "Consorci Fixtici",
+      "estat": "en plazo",
+      "adjudicatari": "",
+      "pressupost": 180000,
+      "data_pub": "2026-06-20",
+      "data_limit": "2027-01-15",
+      "url": "https://example.invalid/fixture/new-001",
+      "historial": [],
+      "award_results": []
+    }
+  ]
+}

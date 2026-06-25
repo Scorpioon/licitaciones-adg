@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "prompt": "FIXTURE",
+    "version": "fixture-0.1",
+    "mode": "fixture-production-min",
+    "production_write_gate_prompt": "FIXTURE-GATE",
+    "production_write_gate_version": "fixture-0.1",
+    "production_write_gate_applied_at": "2026-01-01T00:00:00Z",
+    "note": "Synthetic, public-safe production fixture for offline regression. Not real data."
+  },
+  "data": [
+    {
+      "id": "FIX-OPEN-001",
+      "contract_folder_id": "CFID-OPEN-001",
+      "titol": "Synthetic open tender alpha",
+      "organisme": "Ajuntament Fixticia",
+      "estat": "vigent",
+      "adjudicatari": "",
+      "pressupost": 100000,
+      "data_pub": "2026-05-01",
+      "data_limit": "2026-12-31",
+      "url": "https://example.invalid/fixture/open-001",
+      "historial": [],
+      "award_results": [],
+      "rellevancia": 50,
+      "enrichment_version": "fixture",
+      "lifecycle_category": "CLEAR_OPEN",
+      "active_opportunity_eligible": true,
+      "lifecycle_review_required": false,
+      "source_merge_class": "FIXTURE_PRODUCTION"
+    },
+    {
+      "id": "FIX-OVERLAP-001",
+      "contract_folder_id": "CFID-OVERLAP-001",
+      "titol": "Synthetic overlap tender beta",
+      "organisme": "Diputacio Fixticia",
+      "estat": "vigent",
+      "adjudicatari": "",
+      "pressupost": 250000,
+      "data_pub": "2026-04-15",
+      "data_limit": "2026-11-30",
+      "url": "https://example.invalid/fixture/overlap-001",
+      "historial": [],
+      "award_results": [],
+      "rellevancia": 60,
+      "enrichment_version": "fixture",
+      "lifecycle_category": "CLEAR_OPEN",
+      "active_opportunity_eligible": true,
+      "lifecycle_review_required": false,
+      "source_merge_class": "FIXTURE_PRODUCTION"
+    },
+    {
+      "id": "FIX-AWARD-001",
+      "contract_folder_id": "CFID-AWARD-001",
+      "titol": "Synthetic awarded tender gamma",
+      "organisme": "Generalitat Fixticia",
+      "estat": "adjudicada",
+      "adjudicatari": "Empresa Sintetica SL",
+      "pressupost": 500000,
+      "data_pub": "2026-01-10",
+      "data_limit": "2026-03-01",
+      "url": "https://example.invalid/fixture/award-001",
+      "historial": [],
+      "award_results": [{"adjudicatari": "Empresa Sintetica SL", "import": 480000}],
+      "rellevancia": 40,
+      "enrichment_version": "fixture",
+      "lifecycle_category": "CLEAR_AWARDED",
+      "active_opportunity_eligible": false,
+      "lifecycle_review_required": false,
+      "source_merge_class": "FIXTURE_PRODUCTION"
+    }
+  ]
+}
