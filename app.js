@@ -470,31 +470,140 @@ function applyTheme(theme) {
   localStorage.setItem('adg-theme', theme);
 }
 
-async function loadData() {
-  ADG.data = SAMPLE;
-  ADG.canonicalData = SAMPLE;
-  ADG.isSample = true;
+// ── DATA LOADING ──────────────────────────────────────────────────────────
+// p200 (v0.6.54): progressive shard loader with monolith fallback.
+//   1. Try data/licitaciones_manifest.json.
+//   2. If present, load priority-1 shards (2026 + 2025) first and paint via
+//      'adg:loaded', then fill priority-2 (2024) and archive in the background
+//      and emit 'adg:dataupdated' so pages re-render with the full dataset.
+//   3. If the manifest or any priority-1 shard is unavailable, fall back to the
+//      canonical monolith data/licitaciones.json (legacy behavior, unchanged).
+// Canonical source remains data/licitaciones.json; shards are derived artifacts.
+
+function applyDatasetMeta(meta) {
+  meta = meta || {};
+  ADG.datasetMeta = meta;
+  ADG.generatedAt = meta.generated_at || null;
+  ADG.dataRefreshedAt = meta.scheduled_merge_applied_at || meta.generated_at || null;
+  ADG.fetcher_version = meta.version || meta.fetcher_version || '?';
+}
+
+// Replace the active dataset with already-normalized items and rebuild the
+// canonical (deduped) view. Pages re-read ADG.data/canonicalData on each
+// render, so this is safe to call repeatedly as shards stream in.
+function setActiveData(items) {
+  ADG.data = items;
+  ADG.canonicalData = buildCanonicalRecords(items);
+  ADG.isSample = false;
+}
+
+async function fetchJSON(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs || 30000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-    const r = await fetch(`./data/licitaciones.json?t=${Date.now()}`, { signal: controller.signal });
-    clearTimeout(timeout);
+    const r = await fetch(`${url}?t=${Date.now()}`, { signal: controller.signal });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const raw = await r.json();
+    return await r.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchShardItems(path) {
+  const raw = await fetchJSON(`./${path}`, 30000);
+  return Array.isArray(raw) ? raw : (raw.data || []);
+}
+
+async function loadMonolith() {
+  try {
+    const raw = await fetchJSON('./data/licitaciones.json', 30000);
     const items = Array.isArray(raw) ? raw : (raw.data || []);
     if (items.length) {
       items.forEach(normalizeItem);
-      ADG.data = items;
-      ADG.canonicalData = buildCanonicalRecords(items);
-      ADG.datasetMeta = raw.meta || {};
-      ADG.generatedAt = raw.meta?.generated_at || raw.generated_at || null;
-      ADG.dataRefreshedAt = raw.meta?.scheduled_merge_applied_at || raw.meta?.generated_at || raw.generated_at || null;
-      ADG.fetcher_version = raw.meta?.version || raw.meta?.fetcher_version || raw.fetcher_version || '?';
-      ADG.isSample = false;
+      setActiveData(items);
+      applyDatasetMeta(raw.meta || { generated_at: raw.generated_at, version: raw.fetcher_version });
     }
   } catch (e) {
     console.warn('[ADG] licitaciones.json failed or timed out, using sample:', e.message);
   }
+}
+
+// Load shards tier-by-tier (priority 1 first). Returns true if priority-1 data
+// is in place (caller paints), then continues filling later tiers in the
+// background. Returns false to request monolith fallback.
+async function loadShards(manifest) {
+  applyDatasetMeta(manifest.source_meta);
+
+  const tiers = [];
+  manifest.shards.forEach(s => {
+    const p = s.priority || 9;
+    (tiers[p] = tiers[p] || []).push(s);
+  });
+  const orderedTiers = tiers.filter(Boolean);
+  if (!orderedTiers.length) return false;
+
+  const accumulated = [];
+  const ingestTier = async (tier) => {
+    const results = await Promise.all(tier.map(s => fetchShardItems(s.path).catch(() => null)));
+    if (results.some(x => x === null)) return false;
+    results.forEach(items => {
+      items.forEach(normalizeItem);
+      for (const it of items) accumulated.push(it);
+    });
+    setActiveData(accumulated.slice());
+    return true;
+  };
+
+  // Phase 1: priority-1 shards must succeed before first paint.
+  const firstOk = await ingestTier(orderedTiers.shift());
+  if (!firstOk) {
+    console.warn('[ADG] a priority-1 shard failed; falling back to monolith.');
+    return false;
+  }
+
+  // Phase 2+: remaining tiers load in the background; re-render on each.
+  if (orderedTiers.length) {
+    (async () => {
+      for (const tier of orderedTiers) {
+        const ok = await ingestTier(tier);
+        if (!ok) {
+          console.warn('[ADG] a background shard failed; loading monolith for completeness.');
+          await loadMonolith();
+          document.dispatchEvent(new Event('adg:dataupdated'));
+          return;
+        }
+        document.dispatchEvent(new Event('adg:dataupdated'));
+      }
+    })();
+  }
+  return true;
+}
+
+async function loadData() {
+  ADG.data = SAMPLE;
+  ADG.canonicalData = SAMPLE;
+  ADG.isSample = true;
+
+  let manifest = null;
+  try {
+    const m = await fetchJSON('./data/licitaciones_manifest.json', 15000);
+    if (m && Array.isArray(m.shards) && m.shards.length) manifest = m;
+  } catch (e) {
+    console.warn('[ADG] manifest unavailable, using monolith:', e.message);
+  }
+
+  if (manifest) {
+    try {
+      if (await loadShards(manifest)) {
+        document.dispatchEvent(new Event('adg:loaded'));
+        return;
+      }
+    } catch (e) {
+      console.warn('[ADG] shard loading error, using monolith:', e.message);
+    }
+  }
+
+  await loadMonolith();
   document.dispatchEvent(new Event('adg:loaded'));
 }
 

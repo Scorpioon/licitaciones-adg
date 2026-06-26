@@ -233,5 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initMap();
     refresh();
   });
+  // Re-render as background shards stream in (p200 progressive loader)
+  document.addEventListener('adg:dataupdated', () => refresh());
 });
 })();

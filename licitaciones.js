@@ -653,6 +653,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     _updateActiveStats();
   });
   document.addEventListener('adg:themechange', () => render());
+  // Re-render as background shards stream in (p200 progressive loader)
+  document.addEventListener('adg:dataupdated', () => {
+    render(); updateStrip(); _updateActiveStats(); checkURL();
+  });
 
   // Clear s-update during load; updateStrip() sets it after data loads
   const _sUpdate = el('s-update');

@@ -63,6 +63,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const gt = el('guide-title');
     if (gt) gt.textContent = ADG_Utils.t('guide_title');
   });
+  // Re-render ticker count as background shards stream in (p200 progressive loader)
+  document.addEventListener('adg:dataupdated', () => updateTicker());
   await loadData();
   updateTicker();
 });

@@ -529,6 +529,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.addEventListener('adg:langchange', () => { applyI18n(); refreshActiveView(); updateStrip(); updateTicker(); });
   document.addEventListener('adg:themechange', () => { refreshActiveView(); });
+  // Re-render as background shards stream in (p200 progressive loader)
+  document.addEventListener('adg:dataupdated', () => { refreshActiveView(); updateStrip(); updateTicker(); });
 
   await loadData();
   updateStrip();
