@@ -153,6 +153,7 @@ const I18N = {
     alr_coming_soon_t:'En desarrollo',
     alr_coming_soon_d:'Las alertas estaran disponibles proximamente.',
     alr_notify_btn:'Activar alertas',
+    disc_none:'Sin disciplina',
   },
   ca:{
     lang:'ca',dir:'ltr',
@@ -227,6 +228,7 @@ const I18N = {
     alr_coming_soon_t:'En desenvolupament',
     alr_coming_soon_d:'Les alertes estaran disponibles aviat.',
     alr_notify_btn:'Activar alertes',
+    disc_none:'Sense disciplina',
   },
   eu:{
     lang:'eu',dir:'ltr',
@@ -277,6 +279,7 @@ const I18N = {
     fp_rsum_deadline_na:'argitaratu gabeko epea', fp_rsum_expires:'{n} egun barru amaitzen da',
     fp_rsum_awarded:'Esleituta', fp_rsum_void:'Hutsik deklaratuta',
     fp_docs_detected:'{n} dokumentu atzemanda', fp_docintel_pending:'DocIntel zain',
+    disc_none:'Diziplinarik gabe',
   },
   gl:{
     lang:'gl',dir:'ltr',
@@ -348,6 +351,7 @@ const I18N = {
     alr_coming_soon_t:'En desenvolvemento',
     alr_coming_soon_d:'As alertas estaran disponibles proximamente.',
     alr_notify_btn:'Activar alertas',
+    disc_none:'Sen disciplina',
   },
 };
 
@@ -376,7 +380,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0n';
+ADG.version = '0.5.0o';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -412,8 +416,13 @@ function isNew(row) {
 function discColor(key) {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const d = DISC[key];
-  if (!d) return { text:'var(--text2)', bg:'var(--bg2)', border:'var(--border2)' };
+  if (!d) return { text:'var(--disc-none-fg)', bg:'var(--disc-none-bg)', border:'var(--disc-none-bd)' };
   return { text: dark ? d.ld : d.lc, bg: dark ? d.bd : d.bg, border: dark ? d.ld : d.lc };
+}
+
+function getDisciplineMeta(key) {
+  return (key && DISC[key]) ? DISC[key]
+    : { icon:'bi-dash-circle', label:t('disc_none'), lc:'var(--disc-none-fg)', ld:'var(--disc-none-fg)', bg:'var(--disc-none-bg)', bd:'var(--disc-none-bd)' };
 }
 
 function discTag(key, iconSize = '8.5px') {
@@ -423,6 +432,13 @@ function discTag(key, iconSize = '8.5px') {
   return `<span class="disc-tag" style="color:${c.text};background:${c.bg};border-color:${c.text}20">
     <i class="bi ${d.icon}" style="font-size:${iconSize}"></i>${d.label}
   </span>`;
+}
+
+function discNoneTag(iconSize) {
+  iconSize = iconSize || '8.5px';
+  return '<span class="disc-tag disc-tag--none" style="color:var(--disc-none-fg);background:var(--disc-none-bg);border-color:var(--disc-none-bd)">'
+    + '<i class="bi bi-dash-circle" style="font-size:' + iconSize + '"></i>' + t('disc_none')
+    + '</span>';
 }
 
 function stateBadge(estat) {
@@ -806,7 +822,7 @@ function initModal() {
   });
 }
 
-window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON, buildCanonicalRecords };
+window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, getDisciplineMeta, discNoneTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON, buildCanonicalRecords };
 
 async function loadJSON(path, timeoutMs) {
   try {

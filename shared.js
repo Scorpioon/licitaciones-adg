@@ -24,7 +24,7 @@
 var _utils = ADG_Utils;
 var t = _utils.t, fmt = _utils.fmt, fmtFull = _utils.fmtFull,
     daysTo = _utils.daysTo, isNew = _utils.isNew,
-    discColor = _utils.discColor, discTag = _utils.discTag,
+    discColor = _utils.discColor, discTag = _utils.discTag, discNoneTag = _utils.discNoneTag,
     stateBadge = _utils.stateBadge,
     getDisplayStatus = _utils.getDisplayStatus,
     isOpenOpportunity = _utils.isOpenOpportunity,
@@ -272,9 +272,10 @@ function fichaHTML(r) {
       : '') +
     '</div>';
 
-  var discHTML = (r.disciplines || []).length
-    ? (r.disciplines || []).map(function(d){ return discTag(d,'9px'); }).join('')
-    : '<span class="sh-ficha__empty">&mdash;</span>';
+  var validDiscs = (r.disciplines || []).filter(function(d){ return !!DISC[d]; });
+  var discHTML = validDiscs.length
+    ? validDiscs.map(function(d){ return discTag(d,'9px'); }).join('')
+    : discNoneTag('9px');
 
   var kwChips = (r.kw || []).map(function(k){ return '<span class="sh-ficha__chip"><i class="bi bi-tag"></i>' + esc(k) + '</span>'; });
   if (r.cpv) cpvArray(r.cpv).slice(0, 3).forEach(function(c){ kwChips.push('<span class="sh-ficha__chip"><i class="bi bi-upc"></i>' + esc(c) + '</span>'); });

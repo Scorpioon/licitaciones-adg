@@ -38,6 +38,8 @@
   --s-warn:#D97706; --s-warn-bg:#FFFBEB;
   --s-adj:#6B7280;  --s-adj-bg:#F3F4F6;
   --s-des:#DC2626;  --s-des-bg:#FEF2F2;
+  /* Discipline: neutral/unclassified */
+  --disc-none-bg:#F5F5F5; --disc-none-bd:#D4D4D4; --disc-none-fg:#9CA3AF;
 }
 [data-theme="dark"] {
   --bg:#0b0b0b; --bg2:#161616; --bg3:#222;
@@ -50,6 +52,7 @@
   --s-warn:#FCD34D; --s-warn-bg:#1C1400;
   --s-adj:#9CA3AF;  --s-adj-bg:#111827;
   --s-des:#F87171;  --s-des-bg:#1A0000;
+  --disc-none-bg:#1A1A1A; --disc-none-bd:#2A2A2A; --disc-none-fg:#6B7280;
 }
 
 /* ─── FONTS ───────────────────────────────────────────────────────────────── */
