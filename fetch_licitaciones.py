@@ -137,16 +137,22 @@ MEDIUM_DESC_KW = [
 
 DISC_KW = {
     "branding":    ["branding", "identidad corporativa", "identitat corporativa", "logotipo", "logotip",
-                    "logo", "manual de marca", "manual de identidad", "imagen corporativa"],
+                    "logo", "manual de marca", "manual de identidad", "imagen corporativa",
+                    "identidad visual", "identitat visual"],
     "editorial":   ["editorial", "maquetación", "maquetació", "revista", "catálogo", "catàleg",
                     "folleto", "fullet", "cartel", "cartell", "infografía", "memoria anual",
-                    "publicación", "publicació", "díptico", "tríptico"],
+                    "publicación", "publicació", "díptico", "tríptico",
+                    "diseño gráfico", "disseny gràfic",
+                    "comunicación visual", "comunicació visual",
+                    "producción gráfica", "producció gràfica",
+                    "artes finales"],
     "web":         ["diseño web", "disseny web", "página web", "pàgina web", "sitio web", "portal web",
                     "wordpress", "diseño digital"],
     "uxui":        ["ux", "ui", "experiencia de usuario", "usabilidad", "interfaz", "app", "aplicación",
                     "ux/ui", "experiència d'usuari"],
     "publicitat":  ["publicidad", "publicitat", "campaña publicitaria", "campanya publicitària",
-                    "marketing", "màrqueting", "promoción", "spot publicitario"],
+                    "marketing", "màrqueting", "promoción", "spot publicitario",
+                    "material promocional", "materiales promocionales"],
     "senyaletica": ["señalética", "senyalètica", "rotulación", "retolació", "señalización corporativa",
                     "museografía", "diseño de exposición", "expositores", "señales"],
     "fotografia":  ["fotografía corporativa", "fotografía de producto", "reportaje fotográfico",
@@ -154,7 +160,8 @@ DISC_KW = {
     "audiovisual": ["producción audiovisual", "producció audiovisual", "vídeo corporativo",
                     "motion graphics", "animación gráfica", "spot", "multimedia"],
     "illustracio": ["ilustración", "il·lustració", "ilustración editorial"],
-    "impressio":   ["impresión", "impressió", "artes gráficas", "arts gràfiques", "offset", "serigrafía"],
+    "impressio":   ["impresión", "impressió", "artes gráficas", "arts gràfiques", "offset", "serigrafía",
+                    "impresión gran formato", "impressió gran format"],
 }
 
 CCAA_KW = {
