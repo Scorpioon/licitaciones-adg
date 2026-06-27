@@ -602,6 +602,12 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sh-ficha__body::-webkit-scrollbar { display:block; width:3px; }
 .sh-ficha__body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
 .sh-ficha__title { font-size:12px; font-weight:700; line-height:1.45; letter-spacing:-.01em; color:var(--text); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+/* p201: factual one-line miniresumen + conservative document status surface */
+.sh-ficha__resumen { font-size:9.5px; line-height:1.5; color:var(--text2); }
+.sh-ficha__doc-status { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:2px; }
+.sh-ficha__doc-count { font-size:9px; font-weight:600; color:var(--text2); }
+.sh-ficha__doc-pending { display:inline-flex; align-items:center; gap:4px; font-size:8px; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); border:1px dashed var(--border2); border-radius:var(--radius); padding:2px 6px; }
+.sh-ficha__doc-pending i.bi { font-size:9px; }
 .sh-ficha__badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
 .sh-ficha__rows { display:flex; flex-direction:column; gap:0; border:1px solid var(--border2); border-radius:var(--radius); overflow:hidden; }
 .sh-ficha__row { display:flex; gap:0; border-bottom:1px solid var(--border3); }

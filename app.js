@@ -131,6 +131,12 @@ const I18N = {
     fp_documents:'Documentos', fp_no_docs:'Sin documentos adjuntos todavía',
     fp_f2_ready:'Preparado para enriquecimiento Fetcher 2',
     fp_docs_available:'documentos en la fuente oficial',
+    fp_rsum_full:'Licitación de {disc} para {org}, con presupuesto {budget} y {deadline}.',
+    fp_rsum_full_nodisc:'Licitación para {org}, con presupuesto {budget} y {deadline}.',
+    fp_rsum_budget_na:'no disponible', fp_rsum_deadline_to:'plazo hasta {date}',
+    fp_rsum_deadline_na:'sin plazo publicado', fp_rsum_expires:'Vence en {n} días',
+    fp_rsum_awarded:'Adjudicada', fp_rsum_void:'Declarada desierta',
+    fp_docs_detected:'{n} documentos detectados', fp_docintel_pending:'DocIntel pendiente',
     fp_terr:'Territorio', fp_status:'Estado',
     fp_relations:'Licitaciones relacionadas', fp_no_relations:'Sin relaciones',
     fp_view_official:'Ver en contrataciondelestado.es',
@@ -199,6 +205,12 @@ const I18N = {
     fp_documents:'Documents', fp_no_docs:'Sense documents adjunts encara',
     fp_f2_ready:"Preparat per a l'enriquiment Fetcher 2",
     fp_docs_available:'documents a la font oficial',
+    fp_rsum_full:'Licitació de {disc} per a {org}, amb pressupost {budget} i {deadline}.',
+    fp_rsum_full_nodisc:'Licitació per a {org}, amb pressupost {budget} i {deadline}.',
+    fp_rsum_budget_na:'no disponible', fp_rsum_deadline_to:'termini fins {date}',
+    fp_rsum_deadline_na:'sense termini publicat', fp_rsum_expires:'Venç en {n} dies',
+    fp_rsum_awarded:'Adjudicada', fp_rsum_void:'Declarada deserta',
+    fp_docs_detected:'{n} documents detectats', fp_docintel_pending:'DocIntel pendent',
     fp_terr:'Territori', fp_status:'Estat',
     fp_relations:'Licitacions relacionades', fp_no_relations:'Sense relacions',
     fp_view_official:'Veure a contrataciondelestado.es',
@@ -259,6 +271,12 @@ const I18N = {
     sv_filter_label:'Iragazten', sv_of:'/',
     fp_no_docs:'Oraindik ez dago dokumentu erantsirik',
     fp_f2_ready:'Fetcher 2 aberasterako prestatuta',
+    fp_rsum_full:'{disc} lizitazioa, {org} erakundearentzat, {budget} aurrekontuarekin eta {deadline}.',
+    fp_rsum_full_nodisc:'Lizitazioa, {org} erakundearentzat, {budget} aurrekontuarekin eta {deadline}.',
+    fp_rsum_budget_na:'ez dago eskuragarri', fp_rsum_deadline_to:'epemuga {date}',
+    fp_rsum_deadline_na:'argitaratu gabeko epea', fp_rsum_expires:'{n} egun barru amaitzen da',
+    fp_rsum_awarded:'Esleituta', fp_rsum_void:'Hutsik deklaratuta',
+    fp_docs_detected:'{n} dokumentu atzemanda', fp_docintel_pending:'DocIntel zain',
   },
   gl:{
     lang:'gl',dir:'ltr',
@@ -308,6 +326,12 @@ const I18N = {
     fp_history:'Historial', fp_no_history:'Sen historial de estados',
     fp_documents:'Documentos', fp_no_docs:'Sen documentos adxuntos aínda',
     fp_f2_ready:'Preparado para enriquecemento Fetcher 2',
+    fp_rsum_full:'Licitación de {disc} para {org}, con orzamento {budget} e {deadline}.',
+    fp_rsum_full_nodisc:'Licitación para {org}, con orzamento {budget} e {deadline}.',
+    fp_rsum_budget_na:'non dispoñible', fp_rsum_deadline_to:'prazo ata {date}',
+    fp_rsum_deadline_na:'sen prazo publicado', fp_rsum_expires:'Remata en {n} días',
+    fp_rsum_awarded:'Adxudicada', fp_rsum_void:'Declarada deserta',
+    fp_docs_detected:'{n} documentos detectados', fp_docintel_pending:'DocIntel pendente',
     fp_terr:'Territorio', fp_status:'Estado',
     fp_relations:'Licitacions relacionadas', fp_no_relations:'Sen relacions',
     fp_view_official:'Ver en contrataciondelestado.es',
@@ -352,7 +376,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0m';
+ADG.version = '0.5.0n';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);

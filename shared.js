@@ -131,6 +131,50 @@ function advisoryHTML(r) {
   return '<div class="sh-advisory">' + items.join('') + '</div>';
 }
 
+// -- MINIRESUMEN (p201) -------------------------------------------------------
+// Factual, templated, NON-generative one-line summary built ONLY from existing
+// structured record fields. Canonical data has no free-text body, so this is
+// pure field-templating with independent fallbacks. It never invents
+// requirements, eligibility, scoring, documents, locations, entities, deadlines
+// or budgets. Computed at render time (like computeTrafficLight/computeAdvisory);
+// never stored in JSON. Returns a plain string.
+function computeMiniResumen(r) {
+  var langStr = (ADG.lang || 'es') + '-ES';
+
+  // discipline / type clause (independent fallback)
+  var discs = r.disciplines || [];
+  var discLabel = (discs.length && DISC[discs[0]]) ? DISC[discs[0]].label
+                : (r.tipus && String(r.tipus).trim() ? String(r.tipus).trim() : '');
+
+  // organism (canonical audit: always present)
+  var organisme = (r.organisme && String(r.organisme).trim()) ? String(r.organisme).trim() : '—';
+
+  // budget clause
+  var budgetTok = (r.pressupost || r.pressupost === 0) ? fmtFull(r.pressupost) : t('fp_rsum_budget_na');
+
+  // deadline clause
+  var deadlineTok = r.data_limit
+    ? t('fp_rsum_deadline_to').replace('{date}', new Date(r.data_limit).toLocaleDateString(langStr, { day:'numeric', month:'short', year:'numeric' }))
+    : t('fp_rsum_deadline_na');
+
+  var tmpl = discLabel ? t('fp_rsum_full') : t('fp_rsum_full_nodisc');
+  var base = tmpl
+    .replace('{disc}', discLabel)
+    .replace('{org}', organisme)
+    .replace('{budget}', budgetTok)
+    .replace('{deadline}', deadlineTok);
+
+  // Status / urgency suffix — appended only when supported by existing fields.
+  var ds   = getDisplayStatus(r);
+  var days = daysTo(r.data_limit);
+  var statusTok = '';
+  if (ds.key === 'open' && days !== null && days >= 0 && days <= 7) statusTok = t('fp_rsum_expires').replace('{n}', days);
+  else if (ds.key === 'adjudicado') statusTok = t('fp_rsum_awarded');
+  else if (ds.key === 'desierta')   statusTok = t('fp_rsum_void');
+
+  return statusTok ? (base + ' · ' + statusTok) : base;
+}
+
 // -- ASSESSMENT BLOCK (compact rating + signals, replaces TrafficLight+advisory) --
 function assessmentBlock(r) {
   var tl = computeTrafficLight(r);
@@ -283,6 +327,15 @@ function fichaHTML(r) {
     }
   }
 
+  // Conservative document status surface (p201): count + honest DocIntel-pending
+  // label. Uses only r.documents.length. No extracted/evidence/PCAP/PPT claims.
+  var docStatusHTML = docs.length
+    ? '<div class="sh-ficha__doc-status">' +
+        '<span class="sh-ficha__doc-count">' + esc(t('fp_docs_detected').replace('{n}', docs.length)) + '</span>' +
+        '<span class="sh-ficha__doc-pending"><i class="bi bi-hourglass-split"></i>' + esc(t('fp_docintel_pending')) + '</span>' +
+      '</div>'
+    : '';
+
   var hist    = r.historial || [];
   var histHTML = hist.length
     ? '<div class="sh-ficha__hist">' + hist.map(function(h){
@@ -313,6 +366,7 @@ function fichaHTML(r) {
     '</div>' +
     '<div class="sh-ficha__top">' +
       '<div class="sh-ficha__title">' + esc(r.titol || '—') + (isNew(r) ? ' <span class="badge-new">' + esc(t('nueva')) + '</span>' : '') + '</div>' +
+      '<div class="sh-ficha__resumen">' + esc(computeMiniResumen(r)) + '</div>' +
       factsHTML +
       assessmentBlock(r) +
     '</div>' +
@@ -324,7 +378,7 @@ function fichaHTML(r) {
           '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_history'))     + '</div>' + histHTML + '</div>' +
         '</div>' +
         '<div class="sh-ficha__col">' +
-          '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_documents'))   + '</div><div class="sh-ficha__docs">'  + docsHTML + '</div></div>' +
+          '<div class="sh-ficha__section"><div class="sh-ficha__lbl">' + esc(t('fp_documents'))   + '</div><div class="sh-ficha__docs">'  + docStatusHTML + docsHTML + '</div></div>' +
         '</div>' +
       '</div>' +
       relsSection +
@@ -505,6 +559,7 @@ window.ADG_Shared = {
   TrafficLight        : TrafficLight,
   computeAdvisory     : computeAdvisory,
   advisoryHTML        : advisoryHTML,
+  computeMiniResumen  : computeMiniResumen,
   fichaHTML           : fichaHTML,
   FichaPanel          : FichaPanel,
   FichaClose          : FichaClose,
