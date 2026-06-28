@@ -341,7 +341,11 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sv-insight.ok   { border-color:var(--s-ok);   color:var(--s-ok);   background:var(--s-ok-bg); }
 
 /* ─── ABOUT / GUIDE ───────────────────────────────────────────────────────── */
-.about-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+.about-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; }
+/* The changelog column's height is driven only by the left column. Its inner
+   card is taken out of flow (absolute, below) so the long list never inflates
+   the grid row — both columns end together, with internal scroll on overflow. */
+.changelog-col { position:relative; min-height:0; }
 @media (max-width:720px) { .about-2col { grid-template-columns:1fr; } }
 .about-card { border:1px solid var(--border2); border-radius:2px; padding:16px; margin-bottom:10px; }
 .about-card:last-child { margin-bottom:0; }
@@ -353,7 +357,12 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .about-body a:hover { border-color:var(--text); }
 .about-body strong { color:var(--text); }
 .about-body code { font-size:10px; background:var(--bg2); padding:1px 4px; border-radius:2px; }
-.changelog-wrap { border:1px solid var(--border2); border-radius:2px; padding:16px; max-height:480px; overflow-y:auto; }
+.changelog-wrap { position:absolute; inset:0; border:1px solid var(--border2); border-radius:2px; padding:16px; overflow-y:auto; }
+/* Mobile: single column — return to normal flow with a bounded compact height. */
+@media (max-width:720px) {
+  .changelog-col { position:static; }
+  .changelog-wrap { position:static; inset:auto; max-height:480px; }
+}
 .changelog-item { display:flex; gap:8px; padding:6px 0; border-bottom:1px solid var(--border3); font-size:10.5px; line-height:1.55; color:var(--text2); }
 .changelog-item:last-child { border-bottom:none; }
 .cl-ver { font-size:9px; letter-spacing:.06em; font-weight:700; color:var(--text); flex-shrink:0; width:52px; }
