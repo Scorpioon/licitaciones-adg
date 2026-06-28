@@ -18,6 +18,7 @@
 "use strict";
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag,
+        getDisplayStatus, isOpenOpportunity, discNoneTag,
         applyI18n, updateStrip, updateTicker, initShared, loadData } = ADG_Utils;
 
 // ── LOCAL FILTER STATE (independent from main table) ─────────────────────
@@ -30,8 +31,11 @@ const SV = {
   quarter: '',
 };
 
-function getRows() {
-  let rows = ADG.data;
+// p207: getRows accepts an explicit source so Estadísticas can run on
+// canonical/deduped records while Barómetro (renderBaro) keeps its existing
+// raw ADG.data behavior unchanged (Barómetro rebuild is deferred to p208).
+function getRows(source) {
+  let rows = source || ADG.data;
   if (SV.year)  rows = rows.filter(r => (r.data_pub||'').startsWith(SV.year));
   if (SV.ccaa)  rows = rows.filter(r => r.ccaa === SV.ccaa);
   if (SV.estat) rows = rows.filter(r => r.estat === SV.estat);
@@ -120,21 +124,48 @@ function barCard(title, items, colorFn, valFn) {
   return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-bars">${bars}</div></div>`;
 }
 
-// ── RENDER ────────────────────────────────────────────────────────────────
-function render() {
-  const rows = getRows();
-  const total = rows.length;
+// ── DISCIPLINE BAR CARD (p207) ──────────────────────────────────────────────
+// Renders discipline counts using p204 discColor() helpers. Accepts an explicit
+// '__none__' key for the neutral "sin disciplina" data-quality bucket so it is
+// shown honestly rather than hidden.
+function discBarCard(title, entries, note) {
+  if (!entries.length) return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-empty">${t('sv_no_data')}</div></div>`;
+  const max = entries[0][1] || 1;
+  const bars = entries.slice(0,12).map(([key,val]) => {
+    const label = key === '__none__' ? (t('disc_none') || 'Sin disciplina') : (DISC[key]?.label || key);
+    const color = discColor(key).text; // neutral fallback built in for unknown/none keys
+    return `<div class="sv-bar-row">
+      <div class="sv-bar-label" title="${esc(label)}">${esc(label)}</div>
+      <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(val,max)}%;background:${color}"></div></div>
+      <div class="sv-bar-val">${val.toLocaleString('es-ES')}</div>
+    </div>`;
+  }).join('');
+  return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-bars">${bars}</div>${note?`<div class="sv-card-note">${note}</div>`:''}</div>`;
+}
 
-  // Summary line
+// ── RENDER ────────────────────────────────────────────────────────────────
+// p207: Estadísticas v1 — descriptive, honest, canonical-data surface.
+// Answers "what is in the data?" (Barómetro/p208 answers "what is happening
+// in the sector over time?"). All figures run on canonical/deduped records.
+function render() {
+  // Canonical/deduped source — never raw duplicated ADG.data rows.
+  const canonSource = (ADG.canonicalData && ADG.canonicalData.length) ? ADG.canonicalData : ADG.data;
+  const rows = getRows(canonSource);
+  const total = rows.length;
+  const canonGlobal = canonSource.length;
+  const rawRows = ADG.data.length;
+
+  // Summary line — canonical count is the headline; raw rows are labelled as source.
   const sumEl = el('sv-summary');
   if (sumEl) {
     const parts = [];
     if (SV.year)  parts.push(SV.year);
+    if (SV.quarter) parts.push('Q'+SV.quarter);
     if (SV.ccaa)  parts.push(TERR[SV.ccaa]?.name || SV.ccaa);
     if (SV.estat) parts.push(SV.estat);
     if (SV.discs.size) parts.push([...SV.discs].map(d=>DISC[d]?.label||d).join(', '));
     const label = parts.length ? `${t('sv_filter_label')}: <strong>${esc(parts.join(' · '))}</strong> — ` : '';
-    sumEl.innerHTML = `${label}<strong>${total.toLocaleString('es-ES')}</strong> licitaciones · ${t('sv_of')} <strong>${ADG.data.length.toLocaleString('es-ES')}</strong> totales`;
+    sumEl.innerHTML = `${label}<strong>${total.toLocaleString('es-ES')}</strong> registros canónicos · ${t('sv_of')} <strong>${canonGlobal.toLocaleString('es-ES')}</strong> · derivados de <strong>${rawRows.toLocaleString('es-ES')}</strong> filas de origen`;
   }
 
   const body = el('sv-body');
@@ -145,56 +176,22 @@ function render() {
     return;
   }
 
-  // ── Compute aggregates ──────────────────────────────────────────────────
-  const vigentes   = rows.filter(r => r.estat === 'Vigente').length;
-  const adjudicado = rows.filter(r => r.estat === 'Adjudicado').length;
-  const desierta   = rows.filter(r => r.estat === 'Desierta').length;
-  const volumen    = rows.reduce((s,r) => s+(r.pressupost||0), 0);
-  const conPpto    = rows.filter(r=>r.pressupost>0);
-  const avgPpto    = conPpto.length ? avg(conPpto.map(r=>r.pressupost)) : 0;
-  const tasa_adj   = total ? pct(adjudicado, total) : 0;
-  const tasa_des   = total ? pct(desierta, total) : 0;
+  // ── Lifecycle / status (canonical classification) ───────────────────────
+  // "Sin adjudicar" = active_opportunity_eligible (lifecycle: not yet awarded),
+  // NOT "open for bids right now" — submission windows are reported separately.
+  const sinAdjudicar = rows.filter(r => r.active_opportunity_eligible === true).length;
+  const adjudicadas  = rows.filter(r => r.estat === 'Adjudicado').length;
+  const desiertas    = rows.filter(r => r.estat === 'Desierta').length;
 
-  // By discipline (count)
-  const byDisc = {};
-  rows.forEach(r => (r.disciplines||[]).forEach(d => { byDisc[d]=(byDisc[d]||0)+1; }));
-  const discArr = Object.entries(byDisc).sort((a,b)=>b[1]-a[1]);
+  // ── Budget (distribution, not just total) ───────────────────────────────
+  const conPpto    = rows.filter(r => r.pressupost > 0);
+  const sinPpto    = total - conPpto.length;
+  const pptoSorted = conPpto.map(r => r.pressupost).sort((a,b)=>a-b);
+  const medianPpto = pptoSorted.length ? pptoSorted[Math.floor(pptoSorted.length/2)] : 0;
+  const minPpto    = pptoSorted.length ? pptoSorted[0] : 0;
+  const maxPpto    = pptoSorted.length ? pptoSorted[pptoSorted.length-1] : 0;
+  const sumPpto    = conPpto.reduce((s,r)=>s+r.pressupost,0);
 
-  // By discipline (volume)
-  const byDiscVol = {};
-  rows.forEach(r => (r.disciplines||[]).forEach(d => { byDiscVol[d]=(byDiscVol[d]||0)+(r.pressupost||0); }));
-  const discVolArr = Object.entries(byDiscVol).sort((a,b)=>b[1]-a[1]);
-
-  // By CCAA
-  const byCCAA = {};
-  rows.forEach(r => { if(r.ccaa) byCCAA[r.ccaa]=(byCCAA[r.ccaa]||0)+1; });
-  const ccaaArr = Object.entries(byCCAA).sort((a,b)=>b[1]-a[1]);
-
-  // By CCAA volume
-  const byCCAAVol = {};
-  rows.forEach(r => { if(r.ccaa) byCCAAVol[r.ccaa]=(byCCAAVol[r.ccaa]||0)+(r.pressupost||0); });
-  const ccaaVolArr = Object.entries(byCCAAVol).sort((a,b)=>b[1]-a[1]);
-
-  // By month (last 12)
-  const byMonth = {};
-  rows.forEach(r => {
-    if (r.data_pub) { const m = r.data_pub.slice(0,7); byMonth[m]=(byMonth[m]||0)+1; }
-  });
-  const monthArr = Object.entries(byMonth).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
-
-  // Top adjudicatarios
-  const topAdj = {};
-  rows.filter(r=>r.adjudicatari).forEach(r => {
-    topAdj[r.adjudicatari]=(topAdj[r.adjudicatari]||0)+(r.pressupost||0);
-  });
-  const adjArr = Object.entries(topAdj).sort((a,b)=>b[1]-a[1]).slice(0,8);
-
-  // Top organismes
-  const topOrg = {};
-  rows.forEach(r => { if(r.organisme) topOrg[r.organisme]=(topOrg[r.organisme]||0)+(r.pressupost||0); });
-  const orgArr = Object.entries(topOrg).sort((a,b)=>b[1]-a[1]).slice(0,8);
-
-  // Budget ranges
   const ranges = {'< 10K':0,'10K–30K':0,'30K–100K':0,'100K–300K':0,'300K–1M':0,'> 1M':0};
   conPpto.forEach(r => {
     const p = r.pressupost;
@@ -207,56 +204,39 @@ function render() {
   });
   const rangesArr = Object.entries(ranges).filter(([,v])=>v>0);
 
-  // Avg days to deadline by discipline
-  const plazos = {};
-  const plazosN = {};
-  rows.filter(r=>r.data_pub&&r.data_limit).forEach(r => {
-    const days = (new Date(r.data_limit)-new Date(r.data_pub))/86400000;
-    (r.disciplines||[]).forEach(d => { plazos[d]=(plazos[d]||0)+days; plazosN[d]=(plazosN[d]||0)+1; });
+  // ── Disciplines (incl. neutral "sin disciplina" bucket) ─────────────────
+  const byDisc = {}; let sinDisc = 0;
+  rows.forEach(r => {
+    const ds = r.disciplines || [];
+    if (!ds.length) sinDisc++;
+    ds.forEach(d => { byDisc[d]=(byDisc[d]||0)+1; });
   });
-  const plazosArr = Object.entries(plazos).map(([d,s])=>[d,Math.round(s/plazosN[d])]).sort((a,b)=>b[1]-a[1]);
+  const discArr = Object.entries(byDisc).sort((a,b)=>b[1]-a[1]);
+  const discEntries = discArr.concat(sinDisc ? [['__none__', sinDisc]] : []);
 
-  // ── Color helpers ─────────────────────────────────────────────────────
-  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
-  const discC  = d => { const c = DISC[d]; return c ? (isDark ? c.ld : c.lc) : 'var(--text)'; };
-  const ccaaC  = () => 'var(--text)';
-  const rangeColors = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444'];
-  const statusColors = [
-    { label:'Vigente', val:vigentes, color:'var(--s-ok)' },
-    { label:'Adjudicado', val:adjudicado, color:'var(--s-adj)' },
-    { label:'Desierta', val:desierta, color:'var(--s-des)' },
-  ].filter(s=>s.val>0);
+  // ── Territory ───────────────────────────────────────────────────────────
+  const byCCAA = {};
+  rows.forEach(r => { if(r.ccaa) byCCAA[r.ccaa]=(byCCAA[r.ccaa]||0)+1; });
+  const ccaaArr = Object.entries(byCCAA).sort((a,b)=>b[1]-a[1]);
+  const esCount = byCCAA['ES'] || 0;
+  const esPct   = pct(esCount, total);
 
-  // ── Trend bars (monthly) ──────────────────────────────────────────────
-  const maxMonth = Math.max(...monthArr.map(([,v])=>v), 1);
-  const trendBars = monthArr.map(([m,v]) =>
-    `<div class="trend-bar-col">
-      <div class="trend-bar-fill" style="height:${pct(v,maxMonth)}%"></div>
-      <div class="trend-bar-lbl">${m.slice(5)}</div>
-    </div>`
-  ).join('');
+  // ── Submission deadlines (open opportunities only, honest + sparse) ──────
+  const openOpps   = rows.filter(r => isOpenOpportunity(r));
+  const openWithDl = openOpps.filter(r => { const n = daysTo(r.data_limit); return n !== null && n >= 0; });
+  const dlBuckets  = {'≤ 7 días':0,'8–30 días':0,'> 30 días':0};
+  openWithDl.forEach(r => { const n = daysTo(r.data_limit); if (n<=7) dlBuckets['≤ 7 días']++; else if (n<=30) dlBuckets['8–30 días']++; else dlBuckets['> 30 días']++; });
+  const dlArr = Object.entries(dlBuckets).filter(([,v])=>v>0);
 
-  // ── Donut data ────────────────────────────────────────────────────────
-  const donutSegs = statusColors.map(s => ({ pct: pct(s.val, total), color: s.color }));
-  const donutLegend = statusColors.map(s =>
-    `<div class="donut-legend-item">
-      <span class="donut-dot" style="background:${s.color}"></span>
-      <span>${s.label}</span>
-      <span class="donut-pct">${pct(s.val,total)}%</span>
-    </div>`
-  ).join('');
+  // ── Documents (link-level coverage only, NOT content extraction) ─────────
+  const withDocs  = rows.filter(r => (r.documents||[]).length > 0);
+  const totalDocs = withDocs.reduce((s,r)=>s+(r.documents||[]).length, 0);
+  const docPct    = pct(withDocs.length, total);
 
-  // ── Insights ──────────────────────────────────────────────────────────
-  const insights = [];
-  if (tasa_des >= 30) insights.push({ cls:'warn', text:`<strong>${tasa_des}%</strong> de las licitaciones declaradas desiertas — índice elevado. Puede indicar presupuestos poco realistas o plazos insuficientes.` });
-  if (tasa_adj >= 50) insights.push({ cls:'ok', text:`<strong>${tasa_adj}%</strong> de adjudicación — mercado activo con alta resolución.` });
-  const topDiscLabel = discArr[0] ? DISC[discArr[0][0]]?.label : null;
-  if (topDiscLabel) insights.push({ cls:'', text:`La disciplina con más licitaciones es <strong>${topDiscLabel}</strong> con <strong>${discArr[0][1]}</strong> expedientes.` });
-
-  // ── Top 5 mayor presupuesto ───────────────────────────────────────────
-  const top5 = [...rows].filter(r=>r.pressupost>0).sort((a,b)=>b.pressupost-a.pressupost).slice(0,5);
+  // ── Tops (descriptive facts about the dataset) ──────────────────────────
+  const top5 = conPpto.slice().sort((a,b)=>b.pressupost-a.pressupost).slice(0,5);
   const top5HTML = top5.map(r => {
-    const disc = (r.disciplines||[]).map(d=>discTag(d,'8px')).join('');
+    const disc = (r.disciplines||[]).map(d=>discTag(d,'8px')).join('') || discNoneTag('8px');
     return `<div class="sv-adj-item" style="flex-wrap:wrap;max-width:100%;gap:4px">
       <div style="flex:1;min-width:160px">
         <div style="font-size:10px;font-weight:700;color:var(--text);line-height:1.35">${esc(r.titol.slice(0,70))}${r.titol.length>70?'…':''}</div>
@@ -267,127 +247,135 @@ function render() {
     </div>`;
   }).join('');
 
-  // ── Conditions card ───────────────────────────────────────────────────
-  const plazosHTML = plazosArr.slice(0,6).map(([d,days]) => {
-    const c = discColor(d);
-    return `<div class="sv-bar-row">
-      <div class="sv-bar-label">${DISC[d]?.label||d}</div>
-      <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(days,plazosArr[0]?.[1]||1)}%;background:${c.text}"></div></div>
-      <div class="sv-bar-val">${days}d</div>
-    </div>`;
-  }).join('');
+  const byOrg = {};
+  rows.forEach(r => { if(r.organisme) byOrg[r.organisme]=(byOrg[r.organisme]||0)+1; });
+  const orgArr = Object.entries(byOrg).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // ── Donut (lifecycle classification) ────────────────────────────────────
+  const statusSegs = [
+    { label:'Sin adjudicar', val:sinAdjudicar, color:'var(--s-ok)'  },
+    { label:'Adjudicadas',   val:adjudicadas,  color:'var(--s-adj)' },
+    { label:'Desiertas',     val:desiertas,    color:'var(--s-des)' },
+  ].filter(s=>s.val>0);
+  const donutSegs = statusSegs.map(s => ({ pct: pct(s.val, total), color: s.color }));
+  const donutLegend = statusSegs.map(s =>
+    `<div class="donut-legend-item">
+      <span class="donut-dot" style="background:${s.color}"></span>
+      <span>${s.label}</span>
+      <span class="donut-pct">${pct(s.val,total)}%</span>
+    </div>`
+  ).join('');
+
+  // ── Range colors (qualitative, fixed order) ─────────────────────────────
+  const rangeColors = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444'];
 
   // ── Assemble HTML ─────────────────────────────────────────────────────
   body.innerHTML = `
-    <!-- BIG NUMBERS -->
+    <!-- BIG NUMBERS: dataset overview -->
     <div class="sv-bignums">
       <div class="sv-bignum">
         <div class="sv-bignum-val">${total.toLocaleString('es-ES')}</div>
-        <div class="sv-bignum-lbl">Licitaciones</div>
+        <div class="sv-bignum-lbl">Registros canónicos</div>
+        <div class="sv-bignum-sub">de ${rawRows.toLocaleString('es-ES')} filas de origen</div>
       </div>
       <div class="sv-bignum">
-        <div class="sv-bignum-val" style="color:var(--s-ok)">${vigentes.toLocaleString('es-ES')}</div>
-        <div class="sv-bignum-lbl">Vigentes</div>
+        <div class="sv-bignum-val" style="color:var(--s-ok)">${sinAdjudicar.toLocaleString('es-ES')}</div>
+        <div class="sv-bignum-lbl">Sin adjudicar</div>
+        <div class="sv-bignum-sub">clasificación de ciclo de vida</div>
       </div>
       <div class="sv-bignum">
-        <div class="sv-bignum-val">${fmt(volumen)}</div>
-        <div class="sv-bignum-lbl">Volumen total</div>
+        <div class="sv-bignum-val">${conPpto.length.toLocaleString('es-ES')}</div>
+        <div class="sv-bignum-lbl">Con presupuesto</div>
+        <div class="sv-bignum-sub">${sinPpto.toLocaleString('es-ES')} sin informar</div>
       </div>
       <div class="sv-bignum">
-        <div class="sv-bignum-val">${fmt(avgPpto)}</div>
-        <div class="sv-bignum-lbl">Presupuesto medio</div>
+        <div class="sv-bignum-val">${fmt(medianPpto)}</div>
+        <div class="sv-bignum-lbl">Mediana de presupuesto</div>
+        <div class="sv-bignum-sub">presupuesto informado</div>
       </div>
     </div>
 
-    <!-- INSIGHTS -->
-    ${insights.map(i=>`<div class="sv-insight ${i.cls}">${i.text}</div>`).join('')}
+    <!-- COVERAGE CAVEAT (replaces unsupported insights) -->
+    <div class="sv-insight">
+      <strong>Cobertura del dataset.</strong> Expedientes de contratación pública (PLACSP · contrataciondelestado.es) detectados con relevancia para diseño y comunicación visual. Las cifras se calculan sobre <strong>registros canónicos</strong> (deduplicados), no sobre filas de origen, y no representan el tamaño total del mercado.
+    </div>
 
-    <!-- SECTION: VISIÓN GENERAL -->
-    <div class="sv-section-title">${t('sv_overview')}</div>
+    <!-- SECTION: CICLO DE VIDA -->
+    <div class="sv-section-title">Ciclo de vida</div>
     <div class="sv-grid">
-      <!-- Resultado de licitaciones (donut) -->
       <div class="sv-card">
-        <div class="sv-card-title">${t('sv_resultado')}</div>
+        <div class="sv-card-title">Estado del expediente</div>
         <div class="chart-wrap">
           ${donutSVG(donutSegs)}
           <div class="donut-legend">${donutLegend}</div>
         </div>
+        <div class="sv-card-note">«Sin adjudicar» indica que el expediente aún no consta resuelto; no implica que el plazo de presentación siga abierto (ver Plazos de presentación).</div>
       </div>
-      <!-- Evolución mensual -->
+      ${discBarCard('Distribución por disciplina', discEntries, sinDisc ? `«Sin disciplina» (${sinDisc.toLocaleString('es-ES')}) es un grupo de calidad de datos: expedientes aún sin clasificar.` : '')}
       <div class="sv-card">
-        <div class="sv-card-title">${t('sv_by_month')}</div>
-        ${monthArr.length
-          ? `<div class="trend-bars">${trendBars}</div>`
-          : `<div class="sv-empty">${t('sv_no_data')}</div>`}
+        <div class="sv-card-title">Territorios con más registros</div>
+        <div class="sv-bars">
+          ${ccaaArr.slice(0,10).map(([c,v]) => `<div class="sv-bar-row">
+            <div class="sv-bar-label" title="${esc(TERR[c]?.name||c)}">${esc(TERR[c]?.name||c)}</div>
+            <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(v,ccaaArr[0][1])}%;background:var(--text)"></div></div>
+            <div class="sv-bar-val">${v.toLocaleString('es-ES')}</div>
+          </div>`).join('')}
+        </div>
+        ${esCount ? `<div class="sv-card-note">El ámbito estatal (ES) concentra el ${esPct}% de los registros; la distribución territorial está sesgada hacia licitaciones de ámbito estatal.</div>` : ''}
       </div>
-      <!-- Rango de presupuesto -->
-      ${barCard(t('sv_by_range'), rangesArr, (label,i) => rangeColors[rangesArr.findIndex(([l])=>l===label)%rangeColors.length])}
     </div>
 
-    <!-- SECTION: POR DISCIPLINA -->
-    <div class="sv-section-title">${t('sv_by_disc')}</div>
+    <!-- SECTION: PRESUPUESTO INFORMADO -->
+    <div class="sv-section-title">Presupuesto informado</div>
     <div class="sv-grid">
-      ${barCard('Licitaciones por disciplina', discArr.map(([d,v])=>[DISC[d]?.label||d,v]), (label) => { const d=Object.keys(DISC).find(k=>DISC[k].label===label); return d?discC(d):'var(--text)'; })}
-      ${barCard(t('sv_top_disc_vol'), discVolArr.map(([d,v])=>[DISC[d]?.label||d,v]), (label)=>{ const d=Object.keys(DISC).find(k=>DISC[k].label===label); return d?discC(d):'var(--text)'; }, fmt)}
-      ${plazosArr.length ? `<div class="sv-card"><div class="sv-card-title">${t('sv_plazo')}</div><div class="sv-bars">${plazosHTML}</div></div>` : ''}
-    </div>
-
-    <!-- SECTION: POR TERRITORIO -->
-    <div class="sv-section-title">${t('sv_by_terr')}</div>
-    <div class="sv-grid">
-      ${barCard('Licitaciones por CCAA', ccaaArr.map(([c,v])=>[TERR[c]?.name||c,v]), ccaaC)}
-      ${barCard(t('sv_top_terr'), ccaaVolArr.map(([c,v])=>[TERR[c]?.name||c,v]), ccaaC, fmt)}
-    </div>
-
-    <!-- SECTION: TOPS -->
-    <div class="sv-section-title">${t('sv_tops')}</div>
-    <div class="sv-grid">
-      <!-- Top 5 mayor presupuesto -->
-      <div class="sv-card" >
-        <div class="sv-card-title">${t('sv_top_ppto')}</div>
+      <div class="sv-card">
+        <div class="sv-card-title">Resumen de presupuesto</div>
+        <div class="sv-facts">
+          <div class="sv-fact"><span class="sv-fact-lbl">Con presupuesto informado</span><span class="sv-fact-val">${conPpto.length.toLocaleString('es-ES')}</span></div>
+          <div class="sv-fact"><span class="sv-fact-lbl">Sin presupuesto informado</span><span class="sv-fact-val">${sinPpto.toLocaleString('es-ES')}</span></div>
+          <div class="sv-fact"><span class="sv-fact-lbl">Mediana</span><span class="sv-fact-val">${fmt(medianPpto)}</span></div>
+          <div class="sv-fact"><span class="sv-fact-lbl">Rango</span><span class="sv-fact-val">${fmt(minPpto)} – ${fmt(maxPpto)}</span></div>
+          <div class="sv-fact"><span class="sv-fact-lbl">Suma informada</span><span class="sv-fact-val">${fmt(sumPpto)}</span></div>
+        </div>
+        <div class="sv-card-note">El presupuesto base de licitación es orientativo. La suma informada no equivale al valor de mercado y excluye ${sinPpto.toLocaleString('es-ES')} registros sin presupuesto.</div>
+      </div>
+      ${barCard('Distribución por rango', rangesArr, (label) => rangeColors[rangesArr.findIndex(([l])=>l===label)%rangeColors.length])}
+      <div class="sv-card">
+        <div class="sv-card-title">Mayor presupuesto informado</div>
         ${top5.length ? `<div style="display:flex;flex-direction:column;gap:6px">${top5HTML}</div>` : `<div class="sv-empty">${t('sv_no_data')}</div>`}
       </div>
-      <!-- Top organismos por volumen -->
-      ${barCard(t('sv_top_orgs_vol'), orgArr, ccaaC, fmt)}
-      <!-- Top adjudicatarios -->
+    </div>
+
+    <!-- SECTION: PLAZOS DE PRESENTACIÓN -->
+    <div class="sv-section-title">Plazos de presentación</div>
+    <div class="sv-grid">
       <div class="sv-card">
-        <div class="sv-card-title">${t('sv_adj')}</div>
-        ${adjArr.length
-          ? `<div style="display:flex;flex-direction:column;gap:3px">` +
-            adjArr.map(([name,vol]) =>
-              `<div class="sv-adj-item">
-                <div class="sv-adj-name" title="${esc(name)}">${esc(name)}</div>
-                <div class="sv-adj-val">${fmt(vol)}</div>
-              </div>`
-            ).join('') + `</div>`
-          : `<div class="sv-empty">${t('sv_no_adj')}</div>`}
+        <div class="sv-card-title">Ventana de presentación vigente</div>
+        <div class="sv-facts">
+          <div class="sv-fact"><span class="sv-fact-lbl">Abiertas a presentación hoy</span><span class="sv-fact-val">${openOpps.length.toLocaleString('es-ES')}</span></div>
+          <div class="sv-fact"><span class="sv-fact-lbl">Con plazo futuro explícito</span><span class="sv-fact-val">${openWithDl.length.toLocaleString('es-ES')}</span></div>
+        </div>
+        ${dlArr.length ? `<div class="sv-bars" style="margin-top:10px">${dlArr.map(([label,v]) => `<div class="sv-bar-row">
+          <div class="sv-bar-label">${label}</div>
+          <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(v,openWithDl.length||1)}%;background:var(--s-ok)"></div></div>
+          <div class="sv-bar-val">${v.toLocaleString('es-ES')}</div>
+        </div>`).join('')}</div>` : ''}
+        <div class="sv-card-note">Cifras escasas: el dataset es una instantánea histórica y la mayoría de los plazos ya han vencido o no constan. No interpretar como urgencia.</div>
       </div>
     </div>
 
-    <!-- SECTION: CONDICIONES DEL MERCADO -->
-    <div class="sv-section-title">${t('sv_conditions')}</div>
+    <!-- SECTION: DOCUMENTOS ENLAZADOS -->
+    <div class="sv-section-title">Documentos enlazados</div>
     <div class="sv-grid">
       <div class="sv-card">
-        <div class="sv-card-title">Tasas de resolución</div>
-        <div class="sv-bars">
-          <div class="sv-bar-row">
-            <div class="sv-bar-label">Tasa adjudicación</div>
-            <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${tasa_adj}%;background:var(--s-adj)"></div></div>
-            <div class="sv-bar-val">${tasa_adj}%</div>
-          </div>
-          <div class="sv-bar-row">
-            <div class="sv-bar-label">Tasa desierta</div>
-            <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${tasa_des}%;background:var(--s-des)"></div></div>
-            <div class="sv-bar-val">${tasa_des}%</div>
-          </div>
-          <div class="sv-bar-row">
-            <div class="sv-bar-label">Todavía activas</div>
-            <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(vigentes,total)}%;background:var(--s-ok)"></div></div>
-            <div class="sv-bar-val">${pct(vigentes,total)}%</div>
-          </div>
+        <div class="sv-card-title">Cobertura de enlaces</div>
+        <div class="sv-facts">
+          <div class="sv-fact"><span class="sv-fact-lbl">Registros con documentos enlazados</span><span class="sv-fact-val">${withDocs.length.toLocaleString('es-ES')} (${docPct}%)</span></div>
+          <div class="sv-fact"><span class="sv-fact-lbl">Total de documentos enlazados</span><span class="sv-fact-val">${totalDocs.toLocaleString('es-ES')}</span></div>
         </div>
+        <div class="sv-card-note">Documentos <strong>enlazados</strong> desde el expediente, no leídos ni analizados. La cobertura de contenido (extracción/DocIntel) no está reflejada en esta cifra.</div>
       </div>
-      ${barCard(t('sv_budget_disc'), discVolArr.map(([d,v])=>[DISC[d]?.label||d, Math.round(v/(byDisc[d]||1))]), (label)=>{ const d=Object.keys(DISC).find(k=>DISC[k].label===label); return d?discC(d):'var(--text)'; }, fmt)}
+      ${barCard('Organismos con más registros', orgArr, () => 'var(--text)')}
     </div>
   `;
 }

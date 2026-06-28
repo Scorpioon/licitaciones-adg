@@ -339,6 +339,14 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sv-insight strong { color:var(--text); }
 .sv-insight.warn { border-color:var(--s-warn); color:var(--s-warn); background:var(--s-warn-bg); }
 .sv-insight.ok   { border-color:var(--s-ok);   color:var(--s-ok);   background:var(--s-ok-bg); }
+/* p207: canonical stats helpers — bignum sub-caption, per-card caveat, fact rows */
+.sv-bignum-sub { font-size:7.5px; color:var(--text3); margin-top:3px; letter-spacing:.03em; line-height:1.4; }
+.sv-card-note { font-size:8.5px; color:var(--text3); margin-top:10px; line-height:1.55; border-top:1px dashed var(--border2); padding-top:8px; }
+.sv-card-note strong { color:var(--text2); }
+.sv-facts { display:flex; flex-direction:column; gap:6px; }
+.sv-fact { display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:10.5px; }
+.sv-fact-lbl { color:var(--text2); }
+.sv-fact-val { font-weight:700; color:var(--text); white-space:nowrap; }
 
 /* ─── ABOUT / GUIDE ───────────────────────────────────────────────────────── */
 .about-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; }
