@@ -101,50 +101,93 @@ function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
 function avg(arr) { return arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function donutSVG(segments, size=64) {
-  const r = 20, cx=32, cy=32, circ=2*Math.PI*r;
-  let offset = 0;
-  const paths = segments.map(s => {
-    const len = circ * s.pct / 100;
-    const path = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="8" stroke-dasharray="${len} ${circ-len}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
-    offset += len;
-    return path;
-  });
-  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64">${paths.join('')}<circle cx="${cx}" cy="${cy}" r="12" fill="var(--bg)"/></svg>`;
+// ── ESTADÍSTICAS v2 VISUAL PRIMITIVES (p211B) ────────────────────────────────
+// Restrained, dependency-free building blocks for the v2 data modules. All pure
+// and defensive (null/NaN safe). Monochrome base; discipline color is used only
+// as a taxonomy identity mark via discColor(). No chart library, no claims.
+function fmtNum(n) { return (Number(n) || 0).toLocaleString('es-ES'); }
+function formatPercent(a, b) { return pct(a, b) + '%'; }
+
+// Budget bucket label for a single amount (honest fixed ranges, no scoring).
+function budgetBucket(p) {
+  if (!(p > 0)) return 'Sin presupuesto';
+  if (p < 10000)  return '< 10K';
+  if (p < 50000)  return '10K–50K';
+  if (p < 100000) return '50K–100K';
+  if (p < 500000) return '100K–500K';
+  return '> 500K';
 }
 
-function barCard(title, items, colorFn, valFn) {
-  if (!items.length) return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-empty">${t('sv_no_data')}</div></div>`;
-  const max = items[0][1] || 1;
-  const bars = items.slice(0,8).map(([label,val]) => {
-    const color = colorFn ? colorFn(label) : 'var(--text)';
-    const display = valFn ? valFn(val) : val.toLocaleString('es-ES');
-    return `<div class="sv-bar-row">
-      <div class="sv-bar-label" title="${esc(label)}">${esc(label)}</div>
-      <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(val,max)}%;background:${color}"></div></div>
-      <div class="sv-bar-val">${display}</div>
-    </div>`;
-  }).join('');
-  return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-bars">${bars}</div></div>`;
+// Coverage ratio over the filtered set: { n, pct } (defensive).
+function coverageRatio(rows, predFn) {
+  var n = 0; for (var i = 0; i < rows.length; i++) { if (predFn(rows[i])) n++; }
+  return { n: n, pct: pct(n, rows.length) };
 }
 
-// ── DISCIPLINE BAR CARD (p207) ──────────────────────────────────────────────
-// Renders discipline counts using p204 discColor() helpers. Accepts an explicit
-// '__none__' key for the neutral "sin disciplina" data-quality bucket so it is
-// shown honestly rather than hidden.
-function discBarCard(title, entries, note) {
-  if (!entries.length) return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-empty">${t('sv_no_data')}</div></div>`;
-  const max = entries[0][1] || 1;
-  const bars = entries.slice(0,12).map(([key,val]) => {
-    const label = key === '__none__' ? (t('disc_none') || 'Sin disciplina') : (DISC[key]?.label || key);
-    const color = discColor(key).text; // neutral fallback built in for unknown/none keys
-    return `<div class="sv-bar-row">
-      <div class="sv-bar-label" title="${esc(label)}">${esc(label)}</div>
-      <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(val,max)}%;background:${color}"></div></div>
-      <div class="sv-bar-val">${val.toLocaleString('es-ES')}</div>
-    </div>`;
+// Small DOM-string fact row (label · value).
+function factRow(lbl, val) {
+  return '<div class="sv2-fact"><span class="sv2-fact-lbl">' + esc(lbl) + '</span><span class="sv2-fact-val">' + val + '</span></div>';
+}
+function emptyInline() { return '<div class="sv2-empty-inline">' + esc(t('sv_no_data')) + '</div>'; }
+
+// Module shell: head (title + optional sub + optional tag) + body + optional note.
+function sv2Module(title, sub, bodyHTML, opts) {
+  opts = opts || {};
+  var head = '<div class="sv2-module-head"><div class="sv2-module-titles">'
+    + '<div class="sv2-module-title">' + esc(title) + '</div>'
+    + (sub ? '<div class="sv2-module-sub">' + esc(sub) + '</div>' : '')
+    + '</div>' + (opts.tag ? '<span class="sv2-module-tag">' + esc(opts.tag) + '</span>' : '') + '</div>';
+  return '<section class="sv2-module' + (opts.cls ? ' ' + opts.cls : '') + '">'
+    + head + (bodyHTML || '') + (opts.note ? '<div class="sv2-note">' + opts.note + '</div>' : '') + '</section>';
+}
+
+// Horizontal bar row: optional taxonomy mark, label, track (vs max), value and
+// optional share-of-total percentage.
+function sv2BarRow(label, val, max, total, color, markColor) {
+  var share = total ? pct(val, total) : -1;
+  return '<div class="sv2-bar">'
+    + (markColor ? '<span class="sv2-bar-mark" style="background:' + markColor + '"></span>' : '')
+    + '<div class="sv2-bar-label" title="' + esc(label) + '">' + esc(label) + '</div>'
+    + '<div class="sv2-bar-track"><div class="sv2-bar-fill" style="width:' + pct(val, max) + '%'
+      + (color ? ';background:' + color : '') + '"></div></div>'
+    + '<div class="sv2-bar-val">' + fmtNum(val) + (share >= 0 ? '<span class="sv2-bar-pct">' + share + '%</span>' : '') + '</div>'
+    + '</div>';
+}
+
+// Coverage ratio row: label, count·percent, thin progress track.
+function sv2RatioRow(label, n, total) {
+  var p = pct(n, total);
+  return '<div class="sv2-ratio">'
+    + '<div class="sv2-ratio-head"><span class="sv2-ratio-lbl">' + esc(label) + '</span>'
+    + '<span class="sv2-ratio-val">' + fmtNum(n) + '<span class="sv2-bar-pct">' + p + '%</span></span></div>'
+    + '<div class="sv2-ratio-track"><div class="sv2-ratio-fill" style="width:' + p + '%"></div></div>'
+    + '</div>';
+}
+
+// Segmented single-bar + legend (lifecycle/status). segs: [{label,val,color}].
+function sv2Segments(segs, total) {
+  var active = segs.filter(function(s){ return s.val > 0; });
+  var bar = active.map(function(s){
+    return '<div class="sv2-seg-fill" style="width:' + pct(s.val, total) + '%;background:' + s.color + '" title="' + esc(s.label) + '"></div>';
   }).join('');
-  return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-bars">${bars}</div>${note?`<div class="sv-card-note">${note}</div>`:''}</div>`;
+  var legend = active.map(function(s){
+    return '<div class="sv2-seg-item"><span class="sv2-seg-dot" style="background:' + s.color + '"></span>'
+      + '<span class="sv2-seg-lbl">' + esc(s.label) + '</span>'
+      + '<span class="sv2-seg-val">' + fmtNum(s.val) + '<span class="sv2-bar-pct">' + pct(s.val, total) + '%</span></span></div>';
+  }).join('');
+  return '<div class="sv2-seg">' + (bar || '<div class="sv2-seg-fill" style="width:100%;background:var(--border2)"></div>') + '</div>'
+    + '<div class="sv2-seg-legend">' + legend + '</div>';
+}
+
+// Ranked compact list. items: [{ main, sub?, val }] (val is pre-formatted HTML/text).
+function sv2List(items) {
+  if (!items.length) return emptyInline();
+  return '<ol class="sv2-list">' + items.map(function(it, i){
+    return '<li class="sv2-list-item"><span class="sv2-list-rank">' + (i + 1) + '</span>'
+      + '<div class="sv2-list-main"><div class="sv2-list-name" title="' + esc(it.main) + '">' + esc(it.main) + '</div>'
+      + (it.sub ? '<div class="sv2-list-sub" title="' + esc(it.sub) + '">' + esc(it.sub) + '</div>' : '') + '</div>'
+      + '<div class="sv2-list-val">' + it.val + '</div></li>';
+  }).join('') + '</ol>';
 }
 
 // ── MODULE REGISTRY FOUNDATION (p210) ────────────────────────────────────────
@@ -291,47 +334,46 @@ function resetFilters() {
   refreshActiveView();
 }
 
-// ── RENDER ────────────────────────────────────────────────────────────────
-// p207: Estadísticas v1 — descriptive, honest, canonical-data surface.
-// Answers "what is in the data?" (Barómetro/p208 answers "what is happening
-// in the sector over time?"). All figures run on canonical/deduped records.
+// ── RENDER · ESTADÍSTICAS v2 (p211B) ─────────────────────────────────────────
+// Visual data modules answering "¿qué hay dentro del dataset?" (Barómetro/p208
+// answers "¿qué está pasando en el periodo?"). Every figure runs on canonical/
+// deduped records via getRows(); raw ADG.data is only ever a labelled source
+// count. p207 honesty rules preserved: no market claims, no invented intelligence,
+// canonical data only. Composition follows ANALYTICS_MODULES.stats.
 function render() {
   // Canonical/deduped source — never raw duplicated ADG.data rows.
   const canonSource = (ADG.canonicalData && ADG.canonicalData.length) ? ADG.canonicalData : ADG.data;
   const rows = getRows(canonSource);
   const total = rows.length;
   const canonGlobal = canonSource.length;
-  const rawRows = ADG.data.length;
-
-  // Summary line — canonical count is the headline; raw rows are labelled as source.
-  const sumEl = el('sv-summary');
-  if (sumEl) {
-    const parts = [];
-    if (SV.year)  parts.push(SV.year);
-    if (SV.cuatri) parts.push(cuatriShort(parseInt(SV.cuatri,10)));
-    if (SV.ccaa)  parts.push(TERR[SV.ccaa]?.name || SV.ccaa);
-    if (SV.estat) parts.push(SV.estat);
-    if (SV.discs.size) parts.push([...SV.discs].map(d=>DISC[d]?.label||d).join(', '));
-    const label = parts.length ? `${t('sv_filter_label')}: <strong>${esc(parts.join(' · '))}</strong> — ` : '';
-    sumEl.innerHTML = `${label}<strong>${total.toLocaleString('es-ES')}</strong> registros canónicos · ${t('sv_of')} <strong>${canonGlobal.toLocaleString('es-ES')}</strong> · derivados de <strong>${rawRows.toLocaleString('es-ES')}</strong> filas de origen`;
-  }
+  const rawRows = ADG.data ? ADG.data.length : 0;
+  const hasFilters = !!(SV.year || SV.cuatri || SV.ccaa || SV.estat || SV.discs.size);
 
   const body = el('sv-body');
   if (!body) return;
 
+  // ── H · Empty / low-data state ───────────────────────────────────────────
   if (!total) {
-    body.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text3)"><i class="bi bi-funnel" style="font-size:32px;display:block;margin-bottom:10px;opacity:.3"></i><div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase">${t('sv_no_data')}</div></div>`;
+    body.innerHTML = renderEmptyState(hasFilters);
+    const rb = el('sv2-empty-reset'); if (rb) rb.addEventListener('click', resetFilters);
     return;
   }
 
-  // ── Lifecycle / status (canonical classification) ───────────────────────
+  // ── Data-state label (Datos reales / Muestra) ────────────────────────────
+  const state = ADG.isSample
+    ? { lbl: 'Datos de muestra', cls: 'sample' }
+    : { lbl: dataFreshnessLabel() || 'Datos reales', cls: 'ok' };
+
+  // ── Lifecycle / status ───────────────────────────────────────────────────
   // "Sin adjudicar" = active_opportunity_eligible (lifecycle: not yet awarded),
-  // NOT "open for bids right now" — submission windows are reported separately.
+  // NOT "open for bids now". Estado is the declared expediente status.
   const sinAdjudicar = rows.filter(r => r.active_opportunity_eligible === true).length;
+  const vigentes     = rows.filter(r => r.estat === 'Vigente').length;
   const adjudicadas  = rows.filter(r => r.estat === 'Adjudicado').length;
   const desiertas    = rows.filter(r => r.estat === 'Desierta').length;
+  const otrosEstat   = total - vigentes - adjudicadas - desiertas;
 
-  // ── Budget (distribution, not just total) ───────────────────────────────
+  // ── Budget (distribution, not just total) ────────────────────────────────
   const conPpto    = rows.filter(r => r.pressupost > 0);
   const sinPpto    = total - conPpto.length;
   const pptoSorted = conPpto.map(r => r.pressupost).sort((a,b)=>a-b);
@@ -339,193 +381,207 @@ function render() {
   const minPpto    = pptoSorted.length ? pptoSorted[0] : 0;
   const maxPpto    = pptoSorted.length ? pptoSorted[pptoSorted.length-1] : 0;
   const sumPpto    = conPpto.reduce((s,r)=>s+r.pressupost,0);
+  const bucketOrder = ['< 10K','10K–50K','50K–100K','100K–500K','> 500K'];
+  const buckets = {}; bucketOrder.forEach(k => buckets[k] = 0);
+  conPpto.forEach(r => { buckets[budgetBucket(r.pressupost)]++; });
+  const bucketMax = Math.max.apply(null, bucketOrder.map(k => buckets[k]).concat([1]));
 
-  const ranges = {'< 10K':0,'10K–30K':0,'30K–100K':0,'100K–300K':0,'300K–1M':0,'> 1M':0};
-  conPpto.forEach(r => {
-    const p = r.pressupost;
-    if (p<10000) ranges['< 10K']++;
-    else if (p<30000) ranges['10K–30K']++;
-    else if (p<100000) ranges['30K–100K']++;
-    else if (p<300000) ranges['100K–300K']++;
-    else if (p<1000000) ranges['300K–1M']++;
-    else ranges['> 1M']++;
-  });
-  const rangesArr = Object.entries(ranges).filter(([,v])=>v>0);
-
-  // ── Disciplines (incl. neutral "sin disciplina" bucket) ─────────────────
+  // ── Disciplines (incl. neutral "sin disciplina" bucket) ──────────────────
   const byDisc = {}; let sinDisc = 0;
   rows.forEach(r => {
     const ds = r.disciplines || [];
     if (!ds.length) sinDisc++;
-    ds.forEach(d => { byDisc[d]=(byDisc[d]||0)+1; });
+    ds.forEach(d => { byDisc[d] = (byDisc[d]||0)+1; });
   });
   const discArr = Object.entries(byDisc).sort((a,b)=>b[1]-a[1]);
-  const discEntries = discArr.concat(sinDisc ? [['__none__', sinDisc]] : []);
 
-  // ── Territory ───────────────────────────────────────────────────────────
+  // ── Territory ────────────────────────────────────────────────────────────
   const byCCAA = {};
-  rows.forEach(r => { if(r.ccaa) byCCAA[r.ccaa]=(byCCAA[r.ccaa]||0)+1; });
+  rows.forEach(r => { if (r.ccaa) byCCAA[r.ccaa] = (byCCAA[r.ccaa]||0)+1; });
   const ccaaArr = Object.entries(byCCAA).sort((a,b)=>b[1]-a[1]);
   const esCount = byCCAA['ES'] || 0;
-  const esPct   = pct(esCount, total);
-
-  // ── Submission deadlines (open opportunities only, honest + sparse) ──────
-  const openOpps   = rows.filter(r => isOpenOpportunity(r));
-  const openWithDl = openOpps.filter(r => { const n = daysTo(r.data_limit); return n !== null && n >= 0; });
-  const dlBuckets  = {'≤ 7 días':0,'8–30 días':0,'> 30 días':0};
-  openWithDl.forEach(r => { const n = daysTo(r.data_limit); if (n<=7) dlBuckets['≤ 7 días']++; else if (n<=30) dlBuckets['8–30 días']++; else dlBuckets['> 30 días']++; });
-  const dlArr = Object.entries(dlBuckets).filter(([,v])=>v>0);
 
   // ── Documents (link-level coverage only, NOT content extraction) ─────────
   const withDocs  = rows.filter(r => (r.documents||[]).length > 0);
   const totalDocs = withDocs.reduce((s,r)=>s+(r.documents||[]).length, 0);
-  const docPct    = pct(withDocs.length, total);
 
-  // ── Tops (descriptive facts about the dataset) ──────────────────────────
-  const top5 = conPpto.slice().sort((a,b)=>b.pressupost-a.pressupost).slice(0,5);
-  const top5HTML = top5.map(r => {
-    const disc = (r.disciplines||[]).map(d=>discTag(d,'8px')).join('') || discNoneTag('8px');
-    return `<div class="sv-adj-item" style="flex-wrap:wrap;max-width:100%;gap:4px">
-      <div style="flex:1;min-width:160px">
-        <div style="font-size:10px;font-weight:700;color:var(--text);line-height:1.35">${esc(r.titol.slice(0,70))}${r.titol.length>70?'…':''}</div>
-        <div style="font-size:8.5px;color:var(--text3);margin-top:2px">${esc(r.organisme||'—')}</div>
-        <div style="margin-top:3px">${disc}</div>
-      </div>
-      <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap">${fmt(r.pressupost)}</div>
-    </div>`;
-  }).join('');
+  // ── Coverage / completeness (field presence ratios) ──────────────────────
+  const withDisc = total - sinDisc;
+  const withTerr = coverageRatio(rows, r => !!r.ccaa).n;
+  const withDate = coverageRatio(rows, r => !!r.data_pub).n;
+  const withOrg  = coverageRatio(rows, r => !!r.organisme).n;
 
+  // ── Tops (descriptive facts about the dataset) ───────────────────────────
+  const topBudget = conPpto.slice().sort((a,b)=>b.pressupost-a.pressupost).slice(0,5);
   const byOrg = {};
-  rows.forEach(r => { if(r.organisme) byOrg[r.organisme]=(byOrg[r.organisme]||0)+1; });
-  const orgArr = Object.entries(byOrg).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  rows.forEach(r => { if (r.organisme) byOrg[r.organisme] = (byOrg[r.organisme]||0)+1; });
+  const orgArr = Object.entries(byOrg).sort((a,b)=>b[1]-a[1]).slice(0,6);
 
-  // ── Donut (lifecycle classification) ────────────────────────────────────
-  const statusSegs = [
-    { label:'Sin adjudicar', val:sinAdjudicar, color:'var(--s-ok)'  },
-    { label:'Adjudicadas',   val:adjudicadas,  color:'var(--s-adj)' },
-    { label:'Desiertas',     val:desiertas,    color:'var(--s-des)' },
-  ].filter(s=>s.val>0);
-  const donutSegs = statusSegs.map(s => ({ pct: pct(s.val, total), color: s.color }));
-  const donutLegend = statusSegs.map(s =>
-    `<div class="donut-legend-item">
-      <span class="donut-dot" style="background:${s.color}"></span>
-      <span>${s.label}</span>
-      <span class="donut-pct">${pct(s.val,total)}%</span>
-    </div>`
-  ).join('');
+  // ── Assemble v2 modules (ANALYTICS_MODULES.stats composition) ────────────
+  body.innerHTML = '<div class="sv2-stack">'
+    + renderStatHero({ total, canonGlobal, rawRows, hasFilters, state,
+        sinAdjudicar, conPpto: conPpto.length, sumPpto, discCount: discArr.length })
+    + renderDisciplineModule(discArr, sinDisc, total)
+    + '<div class="sv2-grid sv2-grid--2">'
+      + renderStatusModule({ vigentes, adjudicadas, desiertas, otrosEstat, sinAdjudicar }, total)
+      + renderBudgetModule({ conPpto: conPpto.length, sinPpto, sumPpto, medianPpto, minPpto, maxPpto, buckets, bucketOrder, bucketMax })
+    + '</div>'
+    + '<div class="sv2-grid sv2-grid--2">'
+      + renderCoverageModule({ conPpto: conPpto.length, withDisc, withTerr, withDate, withOrg }, total)
+      + renderDocumentsModule(withDocs.length, totalDocs, total)
+    + '</div>'
+    + '<div class="sv2-grid sv2-grid--3">'
+      + renderTopOrgsModule(orgArr)
+      + renderTopBudgetModule(topBudget)
+      + renderTopTerrModule(ccaaArr, esCount, total)
+    + '</div>'
+    + '<div class="sv2-note sv2-note--foot">'
+      + '<strong>Cobertura.</strong> Expedientes de contratación pública (PLACSP · contrataciondelestado.es) con relevancia para diseño y comunicación visual. Cifras sobre <strong>registros canónicos</strong> (deduplicados), no sobre filas de origen; no representan el tamaño total del mercado.'
+    + '</div>'
+    + '</div>';
+}
 
-  // ── Range colors (qualitative, fixed order) ─────────────────────────────
-  const rangeColors = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444'];
+// ── A · HERO / DATASET SNAPSHOT ──────────────────────────────────────────────
+function renderStatHero(d) {
+  const lead = '<div class="sv2-hero-lead">'
+    + '<div class="sv2-hero-state sv2-state--' + d.state.cls + '"><span class="sv2-state-dot"></span>' + esc(d.state.lbl) + '</div>'
+    + '<div class="sv2-hero-num">' + fmtNum(d.total) + '</div>'
+    + '<div class="sv2-hero-lbl">registros canónicos'
+      + (d.hasFilters ? ' <span class="sv2-hero-of">filtrados de ' + fmtNum(d.canonGlobal) + '</span>' : '')
+    + '</div>'
+    + '<div class="sv2-hero-meta">Derivados de ' + fmtNum(d.rawRows) + ' filas de origen · Fuente PLACSP</div>'
+    + '</div>';
+  const metric = (val, lbl, sub) => '<div class="sv2-hero-metric"><div class="sv2-hero-metric-val">' + val + '</div>'
+    + '<div class="sv2-hero-metric-lbl">' + esc(lbl) + '</div>'
+    + (sub ? '<div class="sv2-hero-metric-sub">' + esc(sub) + '</div>' : '') + '</div>';
+  const metrics = '<div class="sv2-hero-metrics">'
+    + metric('<span style="color:var(--s-ok)">' + fmtNum(d.sinAdjudicar) + '</span>', 'Sin adjudicar', 'ciclo de vida')
+    + metric(fmtNum(d.conPpto), 'Con presupuesto', formatPercent(d.conPpto, d.total) + ' del total')
+    + metric(fmt(d.sumPpto), 'Suma informada', 'presupuesto base')
+    + metric(fmtNum(d.discCount), 'Disciplinas', 'en la selección')
+    + '</div>';
+  return '<section class="sv2-hero">' + lead + metrics + '</section>';
+}
 
-  // ── Assemble HTML ─────────────────────────────────────────────────────
-  body.innerHTML = `
-    <!-- BIG NUMBERS: dataset overview -->
-    <div class="sv-bignums">
-      <div class="sv-bignum">
-        <div class="sv-bignum-val">${total.toLocaleString('es-ES')}</div>
-        <div class="sv-bignum-lbl">Registros canónicos</div>
-        <div class="sv-bignum-sub">de ${rawRows.toLocaleString('es-ES')} filas de origen</div>
-      </div>
-      <div class="sv-bignum">
-        <div class="sv-bignum-val" style="color:var(--s-ok)">${sinAdjudicar.toLocaleString('es-ES')}</div>
-        <div class="sv-bignum-lbl">Sin adjudicar</div>
-        <div class="sv-bignum-sub">clasificación de ciclo de vida</div>
-      </div>
-      <div class="sv-bignum">
-        <div class="sv-bignum-val">${conPpto.length.toLocaleString('es-ES')}</div>
-        <div class="sv-bignum-lbl">Con presupuesto</div>
-        <div class="sv-bignum-sub">${sinPpto.toLocaleString('es-ES')} sin informar</div>
-      </div>
-      <div class="sv-bignum">
-        <div class="sv-bignum-val">${fmt(medianPpto)}</div>
-        <div class="sv-bignum-lbl">Mediana de presupuesto</div>
-        <div class="sv-bignum-sub">presupuesto informado</div>
-      </div>
-    </div>
+// ── B · DISCIPLINE DISTRIBUTION (featured, central module) ────────────────────
+function renderDisciplineModule(discArr, sinDisc, total) {
+  const entries = discArr.concat(sinDisc ? [['__none__', sinDisc]] : []);
+  let bodyHTML;
+  if (!entries.length) {
+    bodyHTML = emptyInline();
+  } else {
+    const max = Math.max.apply(null, entries.map(e => e[1]).concat([1]));
+    bodyHTML = '<div class="sv2-bars sv2-bars--2col">' + entries.slice(0, 14).map(function(e){
+      const key = e[0], val = e[1];
+      const label = key === '__none__' ? (t('disc_none') || 'Sin disciplina') : (DISC[key] && DISC[key].label || key);
+      const mark  = key === '__none__' ? 'var(--border)' : discColor(key).text;
+      // Monochrome fill + taxonomy color mark; share is % of filtered records.
+      return sv2BarRow(label, val, max, total, null, mark);
+    }).join('') + '</div>';
+  }
+  const note = sinDisc
+    ? '«Sin disciplina» (' + fmtNum(sinDisc) + ') es un grupo de calidad de datos: expedientes aún sin clasificar. Un registro puede tener varias disciplinas, por lo que los porcentajes pueden sumar más de 100%.'
+    : 'Un registro puede tener varias disciplinas, por lo que los porcentajes pueden sumar más de 100%.';
+  return sv2Module('Distribución por disciplina', 'Reparto de la selección · % sobre registros filtrados', bodyHTML,
+    { cls: 'sv2-module--feature', tag: 'Composición', note: note });
+}
 
-    <!-- COVERAGE CAVEAT (replaces unsupported insights) -->
-    <div class="sv-insight">
-      <strong>Cobertura del dataset.</strong> Expedientes de contratación pública (PLACSP · contrataciondelestado.es) detectados con relevancia para diseño y comunicación visual. Las cifras se calculan sobre <strong>registros canónicos</strong> (deduplicados), no sobre filas de origen, y no representan el tamaño total del mercado.
-    </div>
+// ── C · LIFECYCLE / STATUS ───────────────────────────────────────────────────
+function renderStatusModule(s, total) {
+  const segs = [
+    { label: 'Vigente',    val: s.vigentes,    color: 'var(--s-ok)'  },
+    { label: 'Adjudicado', val: s.adjudicadas, color: 'var(--s-adj)' },
+    { label: 'Desierta',   val: s.desiertas,   color: 'var(--s-des)' },
+  ];
+  if (s.otrosEstat > 0) segs.push({ label: 'Otros / sin estado', val: s.otrosEstat, color: 'var(--text3)' });
+  return sv2Module('Estado del expediente', 'Distribución por estado declarado', sv2Segments(segs, total), {
+    note: '«Sin adjudicar» (' + fmtNum(s.sinAdjudicar) + ') es una clasificación de ciclo de vida y no equivale al estado «Vigente»: el plazo de presentación puede estar vencido.'
+  });
+}
 
-    <!-- SECTION: CICLO DE VIDA -->
-    <div class="sv-section-title">Ciclo de vida</div>
-    <div class="sv-grid">
-      <div class="sv-card">
-        <div class="sv-card-title">Estado del expediente</div>
-        <div class="chart-wrap">
-          ${donutSVG(donutSegs)}
-          <div class="donut-legend">${donutLegend}</div>
-        </div>
-        <div class="sv-card-note">«Sin adjudicar» indica que el expediente aún no consta resuelto; no implica que el plazo de presentación siga abierto (ver Plazos de presentación).</div>
-      </div>
-      ${discBarCard('Distribución por disciplina', discEntries, sinDisc ? `«Sin disciplina» (${sinDisc.toLocaleString('es-ES')}) es un grupo de calidad de datos: expedientes aún sin clasificar.` : '')}
-      <div class="sv-card">
-        <div class="sv-card-title">Territorios con más registros</div>
-        <div class="sv-bars">
-          ${ccaaArr.slice(0,10).map(([c,v]) => `<div class="sv-bar-row">
-            <div class="sv-bar-label" title="${esc(TERR[c]?.name||c)}">${esc(TERR[c]?.name||c)}</div>
-            <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(v,ccaaArr[0][1])}%;background:var(--text)"></div></div>
-            <div class="sv-bar-val">${v.toLocaleString('es-ES')}</div>
-          </div>`).join('')}
-        </div>
-        ${esCount ? `<div class="sv-card-note">El ámbito estatal (ES) concentra el ${esPct}% de los registros; la distribución territorial está sesgada hacia licitaciones de ámbito estatal.</div>` : ''}
-      </div>
-    </div>
+// ── D · BUDGET SHAPE ─────────────────────────────────────────────────────────
+function renderBudgetModule(b) {
+  const facts = '<div class="sv2-facts">'
+    + factRow('Con presupuesto', fmtNum(b.conPpto))
+    + factRow('Sin informar', fmtNum(b.sinPpto))
+    + factRow('Mediana', fmt(b.medianPpto))
+    + factRow('Rango', fmt(b.minPpto) + ' – ' + fmt(b.maxPpto))
+    + factRow('Suma informada', fmt(b.sumPpto))
+    + '</div>';
+  const bucketBars = b.conPpto
+    ? '<div class="sv2-buckets">' + b.bucketOrder.map(function(k){
+        return sv2BarRow(k, b.buckets[k], b.bucketMax, b.conPpto, 'var(--text)', null);
+      }).join('') + '</div>'
+    : emptyInline();
+  const bodyHTML = '<div class="sv2-split-cols">'
+    + '<div>' + facts + '</div>'
+    + '<div><div class="sv2-sub-lbl">Distribución por rango</div>' + bucketBars + '</div>'
+    + '</div>';
+  return sv2Module('Presupuesto informado', 'Sobre ' + fmtNum(b.conPpto) + ' registros con presupuesto base', bodyHTML, {
+    note: 'El presupuesto base de licitación es orientativo; no equivale al valor de mercado y excluye ' + fmtNum(b.sinPpto) + ' registros sin presupuesto.'
+  });
+}
 
-    <!-- SECTION: PRESUPUESTO INFORMADO -->
-    <div class="sv-section-title">Presupuesto informado</div>
-    <div class="sv-grid">
-      <div class="sv-card">
-        <div class="sv-card-title">Resumen de presupuesto</div>
-        <div class="sv-facts">
-          <div class="sv-fact"><span class="sv-fact-lbl">Con presupuesto informado</span><span class="sv-fact-val">${conPpto.length.toLocaleString('es-ES')}</span></div>
-          <div class="sv-fact"><span class="sv-fact-lbl">Sin presupuesto informado</span><span class="sv-fact-val">${sinPpto.toLocaleString('es-ES')}</span></div>
-          <div class="sv-fact"><span class="sv-fact-lbl">Mediana</span><span class="sv-fact-val">${fmt(medianPpto)}</span></div>
-          <div class="sv-fact"><span class="sv-fact-lbl">Rango</span><span class="sv-fact-val">${fmt(minPpto)} – ${fmt(maxPpto)}</span></div>
-          <div class="sv-fact"><span class="sv-fact-lbl">Suma informada</span><span class="sv-fact-val">${fmt(sumPpto)}</span></div>
-        </div>
-        <div class="sv-card-note">El presupuesto base de licitación es orientativo. La suma informada no equivale al valor de mercado y excluye ${sinPpto.toLocaleString('es-ES')} registros sin presupuesto.</div>
-      </div>
-      ${barCard('Distribución por rango', rangesArr, (label) => rangeColors[rangesArr.findIndex(([l])=>l===label)%rangeColors.length])}
-      <div class="sv-card">
-        <div class="sv-card-title">Mayor presupuesto informado</div>
-        ${top5.length ? `<div style="display:flex;flex-direction:column;gap:6px">${top5HTML}</div>` : `<div class="sv-empty">${t('sv_no_data')}</div>`}
-      </div>
-    </div>
+// ── E · DATA QUALITY / COVERAGE ──────────────────────────────────────────────
+function renderCoverageModule(c, total) {
+  const bodyHTML = '<div class="sv2-ratios">'
+    + sv2RatioRow('Con presupuesto', c.conPpto, total)
+    + sv2RatioRow('Con disciplina asignada', c.withDisc, total)
+    + sv2RatioRow('Con territorio', c.withTerr, total)
+    + sv2RatioRow('Con fecha de publicación', c.withDate, total)
+    + sv2RatioRow('Con organismo', c.withOrg, total)
+    + '</div>';
+  return sv2Module('Calidad y cobertura', 'Campos presentes sobre el total filtrado', bodyHTML, {
+    tag: 'Datos',
+    note: 'Ratios de cobertura de campos, no una puntuación de calidad: miden qué proporción de registros informa cada campo.'
+  });
+}
 
-    <!-- SECTION: PLAZOS DE PRESENTACIÓN -->
-    <div class="sv-section-title">Plazos de presentación</div>
-    <div class="sv-grid">
-      <div class="sv-card">
-        <div class="sv-card-title">Ventana de presentación vigente</div>
-        <div class="sv-facts">
-          <div class="sv-fact"><span class="sv-fact-lbl">Abiertas a presentación hoy</span><span class="sv-fact-val">${openOpps.length.toLocaleString('es-ES')}</span></div>
-          <div class="sv-fact"><span class="sv-fact-lbl">Con plazo futuro explícito</span><span class="sv-fact-val">${openWithDl.length.toLocaleString('es-ES')}</span></div>
-        </div>
-        ${dlArr.length ? `<div class="sv-bars" style="margin-top:10px">${dlArr.map(([label,v]) => `<div class="sv-bar-row">
-          <div class="sv-bar-label">${label}</div>
-          <div class="sv-bar-track"><div class="sv-bar-fill" style="width:${pct(v,openWithDl.length||1)}%;background:var(--s-ok)"></div></div>
-          <div class="sv-bar-val">${v.toLocaleString('es-ES')}</div>
-        </div>`).join('')}</div>` : ''}
-        <div class="sv-card-note">Cifras escasas: el dataset es una instantánea histórica y la mayoría de los plazos ya han vencido o no constan. No interpretar como urgencia.</div>
-      </div>
-    </div>
+// ── F · DOCUMENT COVERAGE ────────────────────────────────────────────────────
+function renderDocumentsModule(withDocs, totalDocs, total) {
+  const sinDocs = total - withDocs;
+  const segs = [
+    { label: 'Con documentos enlazados', val: withDocs, color: 'var(--text)' },
+    { label: 'Sin documentos',           val: sinDocs,  color: 'var(--border2)' },
+  ];
+  const bodyHTML = sv2Segments(segs, total)
+    + '<div class="sv2-facts" style="margin-top:12px">'
+    + factRow('Total de documentos enlazados', fmtNum(totalDocs))
+    + '</div>';
+  return sv2Module('Documentos enlazados', 'Cobertura de enlaces del expediente', bodyHTML, {
+    tag: 'Datos',
+    note: 'Documentos <strong>enlazados</strong> desde el expediente, no leídos ni analizados. No refleja extracción ni clasificación de contenido.'
+  });
+}
 
-    <!-- SECTION: DOCUMENTOS ENLAZADOS -->
-    <div class="sv-section-title">Documentos enlazados</div>
-    <div class="sv-grid">
-      <div class="sv-card">
-        <div class="sv-card-title">Cobertura de enlaces</div>
-        <div class="sv-facts">
-          <div class="sv-fact"><span class="sv-fact-lbl">Registros con documentos enlazados</span><span class="sv-fact-val">${withDocs.length.toLocaleString('es-ES')} (${docPct}%)</span></div>
-          <div class="sv-fact"><span class="sv-fact-lbl">Total de documentos enlazados</span><span class="sv-fact-val">${totalDocs.toLocaleString('es-ES')}</span></div>
-        </div>
-        <div class="sv-card-note">Documentos <strong>enlazados</strong> desde el expediente, no leídos ni analizados. La cobertura de contenido (extracción/DocIntel) no está reflejada en esta cifra.</div>
-      </div>
-      ${barCard('Organismos con más registros', orgArr, () => 'var(--text)')}
-    </div>
-  `;
+// ── G · TOP OPPORTUNITIES / ORGANISMS ────────────────────────────────────────
+function renderTopOrgsModule(orgArr) {
+  const items = orgArr.map(function(e){ return { main: e[0], val: fmtNum(e[1]) }; });
+  return sv2Module('Organismos con más registros', null, sv2List(items), { cls: 'sv2-module--compact' });
+}
+function renderTopBudgetModule(topBudget) {
+  const items = topBudget.map(function(r){
+    const titol = r.titol || '—';
+    return { main: titol.slice(0, 64) + (titol.length > 64 ? '…' : ''), sub: r.organisme || '—', val: fmt(r.pressupost) };
+  });
+  return sv2Module('Mayor presupuesto informado', null, sv2List(items), { cls: 'sv2-module--compact' });
+}
+function renderTopTerrModule(ccaaArr, esCount, total) {
+  const items = ccaaArr.slice(0, 6).map(function(e){
+    return { main: (TERR[e[0]] && TERR[e[0]].name) || e[0], val: fmtNum(e[1]) };
+  });
+  const note = esCount ? 'El ámbito estatal (ES) concentra el ' + formatPercent(esCount, total) + ' de los registros.' : '';
+  return sv2Module('Territorios con más registros', null, sv2List(items), { cls: 'sv2-module--compact', note: note });
+}
+
+// ── H · EMPTY / LOW DATA STATE ───────────────────────────────────────────────
+function renderEmptyState(hasFilters) {
+  return '<div class="sv2-empty">'
+    + '<i class="bi bi-funnel sv2-empty-icon"></i>'
+    + '<div class="sv2-empty-title">Sin registros para esta combinación de filtros</div>'
+    + '<div class="sv2-empty-sub">' + (hasFilters ? 'Prueba a ampliar o restablecer los filtros activos.' : 'No hay datos disponibles en este momento.') + '</div>'
+    + (hasFilters ? '<button class="sv2-empty-reset" id="sv2-empty-reset" type="button"><i class="bi bi-arrow-counterclockwise"></i>Restablecer filtros</button>' : '')
+    + '</div>';
 }
 
 // ── BARÓMETRO v1 (p208): cautious temporal reading by true cuatrimestre ──────

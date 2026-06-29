@@ -1038,3 +1038,132 @@ body.sheet-open .shell-foot { pointer-events:none; }
   .arail-status-row { gap:16px; }
   .arail-cuatri { gap:5px; }
 }
+
+/* ═══ p211B · ESTADÍSTICAS v2 VISUAL DATA MODULES ═══════════════════════════════
+   v0.6.64. Redesigns the Estadísticas main content (render()) into composable
+   visual modules: a dataset hero, a featured discipline distribution, status /
+   budget / coverage / document modules and compact top lists. Monochrome base
+   with disciplined borders and square geometry; discipline color appears only as
+   taxonomy marks (discColor). Honest framing only — no market/score claims. Reuses
+   the p210 shell + p211a layout; Barómetro (.baro-*) is untouched. Scoped to the
+   .sv-body content area so the rail/header/ribbon are unaffected. */
+
+.sv2-stack { display:flex; flex-direction:column; gap:14px; }
+.sv2-grid { display:grid; gap:12px; min-width:0; }
+.sv2-grid--2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.sv2-grid--3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+
+/* -- Module shell -- */
+.sv2-module { border:1px solid var(--border2); border-radius:3px; padding:15px 16px; min-width:0; overflow:hidden; background:var(--bg); }
+.sv2-module--feature { border-color:var(--border); }
+.sv2-module--compact { padding:14px; }
+.sv2-module-head { display:flex; align-items:flex-start; gap:10px; margin-bottom:13px; }
+.sv2-module-titles { min-width:0; flex:1; }
+.sv2-module-title { font-size:11px; font-weight:700; letter-spacing:.01em; color:var(--text); }
+.sv2-module-sub { font-size:8.5px; color:var(--text3); margin-top:3px; letter-spacing:.02em; line-height:1.45; }
+.sv2-module-tag { flex-shrink:0; font-size:6.5px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; color:var(--text3); border:1px solid var(--border2); border-radius:100px; padding:2px 8px; }
+.sv2-note { font-size:8.5px; color:var(--text3); margin-top:12px; line-height:1.6; border-top:1px dashed var(--border2); padding-top:9px; }
+.sv2-note strong { color:var(--text2); }
+.sv2-note--foot { border:1px solid var(--border2); border-radius:3px; background:var(--bg2); padding:11px 13px; margin-top:0; }
+
+/* -- A · Hero / dataset snapshot -- */
+.sv2-hero { display:grid; grid-template-columns:minmax(210px,1fr) 2fr; gap:18px; border:1px solid var(--border); border-radius:3px; padding:20px 22px; background:var(--bg); }
+.sv2-hero-lead { display:flex; flex-direction:column; justify-content:center; border-right:1px solid var(--border2); padding-right:18px; min-width:0; }
+.sv2-hero-state { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--text2); border:1px solid var(--border2); border-radius:100px; padding:3px 9px; margin-bottom:12px; }
+.sv2-state-dot { width:6px; height:6px; border-radius:50%; background:var(--text3); flex-shrink:0; }
+.sv2-state--ok .sv2-state-dot { background:var(--s-ok); }
+.sv2-state--sample .sv2-state-dot { background:var(--s-warn); }
+.sv2-state--load .sv2-state-dot { background:var(--border); }
+.sv2-hero-num { font-size:42px; font-weight:700; letter-spacing:-.035em; line-height:1; color:var(--text); }
+.sv2-hero-lbl { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-top:7px; }
+.sv2-hero-of { color:var(--text2); text-transform:none; letter-spacing:.02em; font-weight:600; }
+.sv2-hero-meta { font-size:8.5px; color:var(--text3); margin-top:9px; letter-spacing:.02em; line-height:1.5; }
+.sv2-hero-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border2); border:1px solid var(--border2); border-radius:2px; overflow:hidden; }
+.sv2-hero-metric { background:var(--bg); padding:13px 12px; display:flex; flex-direction:column; justify-content:center; min-width:0; }
+.sv2-hero-metric-val { font-size:21px; font-weight:700; letter-spacing:-.025em; color:var(--text); line-height:1.05; }
+.sv2-hero-metric-lbl { font-size:7px; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); margin-top:5px; }
+.sv2-hero-metric-sub { font-size:7.5px; color:var(--text3); margin-top:2px; letter-spacing:.01em; }
+
+/* -- Horizontal bars (discipline / buckets) -- */
+.sv2-bars { display:flex; flex-direction:column; gap:6px; }
+.sv2-bars--2col { display:grid; grid-template-columns:1fr 1fr; gap:7px 22px; }
+.sv2-bar { display:flex; align-items:center; gap:8px; min-width:0; }
+.sv2-bar-mark { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+.sv2-bar-label { font-size:9.5px; color:var(--text2); width:104px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv2-bar-track { flex:1; min-width:0; height:7px; background:var(--border3); border-radius:1px; overflow:hidden; }
+.sv2-bar-fill { height:100%; background:var(--text); border-radius:1px; min-width:2px; transition:width .35s ease; }
+.sv2-bar-val { font-size:9.5px; font-weight:700; color:var(--text); flex-shrink:0; text-align:right; min-width:62px; white-space:nowrap; }
+.sv2-bar-pct { font-size:8px; font-weight:600; color:var(--text3); margin-left:5px; }
+
+/* -- C · Segmented status bar + legend -- */
+.sv2-seg { display:flex; height:13px; border-radius:2px; overflow:hidden; background:var(--border3); gap:1px; }
+.sv2-seg-fill { height:100%; min-width:2px; transition:width .35s ease; }
+.sv2-seg-legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:12px; }
+.sv2-seg-item { display:flex; align-items:center; gap:6px; font-size:9.5px; color:var(--text2); }
+.sv2-seg-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+.sv2-seg-val { font-weight:700; color:var(--text); }
+
+/* -- Facts -- */
+.sv2-facts { display:flex; flex-direction:column; gap:7px; }
+.sv2-fact { display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:10.5px; border-bottom:1px solid var(--border3); padding-bottom:7px; }
+.sv2-fact:last-child { border-bottom:none; padding-bottom:0; }
+.sv2-fact-lbl { color:var(--text2); }
+.sv2-fact-val { font-weight:700; color:var(--text); white-space:nowrap; }
+
+/* -- D · Budget split (facts | buckets) -- */
+.sv2-split-cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.sv2-sub-lbl { font-size:7px; letter-spacing:.18em; text-transform:uppercase; color:var(--text3); margin-bottom:9px; }
+.sv2-buckets { display:flex; flex-direction:column; gap:6px; }
+
+/* -- E · Coverage ratios -- */
+.sv2-ratios { display:flex; flex-direction:column; gap:11px; }
+.sv2-ratio { display:flex; flex-direction:column; gap:5px; }
+.sv2-ratio-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.sv2-ratio-lbl { font-size:9.5px; color:var(--text2); }
+.sv2-ratio-val { font-size:9.5px; font-weight:700; color:var(--text); white-space:nowrap; }
+.sv2-ratio-track { height:5px; background:var(--border3); border-radius:1px; overflow:hidden; }
+.sv2-ratio-fill { height:100%; background:var(--text); border-radius:1px; min-width:2px; transition:width .35s ease; }
+
+/* -- G · Compact ranked top lists -- */
+.sv2-list { list-style:none; display:flex; flex-direction:column; margin:0; padding:0; }
+.sv2-list-item { display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid var(--border3); }
+.sv2-list-item:last-child { border-bottom:none; }
+.sv2-list-rank { font-size:8px; font-weight:700; color:var(--text3); width:14px; flex-shrink:0; text-align:center; }
+.sv2-list-main { flex:1; min-width:0; }
+.sv2-list-name { font-size:10px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv2-list-sub { font-size:8px; color:var(--text3); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv2-list-val { font-size:10px; font-weight:700; color:var(--text); flex-shrink:0; white-space:nowrap; }
+
+/* -- Inline + full empty states -- */
+.sv2-empty-inline { font-size:9.5px; color:var(--text3); padding:10px 0; }
+.sv2-empty { display:flex; flex-direction:column; align-items:center; text-align:center; padding:64px 24px; }
+.sv2-empty-icon { font-size:34px; color:var(--text3); opacity:.3; margin-bottom:14px; }
+.sv2-empty-title { font-size:12px; font-weight:700; color:var(--text2); letter-spacing:.01em; }
+.sv2-empty-sub { font-size:10px; color:var(--text3); margin-top:6px; line-height:1.5; }
+.sv2-empty-reset { display:inline-flex; align-items:center; gap:6px; margin-top:16px; padding:8px 14px; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text2); cursor:pointer; transition:all .1s; }
+.sv2-empty-reset:hover { border-color:var(--border); color:var(--text); background:var(--hover); }
+.sv2-empty-reset i.bi { font-size:11px; }
+
+/* -- Responsive -- */
+@media (max-width:1100px) {
+  .sv2-grid--3 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .sv2-bars--2col { grid-template-columns:1fr; }
+}
+@media (max-width:860px) {
+  .sv2-hero { grid-template-columns:1fr; gap:16px; }
+  .sv2-hero-lead { border-right:none; border-bottom:1px solid var(--border2); padding-right:0; padding-bottom:16px; }
+  .sv2-grid--2, .sv2-grid--3 { grid-template-columns:1fr; }
+  .sv2-hero-metrics { grid-template-columns:1fr 1fr; }
+  .sv2-split-cols { grid-template-columns:1fr; gap:16px; }
+}
+@media (max-width:600px) {
+  .sv2-hero { padding:16px; }
+  .sv2-hero-num { font-size:34px; }
+  .sv2-module { padding:13px; }
+  .sv2-hero-metrics { grid-template-columns:1fr 1fr; }
+}
+
+/* -- Print: keep modules together; chrome handled by the p210 print rules -- */
+@media print {
+  .sv2-hero, .sv2-module { break-inside:avoid; }
+}
