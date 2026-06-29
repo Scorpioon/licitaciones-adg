@@ -28,19 +28,35 @@ const SV = {
   estat: '',
   discs: new Set(),
   view:  'stats',
-  quarter: '',
+  cuatri: '',
 };
 
+// ── TRUE CUATRIMESTRE MODEL (p208) ───────────────────────────────────────────
+// A cuatrimestre is a third of the calendar year (4 months), NOT a quarter:
+//   month 0-3  (Ene-Abr) => C1
+//   month 4-7  (May-Ago) => C2
+//   month 8-11 (Sep-Dic) => C3
+// Returns 1|2|3, or 0 when the date is missing/unparseable.
+function getCuatri(dateStr) {
+  var m = parseInt((dateStr || '0000-00').slice(5, 7), 10);
+  if (!m || m < 1 || m > 12) return 0;
+  return Math.floor((m - 1) / 4) + 1;
+}
+function cuatriLabel(c) { return ({1:'C1 · Ene-Abr', 2:'C2 · May-Ago', 3:'C3 · Sep-Dic'})[c] || ''; }
+function cuatriShort(c) { return ({1:'C1', 2:'C2', 3:'C3'})[c] || ''; }
+function periodKey(r) { var c = getCuatri(r.data_pub); return c ? (r.data_pub||'').slice(0,4) + '-C' + c : ''; }
+function periodTitle(year, c) { return year + ' · ' + cuatriLabel(c); }
+
 // p207: getRows accepts an explicit source so Estadísticas can run on
-// canonical/deduped records while Barómetro (renderBaro) keeps its existing
-// raw ADG.data behavior unchanged (Barómetro rebuild is deferred to p208).
+// canonical/deduped records. p208: the period filter is now a true
+// cuatrimestre (C1/C2/C3), not a calendar quarter.
 function getRows(source) {
   let rows = source || ADG.data;
   if (SV.year)  rows = rows.filter(r => (r.data_pub||'').startsWith(SV.year));
   if (SV.ccaa)  rows = rows.filter(r => r.ccaa === SV.ccaa);
   if (SV.estat) rows = rows.filter(r => r.estat === SV.estat);
   if (SV.discs.size) rows = rows.filter(r => (r.disciplines||[]).some(d => SV.discs.has(d)));
-  if (SV.quarter) { var qm=parseInt(SV.quarter,10); rows = rows.filter(function(r){ var m=parseInt((r.data_pub||'0000-00').slice(5,7),10); return Math.ceil(m/3)===qm; }); }
+  if (SV.cuatri) { var cm = parseInt(SV.cuatri, 10); rows = rows.filter(function(r){ return getCuatri(r.data_pub) === cm; }); }
   return rows;
 }
 
@@ -71,9 +87,9 @@ function syncDiscs() {
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
-function syncQuarter() {
-  document.querySelectorAll('[data-sv-quarter]').forEach(function(p) {
-    var match = (p.dataset.svQuarter === SV.quarter);
+function syncCuatri() {
+  document.querySelectorAll('[data-sv-cuatri]').forEach(function(p) {
+    var match = (p.dataset.svCuatri === SV.cuatri);
     p.classList.toggle('active', match);
     p.setAttribute('aria-pressed', String(match));
   });
@@ -82,20 +98,6 @@ function syncQuarter() {
 function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
 function avg(arr) { return arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function quarterLabel(d) { var q=Math.ceil((d.getMonth()+1)/3); return 'Q'+q+' '+d.getFullYear(); }
-function monthName(m) { return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m,10)-1]||m; }
-function miniBar(items, maxVal, colorFn) {
-  if (!items.length) return '';
-  var mx=maxVal||Math.max.apply(null,items.map(function(x){return x[1];}).concat([1]));
-  return items.map(function(x) {
-    var lb=x[0], val=x[1], c=colorFn?colorFn(lb):'var(--text)';
-    return '<div class="baro-bar-row">'
-      +'<div class="baro-bar-label">'+esc(lb)+'</div>'
-      +'<div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(val,mx)+'%;background:'+c+'"></div></div>'
-      +'<div class="baro-bar-val">'+(typeof val==='number'&&val>999?fmt(val):val)+'</div>'
-      +'</div>';
-  }).join('');
-}
 
 function donutSVG(segments, size=64) {
   const r = 20, cx=32, cy=32, circ=2*Math.PI*r;
@@ -160,7 +162,7 @@ function render() {
   if (sumEl) {
     const parts = [];
     if (SV.year)  parts.push(SV.year);
-    if (SV.quarter) parts.push('Q'+SV.quarter);
+    if (SV.cuatri) parts.push(cuatriShort(parseInt(SV.cuatri,10)));
     if (SV.ccaa)  parts.push(TERR[SV.ccaa]?.name || SV.ccaa);
     if (SV.estat) parts.push(SV.estat);
     if (SV.discs.size) parts.push([...SV.discs].map(d=>DISC[d]?.label||d).join(', '));
@@ -380,92 +382,240 @@ function render() {
   `;
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────
-// -- BARO RENDER (absorbed from barometro.js) --------------------------------
-function renderBaro() {
-  var page=el('baro-page'); if (!page) return;
-  var rows=getRows();
-  if (!rows.length) {
-    page.innerHTML='<div style="text-align:center;padding:60px;color:var(--text3)"><div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase">Sin datos para generar informe</div></div>';
-    return;
+// ── BARÓMETRO v1 (p208): cautious temporal reading by true cuatrimestre ──────
+// Reads "what is happening over time?" (vs Estadísticas = "what is in the
+// data?"). Runs on canonical/deduped records — never raw ADG.data as a
+// headline source — and compares the selected year+cuatrimestre against the
+// previous comparable cuatrimestre, with explicit caveats for sparse data and
+// periods still in progress. No market diagnosis, no causal claims.
+
+function baroCanon() {
+  return (ADG.canonicalData && ADG.canonicalData.length) ? ADG.canonicalData : ADG.data;
+}
+
+// Sidebar filters EXCEPT the period (year/cuatrimestre): the period is owned by
+// the Barómetro selector so the temporal series and previous-period comparison
+// stay valid regardless of the sidebar year/cuatrimestre pills.
+function baroBase(canon) {
+  var rows = canon;
+  if (SV.ccaa)  rows = rows.filter(function(r){ return r.ccaa === SV.ccaa; });
+  if (SV.estat) rows = rows.filter(function(r){ return r.estat === SV.estat; });
+  if (SV.discs.size) rows = rows.filter(function(r){ return (r.disciplines||[]).some(function(d){ return SV.discs.has(d); }); });
+  return rows;
+}
+
+function currentCuatriContext() {
+  var now = new Date();
+  return { year: now.getFullYear(), cuatri: getCuatri(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')) || 1 };
+}
+
+// Resolve the period to read: sidebar year/cuatri if set, else the latest
+// period that actually has data (so the panel is never empty on first open).
+function resolveBaroPeriod(base) {
+  var yearsN = base.map(function(r){ return parseInt((r.data_pub||'').slice(0,4),10); }).filter(function(y){ return y>0; });
+  var maxY = yearsN.length ? Math.max.apply(null, yearsN) : currentCuatriContext().year;
+  var year = SV.year ? parseInt(SV.year,10) : maxY;
+  var cuatri, explicit = !!(SV.year || SV.cuatri);
+  if (SV.cuatri) cuatri = parseInt(SV.cuatri,10);
+  else {
+    var cs = base.filter(function(r){ return (r.data_pub||'').slice(0,4) === String(year); })
+                 .map(function(r){ return getCuatri(r.data_pub); }).filter(function(c){ return c>0; });
+    cuatri = cs.length ? Math.max.apply(null, cs) : currentCuatriContext().cuatri;
   }
-  var now=new Date(), quarter=quarterLabel(now);
-  var reportDate=now.toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'});
-  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  var discC=function(d){var dd=DISC[d];return dd?(isDark?dd.ld:dd.lc):'var(--text)';};
-  var total=rows.length;
-  var vigentes=rows.filter(function(r){return r.estat==='Vigente';}).length;
-  var adjudicados=rows.filter(function(r){return r.estat==='Adjudicado';}).length;
-  var desiertas=rows.filter(function(r){return r.estat==='Desierta';}).length;
-  var volumen=rows.reduce(function(s,r){return s+(r.pressupost||0);},0);
-  var conPpto=rows.filter(function(r){return r.pressupost>0;});
-  var avgPpto=conPpto.length?conPpto.reduce(function(s,r){return s+r.pressupost;},0)/conPpto.length:0;
-  var srtd=conPpto.slice().sort(function(a,b){return a.pressupost-b.pressupost;});
-  var medianPpto=srtd.length?srtd[Math.floor(srtd.length/2)].pressupost:0;
-  var tasaAdj=pct(adjudicados,total), tasaDes=pct(desiertas,total);
-  var byDisc={},byDiscVol={};
-  rows.forEach(function(r){(r.disciplines||[]).forEach(function(d){byDisc[d]=(byDisc[d]||0)+1;byDiscVol[d]=(byDiscVol[d]||0)+(r.pressupost||0);});});
-  var discArr=Object.entries(byDisc).sort(function(a,b){return b[1]-a[1];});
-  var discVolArr=Object.entries(byDiscVol).sort(function(a,b){return b[1]-a[1];});
-  var byCCAA={};
-  rows.forEach(function(r){if(r.ccaa)byCCAA[r.ccaa]=(byCCAA[r.ccaa]||0)+1;});
-  var ccaaArr=Object.entries(byCCAA).sort(function(a,b){return b[1]-a[1];});
-  var byMonth={};
-  rows.forEach(function(r){if(r.data_pub){var m=r.data_pub.slice(0,7);byMonth[m]=(byMonth[m]||0)+1;}});
-  var monthArr=Object.entries(byMonth).sort(function(a,b){return a[0].localeCompare(b[0]);}).slice(-6);
-  var top5=rows.slice().filter(function(r){return r.pressupost>0;}).sort(function(a,b){return b.pressupost-a.pressupost;}).slice(0,5);
-  var trend=null;
-  if(monthArr.length>=2){var ml=monthArr[monthArr.length-1][1],mp=monthArr[monthArr.length-2][1];trend={last:ml,prev:mp,diff:pct(ml-mp,mp),up:ml>=mp};}
-  var insights=[];
-  if(tasaDes>=25)insights.push({cls:'warn',icon:'bi-exclamation-triangle',text:'Tasa desierta '+tasaDes+'% supera el umbral del 25%.'});
-  if(tasaAdj>=60)insights.push({cls:'ok',icon:'bi-check-circle',text:'Mercado activo: '+tasaAdj+'% de tasa de adjudicacion.'});
-  var topD=discArr[0];
-  if(topD)insights.push({cls:'',icon:'bi-palette',text:'Disciplina lider: <strong>'+(DISC[topD[0]]&&DISC[topD[0]].label||topD[0])+'</strong> ('+topD[1]+' licitaciones).'});
-  if(trend)insights.push({cls:trend.up?'ok':'warn',icon:trend.up?'bi-graph-up-arrow':'bi-graph-down-arrow',text:'Volumen mensual '+(trend.up?'sube':'baja')+' '+Math.abs(trend.diff)+'% vs mes anterior.'});
-  var maxM=Math.max.apply(null,monthArr.map(function(x){return x[1];}).concat([1]));
-  var sparks=monthArr.map(function(x){return '<div class="baro-spark-col"><div class="baro-spark-bar" style="height:'+pct(x[1],maxM)+'%"></div><div class="baro-spark-lbl">'+monthName(x[0].split('-')[1])+'</div><div class="baro-spark-val">'+x[1]+'</div></div>';}).join('');
-  var dL=function(label){var d=Object.keys(DISC).find(function(k){return DISC[k].label===label;});return d?discC(d):'var(--text)';};
-  page.innerHTML=''
-    +'<div class="baro-header">'
-      +'<div class="baro-header-left">'
-        +'<div class="baro-header-eyebrow">Barometro del Sector &middot; ADG-FAD</div>'
-        +'<div class="baro-header-title">Informe de Contratacion Publica<br>en Diseno y Comunicacion Visual</div>'
-        +'<div class="baro-header-meta">'+quarter+' &middot; Generado el '+reportDate+(ADG.isSample?' &middot; <span style="color:var(--s-warn)">Datos de muestra</span>':'')+'</div>'
-      +'</div>'
-      +'<div class="baro-header-right"><button class="htbtn" onclick="window.print()"><i class="bi bi-printer"></i><span>Imprimir</span></button></div>'
-    +'</div>'
-    +'<div class="baro-section-title">Cifras clave</div>'
-    +'<div class="baro-bignums">'
-      +'<div class="baro-bignum"><div class="baro-bignum-val">'+total+'</div><div class="baro-bignum-lbl">Licitaciones totales</div></div>'
-      +'<div class="baro-bignum"><div class="baro-bignum-val" style="color:var(--s-ok)">'+vigentes+'</div><div class="baro-bignum-lbl">Vigentes</div></div>'
-      +'<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(volumen)+'</div><div class="baro-bignum-lbl">Volumen total</div></div>'
-      +'<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(avgPpto)+'</div><div class="baro-bignum-lbl">Presupuesto medio</div></div>'
-      +'<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(medianPpto)+'</div><div class="baro-bignum-lbl">Mediana</div></div>'
-      +'<div class="baro-bignum"><div class="baro-bignum-val">'+tasaAdj+'%</div><div class="baro-bignum-lbl">Tasa adjudicacion</div></div>'
-    +'</div>'
-    +'<div class="baro-section-title">Analisis automatico</div>'
-    +'<div class="baro-insights">'+insights.map(function(i){return '<div class="baro-insight '+i.cls+'"><i class="bi '+i.icon+'"></i><div>'+i.text+'</div></div>';}).join('')+'</div>'
-    +'<div class="baro-section-title">Evolucion mensual</div>'
-    +'<div class="baro-card">'+(monthArr.length?'<div class="baro-sparks">'+sparks+'</div>':'<div style="color:var(--text3);font-size:10px">Sin datos temporales</div>')+'</div>'
-    +'<div class="baro-section-title">Desglose por disciplina y territorio</div>'
-    +'<div class="baro-grid">'
-      +'<div class="baro-card"><div class="baro-card-title">Licitaciones por disciplina</div><div class="baro-bars">'+miniBar(discArr.slice(0,8).map(function(x){return [DISC[x[0]]&&DISC[x[0]].label||x[0],x[1]];}),null,dL)+'</div></div>'
-      +'<div class="baro-card"><div class="baro-card-title">Volumen por disciplina</div><div class="baro-bars">'+miniBar(discVolArr.slice(0,8).map(function(x){return [DISC[x[0]]&&DISC[x[0]].label||x[0],x[1]];}),null,dL)+'</div></div>'
-      +'<div class="baro-card"><div class="baro-card-title">Licitaciones por CCAA</div><div class="baro-bars">'+miniBar(ccaaArr.slice(0,8).map(function(x){return [TERR[x[0]]&&TERR[x[0]].name||x[0],x[1]];}))+'</div></div>'
-      +'<div class="baro-card"><div class="baro-card-title">Resolucion</div><div class="baro-bars">'+miniBar([['Adjudicadas',adjudicados],['Vigentes',vigentes],['Desiertas',desiertas]],total,function(l){return l==='Adjudicadas'?'var(--s-adj)':l==='Vigentes'?'var(--s-ok)':'var(--s-des)';})+'</div></div>'
-    +'</div>'
-    +'<div class="baro-section-title">Top 5 Mayor presupuesto</div>'
-    +'<div class="baro-card">'
-      +'<table class="baro-top-table">'
-        +'<thead><tr><th>#</th><th>Licitacion</th><th>Organismo</th><th>Presupuesto</th><th>Estado</th></tr></thead>'
-        +'<tbody>'+top5.map(function(r,i){return '<tr><td>'+(i+1)+'</td><td>'+esc(r.titol.length>50?r.titol.slice(0,50)+'...':r.titol)+'</td><td>'+esc(r.organisme||'-')+'</td><td style="font-weight:700">'+fmtFull(r.pressupost)+'</td><td>'+r.estat+'</td></tr>';}).join('')+'</tbody>'
-      +'</table>'
-    +'</div>'
-    +'<div class="baro-footer">'
-      +'<div>Generado automaticamente &middot; ADG Plataforma &middot; '+reportDate+'</div>'
-      +'<div>Fuente: PLACSP &middot; contrataciondelestado.es &middot; Datos '+(ADG.isSample?'de muestra':'reales')+'</div>'
-      +'<div style="margin-top:6px"><strong>ADG-FAD</strong> &middot; <a href="https://adg-fad.org" target="_blank" rel="noopener">adg-fad.org</a></div>'
-    +'</div>';
+  return { year: year, cuatri: cuatri, explicit: explicit };
+}
+
+function prevPeriod(p) {
+  return p.cuatri > 1 ? { year:p.year, cuatri:p.cuatri-1 } : { year:p.year-1, cuatri:3 };
+}
+function periodRowsOf(base, p) {
+  var key = p.year + '-C' + p.cuatri;
+  return base.filter(function(r){ return periodKey(r) === key; });
+}
+
+// Step the selected period by ±1 cuatrimestre, clamped to the data year range so
+// navigation never wanders into empty future/past. Writes back to the shared
+// period state and re-renders.
+function stepBaroPeriod(dir) {
+  var canon = baroCanon();
+  var base = baroBase(canon);
+  var p = resolveBaroPeriod(base);
+  var c = p.cuatri + dir, y = p.year;
+  if (c < 1) { c = 3; y--; }
+  if (c > 3) { c = 1; y++; }
+  var yearsN = canon.map(function(r){ return parseInt((r.data_pub||'').slice(0,4),10); }).filter(function(n){ return n>0; });
+  var minY = yearsN.length ? Math.min.apply(null, yearsN) : y;
+  var maxY = Math.max(yearsN.length ? Math.max.apply(null, yearsN) : y, currentCuatriContext().year);
+  if (y < minY || y > maxY) return;
+  SV.year = String(y); SV.cuatri = String(c);
+  var ys = el('sv-year'); if (ys) ys.value = SV.year;
+  syncCuatri();
+  renderBaro();
+}
+
+function medianOf(sortedVals) { return sortedVals.length ? sortedVals[Math.floor(sortedVals.length/2)] : 0; }
+
+function renderBaro() {
+  var page = el('baro-page'); if (!page) return;
+  var canon = baroCanon();
+  var base = baroBase(canon);
+  var ctx = currentCuatriContext();
+  var p = resolveBaroPeriod(base);
+  var pv = prevPeriod(p);
+  var rows = periodRowsOf(base, p);
+  var prevRows = periodRowsOf(base, pv);
+  var total = rows.length, prevTotal = prevRows.length;
+
+  var enCurso = (p.year === ctx.year && p.cuatri === ctx.cuatri);
+  var futuro  = (p.year > ctx.year) || (p.year === ctx.year && p.cuatri > ctx.cuatri);
+  var reportDate = new Date().toLocaleDateString('es-ES', { day:'numeric', month:'long', year:'numeric' });
+
+  // ── Cuatrimestre evolution series (last 6 periods ending at selection) ──────
+  var byPeriod = {};
+  base.forEach(function(r){ var k = periodKey(r); if (k) byPeriod[k] = (byPeriod[k]||0)+1; });
+  var seq = [], yy = p.year, cc = p.cuatri;
+  for (var i=0;i<6;i++){ seq.unshift({ year:yy, cuatri:cc, key: yy+'-C'+cc }); cc--; if (cc<1){ cc=3; yy--; } }
+  var serie = seq.map(function(s){ return { label: String(s.year).slice(2)+'·C'+s.cuatri, val: byPeriod[s.key]||0, sel: (s.year===p.year && s.cuatri===p.cuatri) }; });
+  var maxSerie = Math.max.apply(null, serie.map(function(s){ return s.val; }).concat([1]));
+  var sparks = serie.map(function(s){
+    return '<div class="baro-spark-col"><div class="baro-spark-bar" style="height:'+pct(s.val,maxSerie)+'%'+(s.sel?';background:var(--text)':';background:var(--border)')+'"></div>'
+      +'<div class="baro-spark-lbl"'+(s.sel?' style="font-weight:700;color:var(--text2)"':'')+'>'+s.label+'</div>'
+      +'<div class="baro-spark-val">'+s.val+'</div></div>';
+  }).join('');
+
+  // ── Period aggregates (current period) ──────────────────────────────────────
+  var byDisc = {}, sinDisc = 0;
+  rows.forEach(function(r){ var ds = r.disciplines||[]; if (!ds.length) sinDisc++; ds.forEach(function(d){ byDisc[d] = (byDisc[d]||0)+1; }); });
+  var byDiscPrev = {}, sinDiscPrev = 0;
+  prevRows.forEach(function(r){ var ds = r.disciplines||[]; if (!ds.length) sinDiscPrev++; ds.forEach(function(d){ byDiscPrev[d] = (byDiscPrev[d]||0)+1; }); });
+
+  var conPpto = rows.filter(function(r){ return r.pressupost > 0; });
+  var sinPpto = total - conPpto.length;
+  var pptoSorted = conPpto.map(function(r){ return r.pressupost; }).sort(function(a,b){ return a-b; });
+  var medianPpto = medianOf(pptoSorted);
+  var minPpto = pptoSorted.length ? pptoSorted[0] : 0;
+  var maxPpto = pptoSorted.length ? pptoSorted[pptoSorted.length-1] : 0;
+
+  var byCCAA = {};
+  rows.forEach(function(r){ if (r.ccaa) byCCAA[r.ccaa] = (byCCAA[r.ccaa]||0)+1; });
+  var ccaaArr = Object.entries(byCCAA).sort(function(a,b){ return b[1]-a[1]; });
+  var esCount = byCCAA['ES'] || 0, esPct = pct(esCount, total);
+
+  var withDocs = rows.filter(function(r){ return (r.documents||[]).length > 0; });
+  var totalDocs = withDocs.reduce(function(s,r){ return s + (r.documents||[]).length; }, 0);
+  var docPct = pct(withDocs.length, total);
+
+  // ── Delta chip (activity vs previous comparable cuatrimestre) ───────────────
+  function deltaChip(cur, prev) {
+    if (!prev) return '<span class="baro-delta flat"><i class="bi bi-dash"></i>sin base comparable</span>';
+    var d = cur - prev, pc = Math.round(d/prev*100);
+    if (d > 0) return '<span class="baro-delta up"><i class="bi bi-arrow-up-short"></i>+'+d+' ('+pc+'%)</span>';
+    if (d < 0) return '<span class="baro-delta down"><i class="bi bi-arrow-down-short"></i>'+d+' ('+pc+'%)</span>';
+    return '<span class="baro-delta flat"><i class="bi bi-dash"></i>sin cambio</span>';
+  }
+  function discDelta(cur, prev) {
+    var d = cur - prev;
+    if (d > 0) return '<span class="baro-delta up">+'+d+'</span>';
+    if (d < 0) return '<span class="baro-delta down">'+d+'</span>';
+    return '<span class="baro-delta flat">=</span>';
+  }
+
+  // ── Discipline movement bars (p204 colors, incl. "sin disciplina") ──────────
+  var discEntries = Object.entries(byDisc).sort(function(a,b){ return b[1]-a[1]; });
+  if (sinDisc) discEntries = discEntries.concat([['__none__', sinDisc]]);
+  var maxDisc = discEntries.length ? Math.max.apply(null, discEntries.map(function(e){ return e[1]; })) : 1;
+  var discBars = discEntries.length ? discEntries.slice(0,12).map(function(e){
+    var key = e[0], val = e[1];
+    var label = key === '__none__' ? (t('disc_none') || 'Sin disciplina') : (DISC[key] && DISC[key].label || key);
+    var prev = key === '__none__' ? sinDiscPrev : (byDiscPrev[key]||0);
+    return '<div class="baro-bar-row">'
+      +'<div class="baro-bar-label" title="'+esc(label)+'">'+esc(label)+'</div>'
+      +'<div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(val,maxDisc)+'%;background:'+discColor(key).text+'"></div></div>'
+      +'<div class="baro-bar-val">'+val+' '+discDelta(val, prev)+'</div></div>';
+  }).join('') : '<div class="sv-empty">Sin disciplinas registradas en el periodo</div>';
+
+  // ── Territory bars ──────────────────────────────────────────────────────────
+  var maxCCAA = ccaaArr.length ? ccaaArr[0][1] : 1;
+  var ccaaBars = ccaaArr.length ? ccaaArr.slice(0,8).map(function(e){
+    var name = TERR[e[0]] && TERR[e[0]].name || e[0];
+    return '<div class="baro-bar-row"><div class="baro-bar-label" title="'+esc(name)+'">'+esc(name)+'</div>'
+      +'<div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(e[1],maxCCAA)+'%;background:var(--text)"></div></div>'
+      +'<div class="baro-bar-val">'+e[1]+'</div></div>';
+  }).join('') : '<div class="sv-empty">Sin territorio registrado en el periodo</div>';
+
+  // ── Narrative reading (computed facts only, cautious language) ───────────────
+  var read = [];
+  read.push('En <strong>'+periodTitle(p.year, p.cuatri)+'</strong> se registran <strong>'+total+'</strong> oportunidades canónicas en este dataset'
+    + (prevTotal ? (', frente a '+prevTotal+' en '+periodTitle(pv.year, pv.cuatri)+' ('+(total-prevTotal>=0?'+':'')+(total-prevTotal)+').') : ' (sin periodo anterior comparable en la cobertura actual).'));
+  if (enCurso) read.push('El periodo está <strong>en curso</strong>: las cifras son parciales y cualquier comparación con periodos cerrados es orientativa.');
+  var topD = discEntries.filter(function(e){ return e[0] !== '__none__'; })[0];
+  if (topD) read.push('Con la cobertura actual, la disciplina con más registros en el periodo es <strong>'+(DISC[topD[0]] && DISC[topD[0]].label || topD[0])+'</strong> ('+topD[1]+').');
+  if (sinDisc) read.push('Se observan <strong>'+sinDisc+'</strong> registros sin disciplina asignada (grupo de calidad de datos), que no deben leerse como ausencia de actividad.');
+  if (conPpto.length) read.push('Informan presupuesto <strong>'+conPpto.length+'</strong> de '+total+' registros; mediana <strong>'+fmt(medianPpto)+'</strong>. No representa el valor de mercado del periodo.');
+  else read.push('Ningún registro del periodo informa presupuesto, por lo que no se ofrece señal económica.');
+  if (esCount && esPct >= 40) read.push('La señal territorial está sesgada: el ámbito estatal (ES) concentra el <strong>'+esPct+'%</strong> de los registros del periodo.');
+  if (withDocs.length) read.push('Enlazan documentos <strong>'+withDocs.length+'</strong> registros ('+docPct+'%); son enlaces del expediente, no contenido leído ni analizado.');
+
+  // ── Assemble ────────────────────────────────────────────────────────────────
+  var periodNote = p.explicit ? '' : ' <span class="baro-tag-curso" style="background:var(--bg2);color:var(--text3);border-color:var(--border2)">último con datos</span>';
+  page.innerHTML = ''
+    + '<div class="baro-header">'
+      + '<div class="baro-header-left">'
+        + '<div class="baro-header-eyebrow">Barómetro del Sector · ADG-FAD</div>'
+        + '<div class="baro-header-title">Lectura temporal de contratación<br>en diseño y comunicación visual</div>'
+        + '<div class="baro-header-meta">Lectura generada el '+reportDate+(ADG.isSample?' · <span style="color:var(--s-warn)">Datos de muestra</span>':'')+'</div>'
+      + '</div>'
+      + '<div class="baro-header-right"><button class="htbtn" id="baro-print"><i class="bi bi-printer"></i><span>Imprimir</span></button></div>'
+    + '</div>'
+    + '<div class="baro-section-title">Periodo</div>'
+    + '<div class="baro-period">'
+      + '<button class="htbtn" id="baro-prev" aria-label="Cuatrimestre anterior"><i class="bi bi-chevron-left"></i></button>'
+      + '<div class="baro-period-label">'+periodTitle(p.year, p.cuatri)
+        + (enCurso ? ' <span class="baro-tag-curso">periodo en curso</span>' : '')
+        + (futuro ? ' <span class="baro-tag-curso" style="border-color:var(--s-warn);color:var(--s-warn)">periodo futuro</span>' : '')
+        + periodNote
+      + '</div>'
+      + '<button class="htbtn" id="baro-next" aria-label="Cuatrimestre siguiente"><i class="bi bi-chevron-right"></i></button>'
+    + '</div>'
+    + '<div class="baro-section-title">Actividad registrada</div>'
+    + '<div class="baro-bignums" style="grid-template-columns:repeat(4,1fr)">'
+      + '<div class="baro-bignum"><div class="baro-bignum-val">'+total+'</div><div class="baro-bignum-lbl">Registros canónicos</div><div class="baro-bignum-sub">en el periodo</div></div>'
+      + '<div class="baro-bignum"><div class="baro-bignum-val" style="font-size:13px;padding-top:5px">'+deltaChip(total, prevTotal)+'</div><div class="baro-bignum-lbl">Cambio vs anterior</div><div class="baro-bignum-sub">'+cuatriShort(pv.cuatri)+' '+pv.year+(enCurso?' · orientativo':'')+'</div></div>'
+      + '<div class="baro-bignum"><div class="baro-bignum-val">'+conPpto.length+'</div><div class="baro-bignum-lbl">Con presupuesto</div><div class="baro-bignum-sub">'+sinPpto+' sin informar</div></div>'
+      + '<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(medianPpto)+'</div><div class="baro-bignum-lbl">Mediana de presupuesto</div><div class="baro-bignum-sub">presupuesto informado</div></div>'
+    + '</div>'
+    + (enCurso ? '<div class="baro-insight warn" style="margin-top:8px"><i class="bi bi-hourglass-split"></i><div>Periodo en curso: la cuatrimestre seleccionada aún no ha terminado. Las cifras son parciales y la comparación con periodos cerrados es <strong>orientativa</strong>.</div></div>' : '')
+    + (futuro ? '<div class="baro-insight warn" style="margin-top:8px"><i class="bi bi-calendar-x"></i><div>Periodo futuro sin datos esperados con la cobertura actual.</div></div>' : '')
+    + (!prevTotal && !futuro ? '<div class="baro-insight" style="margin-top:8px"><i class="bi bi-info-circle"></i><div>Sin periodo anterior comparable en el dataset: el cambio no puede calcularse de forma fiable.</div></div>' : '')
+    + '<div class="baro-section-title">Evolución por cuatrimestre</div>'
+    + '<div class="baro-card">'+(serie.some(function(s){return s.val;}) ? '<div class="baro-sparks">'+sparks+'</div><div class="baro-card-note">Registros canónicos por cuatrimestre (C1 Ene-Abr · C2 May-Ago · C3 Sep-Dic). La barra resaltada es el periodo seleccionado.</div>' : '<div class="sv-empty">Sin datos temporales suficientes</div>')+'</div>'
+    + '<div class="baro-section-title">Distribución y territorio</div>'
+    + '<div class="baro-grid">'
+      + '<div class="baro-card"><div class="baro-card-title">Distribución por disciplina</div><div class="baro-bars">'+discBars+'</div><div class="baro-card-note">Delta frente a '+periodTitle(pv.year, pv.cuatri)+'. «Sin disciplina» es un grupo de calidad de datos. Colores por disciplina (p204).</div></div>'
+      + '<div class="baro-card"><div class="baro-card-title">Territorio</div><div class="baro-bars">'+ccaaBars+'</div>'+(esCount?'<div class="baro-card-note">El ámbito estatal (ES) supone el '+esPct+'% del periodo; la distribución territorial puede estar sesgada hacia licitaciones estatales.</div>':'')+'</div>'
+    + '</div>'
+    + '<div class="baro-section-title">Presupuesto y documentos</div>'
+    + '<div class="baro-grid">'
+      + '<div class="baro-card"><div class="baro-card-title">Presupuesto informado</div><div class="baro-bars">'
+        + '<div class="baro-bar-row"><div class="baro-bar-label">Con presupuesto</div><div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(conPpto.length,total||1)+'%;background:var(--text)"></div></div><div class="baro-bar-val">'+conPpto.length+'</div></div>'
+        + '<div class="baro-bar-row"><div class="baro-bar-label">Sin presupuesto</div><div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(sinPpto,total||1)+'%;background:var(--border)"></div></div><div class="baro-bar-val">'+sinPpto+'</div></div>'
+        + '</div><div class="baro-card-note">Mediana '+fmt(medianPpto)+' · rango '+fmt(minPpto)+' – '+fmt(maxPpto)+'. El presupuesto base es orientativo y no equivale al valor de mercado.</div></div>'
+      + '<div class="baro-card"><div class="baro-card-title">Documentos enlazados</div><div class="baro-bars">'
+        + '<div class="baro-bar-row"><div class="baro-bar-label">Con documentos</div><div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(withDocs.length,total||1)+'%;background:var(--text)"></div></div><div class="baro-bar-val">'+withDocs.length+' ('+docPct+'%)</div></div>'
+        + '</div><div class="baro-card-note">'+totalDocs+' documentos <strong>enlazados</strong> desde el expediente, no leídos ni analizados.</div></div>'
+    + '</div>'
+    + '<div class="baro-section-title">Lectura orientativa</div>'
+    + '<div class="baro-insights">'+read.map(function(x){ return '<div class="baro-insight"><i class="bi bi-dot"></i><div>'+x+'</div></div>'; }).join('')+'</div>'
+    + '<div class="baro-footer">'
+      + '<div>Lectura orientativa generada a partir de cifras calculadas · ADG Plataforma · '+reportDate+'</div>'
+      + '<div>Fuente: PLACSP · contrataciondelestado.es · Registros canónicos (deduplicados) · Datos '+(ADG.isSample?'de muestra':'reales')+'</div>'
+      + '<div style="margin-top:6px"><strong>ADG-FAD</strong> · <a href="https://adg-fad.org" target="_blank" rel="noopener">adg-fad.org</a></div>'
+    + '</div>';
+
+  // Wire period controls (IIFE-scoped — cannot use inline onclick).
+  var bp = el('baro-prev'); if (bp) bp.addEventListener('click', function(){ stepBaroPeriod(-1); });
+  var bn = el('baro-next'); if (bn) bn.addEventListener('click', function(){ stepBaroPeriod(1); });
+  var pr = el('baro-print'); if (pr) pr.addEventListener('click', function(){ window.print(); });
 }
 
 // -- ACTIVE VIEW REFRESH -- routes render call to current view
@@ -509,9 +659,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('[data-view]').forEach(function(b){b.addEventListener('click',function(){switchView(b.dataset.view);});});
   el('sv-year')?.addEventListener('change', e => { SV.year=e.target.value; refreshActiveView(); });
   el('sv-ccaa')?.addEventListener('change', e => { SV.ccaa=e.target.value; refreshActiveView(); });
-  document.querySelectorAll('[data-sv-quarter]').forEach(function(p) {
+  document.querySelectorAll('[data-sv-cuatri]').forEach(function(p) {
     p.addEventListener('click', function() {
-      SV.quarter = p.dataset.svQuarter; syncQuarter(); refreshActiveView();
+      SV.cuatri = p.dataset.svCuatri; syncCuatri(); refreshActiveView();
     });
   });
 

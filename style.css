@@ -602,8 +602,21 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .baro-top-table td:first-child { font-weight:700; width:24px; color:var(--text3); }
 .baro-footer { margin-top:28px; padding-top:14px; border-top:2px solid var(--border); font-size:8.5px; color:var(--text3); line-height:1.8; }
 .baro-footer a { border-bottom:1px solid var(--border2); }
-@media (max-width:860px) { .baro-bignums { grid-template-columns:repeat(3,1fr); } .baro-grid { grid-template-columns:1fr; } }
-@media (max-width:640px) { .baro-bignums { grid-template-columns:1fr 1fr; } }
+/* p208: cuatrimestre period selector + delta chips + cautious notes */
+.baro-period { display:flex; align-items:center; gap:10px; }
+.baro-period-label { font-size:13px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.baro-tag-curso { font-size:7px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; padding:2px 6px; border:1px solid var(--s-warn); color:var(--s-warn); border-radius:999px; }
+.baro-bignum-sub { font-size:7px; color:var(--text3); margin-top:3px; letter-spacing:.03em; line-height:1.4; }
+.baro-card-note { font-size:8px; color:var(--text3); margin-top:9px; line-height:1.5; border-top:1px dashed var(--border2); padding-top:7px; }
+.baro-card-note strong { color:var(--text2); }
+.baro-delta { display:inline-flex; align-items:center; gap:1px; font-size:8.5px; font-weight:700; letter-spacing:.02em; }
+.baro-delta i.bi { font-size:11px; }
+.baro-delta.up { color:var(--s-ok); }
+.baro-delta.down { color:var(--s-des); }
+.baro-delta.flat { color:var(--text3); font-weight:600; }
+.baro-insight i.bi-dot { font-size:16px; margin-top:-1px; }
+@media (max-width:860px) { .baro-bignums { grid-template-columns:repeat(3,1fr)!important; } .baro-grid { grid-template-columns:1fr; } }
+@media (max-width:640px) { .baro-bignums { grid-template-columns:1fr 1fr!important; } }
 @media print { .shell-top,.shell-foot,.htbtn { display:none!important; } .page-body { overflow:visible!important; } .baro-page { padding:0; } .baro-header { border-bottom:2px solid #000; } .baro-card,.baro-bignum { break-inside:avoid; } }
 
 /* ---- b4.0 SHARED COMPONENTS ----------------------------------------------- */
