@@ -73,6 +73,8 @@ function syncDiscs() {
   const none = SV.discs.size === 0;
   const allBtn = el('sv-all-disc');
   if (allBtn) { allBtn.classList.toggle('active', none); }
+  const countEl = el('sv-disc-count');
+  if (countEl) countEl.textContent = none ? '' : String(SV.discs.size);
   document.querySelectorAll('[data-sv-disc]').forEach(p => {
     const d = p.dataset.svDisc;
     const active = SV.discs.has(d);
@@ -176,8 +178,8 @@ function caveatChip(text) { return '<div class="analytics-caveat">' + text + '</
 // The time control means different things per view (the p209 usability trap):
 // Estadísticas filters the dataset; Barómetro selects the period it reads.
 const VIEW_META = {
-  stats: { title:'Estructura del dataset',  timeLbl:'Filtro temporal',  timeHint:'Acota el dataset por fecha de publicación.' },
-  baro:  { title:'Lectura del cuatrimestre', timeLbl:'Periodo analizado', timeHint:'Define el cuatrimestre que lee el Barómetro.' },
+  stats: { title:'Estructura del dataset',  railSub:'Estructura del dataset', timeLbl:'Filtro temporal',  timeHint:'Acota el dataset por fecha de publicación.' },
+  baro:  { title:'Lectura del cuatrimestre', railSub:'Lectura del periodo',   timeLbl:'Periodo analizado', timeHint:'Selecciona el cuatrimestre de lectura.' },
 };
 
 function dataFreshnessLabel() {
@@ -209,6 +211,42 @@ function syncTimeSemantics() {
   var m = VIEW_META[SV.view] || VIEW_META.stats;
   var lbl = el('sv-time-lbl');  if (lbl)  lbl.textContent = m.timeLbl;
   var hint = el('sv-time-hint'); if (hint) hint.textContent = m.timeHint;
+  var sub = el('sv-mode-sub');  if (sub)  sub.textContent = m.railSub;
+}
+
+// ── RAIL DATASET STATUS MINI-PANEL (p211) ─────────────────────────────────────
+// Compact, always-visible rail panel: canonical records, source rows, and the
+// data state (loading / sample / real + freshness). Reads ADG totals defensively
+// so it never blocks rendering if data is still streaming in (p200 loader).
+function renderRailStatus() {
+  var canon = (ADG.canonicalData && ADG.canonicalData.length) ? ADG.canonicalData.length : (ADG.data ? ADG.data.length : 0);
+  var raw   = ADG.data ? ADG.data.length : 0;
+  var cEl = el('sv-stat-canon'); if (cEl) cEl.textContent = canon ? canon.toLocaleString('es-ES') : '—';
+  var rEl = el('sv-stat-raw');   if (rEl) rEl.textContent = raw   ? raw.toLocaleString('es-ES')   : '—';
+  var fEl = el('sv-stat-fresh');
+  var dot = el('sv-stat-dot');
+  var state; // 'load' | 'sample' | 'ok'
+  if (!canon && !raw) state = 'load';
+  else if (ADG.isSample) state = 'sample';
+  else state = 'ok';
+  if (fEl) {
+    if (state === 'load') fEl.textContent = 'Cargando datos…';
+    else if (state === 'sample') fEl.textContent = 'Datos de muestra';
+    else fEl.textContent = dataFreshnessLabel() || 'Datos reales';
+  }
+  if (dot) {
+    dot.classList.remove('arail-dot--ok', 'arail-dot--sample', 'arail-dot--load');
+    dot.classList.add('arail-dot--' + state);
+  }
+}
+
+// Paint each discipline pill's taxonomy color mark from discColor() (theme-aware,
+// so it must be re-run on theme change). The "Todas" pill has no mark.
+function paintDiscMarks() {
+  document.querySelectorAll('[data-sv-disc]').forEach(function(p) {
+    var mark = p.querySelector('.arail-cmark');
+    if (mark) mark.style.background = discColor(p.dataset.svDisc).text;
+  });
 }
 
 // ── ACTIVE FILTER RIBBON (p210) ───────────────────────────────────────────────
@@ -732,6 +770,7 @@ function refreshActiveView() {
   // and expose the active module composition for the (future) p211/p212 grid.
   syncTimeSemantics();
   renderHeader();
+  renderRailStatus();
   renderRibbon();
   var mainEl = document.querySelector('.analytics-main');
   if (mainEl) mainEl.setAttribute('data-modules', (ANALYTICS_MODULES[SV.view] || []).join(' '));
@@ -781,8 +820,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  paintDiscMarks();
+
   document.addEventListener('adg:langchange', () => { applyI18n(); refreshActiveView(); updateStrip(); updateTicker(); });
-  document.addEventListener('adg:themechange', () => { refreshActiveView(); });
+  document.addEventListener('adg:themechange', () => { paintDiscMarks(); refreshActiveView(); });
   // Re-render as background shards stream in (p200 progressive loader)
   document.addEventListener('adg:dataupdated', () => { refreshActiveView(); updateStrip(); updateTicker(); });
 

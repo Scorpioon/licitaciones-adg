@@ -974,3 +974,67 @@ body.sheet-open .shell-foot { pointer-events:none; }
 @media print {
   .analytics-header, .analytics-filter-ribbon { display:none!important; }
 }
+
+/* ═══ p211 · ANALYTICS LEFT RAIL CONTROL PANEL ══════════════════════════════════
+   v0.6.63. Rebuilds the rail from a stacked filter list into a designed control
+   panel: an identity+mode anchor, an always-visible dataset status mini-panel,
+   and full-bleed-divided filter sections (time / territory / status / discipline
+   / coverage / actions). Reuses p210 .analytics-switcher + .sv-reset-btn. The
+   required ids/data-attrs ([data-view], [data-sv-cuatri|estat|disc], #sv-year,
+   #sv-ccaa, #sv-reset, #sv-lf(-toggle), #sv-time-lbl/#sv-time-hint, #sv-all-disc)
+   are preserved; only the surrounding markup/visuals changed. Monochrome base;
+   discipline color is used only as taxonomy marks. */
+
+/* -- Rail rhythm: tighter, deliberate vertical gaps -- */
+.analytics-rail { gap:12px; padding-top:14px; }
+
+/* -- Block 1 · Identity + mode anchor -- */
+.arail-head { display:flex; flex-direction:column; gap:9px; }
+.arail-eyebrow { display:flex; align-items:center; gap:5px; font-size:7px; letter-spacing:.24em; text-transform:uppercase; color:var(--text3); font-weight:600; }
+.arail-eyebrow i.bi { font-size:9px; opacity:.65; }
+.arail-mode-sub { font-size:8.5px; letter-spacing:.02em; color:var(--text2); line-height:1.4; }
+/* Switcher as the visual anchor (extends p210 .analytics-switcher) */
+.analytics-switcher .sh-toggle { border-radius:3px; }
+.analytics-switcher .sh-toggle__btn { padding:8px 6px; gap:2px; }
+.analytics-switcher .sh-toggle__main { font-size:9.5px; }
+
+/* -- Block 2 · Dataset status mini-panel -- */
+.arail-status { border:1px solid var(--border2); border-radius:3px; background:var(--bg2); padding:10px 11px; display:flex; flex-direction:column; gap:8px; }
+.arail-status-row { display:flex; align-items:stretch; gap:11px; }
+.arail-stat { flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.arail-stat + .arail-stat { border-left:1px solid var(--border3); padding-left:11px; }
+.arail-stat-val { font-size:16px; font-weight:700; letter-spacing:-.02em; color:var(--text); line-height:1.05; }
+.arail-stat-lbl { font-size:6.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--text3); }
+.arail-status-foot { display:flex; align-items:center; gap:6px; font-size:8px; color:var(--text3); letter-spacing:.02em; border-top:1px solid var(--border3); padding-top:7px; }
+.arail-dot { width:6px; height:6px; border-radius:50%; background:var(--border); flex-shrink:0; }
+.arail-dot--ok { background:var(--s-ok); }
+.arail-dot--sample { background:var(--s-warn); }
+.arail-dot--load { background:var(--border); }
+
+/* -- Filter sheet: full-bleed divided sections instead of separator divs -- */
+.analytics-rail .sv-lf { gap:0; }
+.arail-sec { display:flex; flex-direction:column; gap:7px; padding:13px 0; border-top:1px solid var(--border3); }
+.arail-sec:first-child { padding-top:2px; border-top:none; }
+.arail-actions { padding-bottom:2px; }
+.arail-sec-head { display:flex; align-items:center; gap:6px; }
+.arail-sec-lbl { font-size:7.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--text3); font-weight:600; }
+.arail-sec-count { margin-left:auto; font-size:7.5px; font-weight:700; color:var(--chip-fg); background:var(--chip-bg); border-radius:100px; padding:1px 7px; line-height:1.5; }
+.arail-sec-count:empty { display:none; }
+.arail-soon-tag { margin-left:auto; font-size:6.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); border:1px solid var(--border2); border-radius:100px; padding:1px 7px; }
+
+/* -- Time: cuatrimestre control as an even 4-up grid + month legend -- */
+.arail-cuatri { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; }
+.arail-cuatri .pill { justify-content:center; padding:5px 2px; font-size:9px; }
+.arail-cuatri-legend { font-size:7px; letter-spacing:.02em; color:var(--text3); line-height:1.5; }
+
+/* -- Discipline pills with taxonomy color marks (painted by JS) -- */
+.arail-disc { gap:5px; }
+.arail-dpill { padding-left:7px; }
+.arail-cmark { width:8px; height:8px; border-radius:2px; flex-shrink:0; display:inline-block; background:var(--border); }
+
+/* -- Responsive: rail as a top control sheet (<=768px) -- */
+@media (max-width:768px) {
+  .analytics-rail { gap:11px; padding:12px 14px; }
+  .arail-status-row { gap:16px; }
+  .arail-cuatri { gap:5px; }
+}
