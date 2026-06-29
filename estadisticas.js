@@ -145,6 +145,114 @@ function discBarCard(title, entries, note) {
   return `<div class="sv-card"><div class="sv-card-title">${title}</div><div class="sv-bars">${bars}</div>${note?`<div class="sv-card-note">${note}</div>`:''}</div>`;
 }
 
+// ── MODULE REGISTRY FOUNDATION (p210) ────────────────────────────────────────
+// Lightweight composition scaffold — NOT a framework. p210 only declares the
+// module order per view and exposes reusable render primitives; p207 render()
+// and p208 renderBaro() still produce the section bodies inline (strangler
+// pattern). p211/p212 will migrate each id below into a composable module fn.
+const ANALYTICS_MODULES = {
+  stats: ['overview', 'cobertura', 'ciclo-vida', 'presupuesto', 'plazos', 'documentos'],
+  baro:  ['periodo', 'actividad', 'evolucion', 'distribucion', 'presupuesto', 'lectura'],
+};
+
+// Reusable analytics primitives (shared shell vocabulary for p211/p212 modules).
+function modGrid(cardsHTML) { return '<div class="analytics-module-grid">' + cardsHTML + '</div>'; }
+function modCard(title, bodyHTML, note) {
+  return '<div class="analytics-card">'
+    + (title ? '<div class="analytics-card-title">' + esc(title) + '</div>' : '')
+    + (bodyHTML || '')
+    + (note ? '<div class="analytics-card-note">' + note + '</div>' : '')
+    + '</div>';
+}
+function metricCard(val, label, sub) {
+  return '<div class="analytics-metric"><div class="analytics-metric-val">' + val + '</div>'
+    + '<div class="analytics-metric-lbl">' + esc(label) + '</div>'
+    + (sub ? '<div class="analytics-metric-sub">' + esc(sub) + '</div>' : '') + '</div>';
+}
+function emptyState(msg) { return '<div class="analytics-empty">' + esc(msg || t('sv_no_data')) + '</div>'; }
+function caveatChip(text) { return '<div class="analytics-caveat">' + text + '</div>'; }
+
+// ── SHARED CONTENT HEADER + CONTEXTUAL TIME SEMANTICS (p210) ──────────────────
+// The time control means different things per view (the p209 usability trap):
+// Estadísticas filters the dataset; Barómetro selects the period it reads.
+const VIEW_META = {
+  stats: { title:'Estructura del dataset',  timeLbl:'Filtro temporal',  timeHint:'Acota el dataset por fecha de publicación.' },
+  baro:  { title:'Lectura del cuatrimestre', timeLbl:'Periodo analizado', timeHint:'Define el cuatrimestre que lee el Barómetro.' },
+};
+
+function dataFreshnessLabel() {
+  if (ADG.isSample) return 'Datos de muestra';
+  if (ADG.dataRefreshedAt) {
+    var d = new Date(ADG.dataRefreshedAt);
+    if (!isNaN(d.getTime())) return 'Actualizado ' + d.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
+  }
+  return '';
+}
+
+function renderHeader() {
+  var m = VIEW_META[SV.view] || VIEW_META.stats;
+  var titleEl = el('analytics-title'); if (titleEl) titleEl.textContent = m.title;
+  var metaEl = el('analytics-meta');
+  if (metaEl) {
+    var canon = (ADG.canonicalData && ADG.canonicalData.length) ? ADG.canonicalData.length : (ADG.data ? ADG.data.length : 0);
+    var raw = ADG.data ? ADG.data.length : 0;
+    var parts = [];
+    if (canon) parts.push('<strong>' + canon.toLocaleString('es-ES') + '</strong> registros canónicos');
+    if (raw)   parts.push('de <strong>' + raw.toLocaleString('es-ES') + '</strong> filas de origen');
+    var fresh = dataFreshnessLabel();
+    if (fresh) parts.push(fresh);
+    metaEl.innerHTML = parts.join(' · ');
+  }
+}
+
+function syncTimeSemantics() {
+  var m = VIEW_META[SV.view] || VIEW_META.stats;
+  var lbl = el('sv-time-lbl');  if (lbl)  lbl.textContent = m.timeLbl;
+  var hint = el('sv-time-hint'); if (hint) hint.textContent = m.timeHint;
+}
+
+// ── ACTIVE FILTER RIBBON (p210) ───────────────────────────────────────────────
+// Compact chips of the active context (no prose summary). Mirrors getRows() so
+// the filtered/canonical counts always match what Estadísticas renders.
+function ribbonChip(k, v) {
+  return '<span class="analytics-chip"><span class="analytics-chip-k">' + esc(k) + '</span>'
+    + '<span class="analytics-chip-v">' + esc(v) + '</span></span>';
+}
+function renderRibbon() {
+  var wrap = el('sv-ribbon'); if (!wrap) return;
+  var chips = [ ribbonChip('Vista', SV.view === 'baro' ? 'Barómetro' : 'Estadísticas') ];
+  if (SV.year)   chips.push(ribbonChip('Año', SV.year));
+  if (SV.cuatri) chips.push(ribbonChip('Periodo', cuatriShort(parseInt(SV.cuatri, 10))));
+  if (SV.ccaa)   chips.push(ribbonChip('Territorio', (TERR[SV.ccaa] && TERR[SV.ccaa].name) || SV.ccaa));
+  if (SV.estat)  chips.push(ribbonChip('Estado', SV.estat));
+  if (SV.discs.size) [...SV.discs].forEach(function(d){ chips.push(ribbonChip('Disciplina', (DISC[d] && DISC[d].label) || d)); });
+
+  var hasFilters = !!(SV.year || SV.cuatri || SV.ccaa || SV.estat || SV.discs.size);
+  var canon = (ADG.canonicalData && ADG.canonicalData.length) ? ADG.canonicalData : (ADG.data || []);
+  var html = chips.join('');
+  if (!hasFilters) html += '<span class="analytics-chip analytics-chip--muted">Todo el dataset</span>';
+  if (SV.view === 'stats') {
+    var filtered = getRows(canon).length;
+    html += '<span class="analytics-chip analytics-chip--count"><strong>' + filtered.toLocaleString('es-ES') + '</strong> / ' + canon.length.toLocaleString('es-ES') + '</span>';
+  } else {
+    html += '<span class="analytics-chip analytics-chip--count"><strong>' + canon.length.toLocaleString('es-ES') + '</strong> canónicos</span>';
+  }
+  if (hasFilters) html += '<button class="analytics-chip analytics-chip--reset" id="sv-ribbon-reset" type="button"><i class="bi bi-x-circle"></i>Restablecer</button>';
+  wrap.innerHTML = html;
+  var rb = el('sv-ribbon-reset'); if (rb) rb.addEventListener('click', resetFilters);
+}
+
+// ── RESET FILTERS (p210) ──────────────────────────────────────────────────────
+// Clears every SV filter, resyncs visible controls, and refreshes the view.
+// Does not touch SV.view, reload the page, or use localStorage.
+function resetFilters() {
+  SV.year = ''; SV.cuatri = ''; SV.ccaa = ''; SV.estat = ''; SV.discs.clear();
+  var ys = el('sv-year'); if (ys) ys.value = '';
+  var cs = el('sv-ccaa'); if (cs) cs.value = '';
+  syncCuatri(); syncEstat(); syncDiscs();
+  refreshActiveView();
+}
+
 // ── RENDER ────────────────────────────────────────────────────────────────
 // p207: Estadísticas v1 — descriptive, honest, canonical-data surface.
 // Answers "what is in the data?" (Barómetro/p208 answers "what is happening
@@ -620,6 +728,13 @@ function renderBaro() {
 
 // -- ACTIVE VIEW REFRESH -- routes render call to current view
 function refreshActiveView() {
+  // p210 shell: keep header, time semantics and ribbon in sync with state,
+  // and expose the active module composition for the (future) p211/p212 grid.
+  syncTimeSemantics();
+  renderHeader();
+  renderRibbon();
+  var mainEl = document.querySelector('.analytics-main');
+  if (mainEl) mainEl.setAttribute('data-modules', (ANALYTICS_MODULES[SV.view] || []).join(' '));
   if (SV.view === 'baro') renderBaro(); else render();
 }
 // -- VIEW SWITCH -------------------------------------------------------------
@@ -657,6 +772,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.querySelectorAll('[data-view]').forEach(function(b){b.addEventListener('click',function(){switchView(b.dataset.view);});});
+  el('sv-reset')?.addEventListener('click', resetFilters);
   el('sv-year')?.addEventListener('change', e => { SV.year=e.target.value; refreshActiveView(); });
   el('sv-ccaa')?.addEventListener('change', e => { SV.ccaa=e.target.value; refreshActiveView(); });
   document.querySelectorAll('[data-sv-cuatri]').forEach(function(p) {

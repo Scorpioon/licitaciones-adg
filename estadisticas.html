@@ -49,29 +49,39 @@
 </div>
 
 <div class="main">
-<div class="sv-layout">
-  <aside class="sv-sidebar">
-    <div class="sv-view-toggle">
-      <div class="sh-toggle">
-        <button class="sh-toggle__btn active" data-view="stats" data-i18n="sw_stats">Estadisticas</button>
-        <button class="sh-toggle__btn" data-view="baro" data-i18n="sw_barometro">Barometro</button>
+<div class="sv-layout analytics-shell">
+  <aside class="sv-sidebar analytics-rail">
+
+    <!-- RAIL GROUP 1 · VISTA (Estadísticas / Barómetro switcher) -->
+    <div class="sv-lf-group analytics-switcher-group">
+      <div class="sv-lf-group-lbl">Vista</div>
+      <div class="sv-view-toggle analytics-switcher">
+        <div class="sh-toggle">
+          <button class="sh-toggle__btn active" data-view="stats">
+            <span class="sh-toggle__main" data-i18n="sw_stats">Estadísticas</span>
+            <span class="sh-toggle__sub">Dataset</span>
+          </button>
+          <button class="sh-toggle__btn" data-view="baro">
+            <span class="sh-toggle__main" data-i18n="sw_barometro">Barómetro</span>
+            <span class="sh-toggle__sub">Periodo</span>
+          </button>
+        </div>
       </div>
     </div>
+
     <button class="sv-lf-toggle" id="sv-lf-toggle" aria-expanded="false" aria-controls="sv-lf"><i class="bi bi-sliders"></i><span>Filtros</span><i class="bi bi-chevron-down sv-lf-toggle-chevron"></i></button>
     <nav class="sv-lf" id="sv-lf" aria-label="Filtros">
 
+      <!-- RAIL GROUP 2 · TIEMPO (view-aware semantics: filtro temporal vs periodo analizado) -->
       <div class="sv-lf-group">
-        <div class="sv-lf-group-lbl">Ano</div>
+        <div class="sv-lf-group-lbl" id="sv-time-lbl">Filtro temporal</div>
+        <div class="sv-lf-hint" id="sv-time-hint">Acota el dataset por fecha de publicación.</div>
         <select id="sv-year">
           <option value="">Todos</option>
           <option value="2024">2024</option>
           <option value="2025">2025</option>
           <option value="2026">2026</option>
         </select>
-      </div>
-
-      <div class="sv-lf-group">
-        <div class="sv-lf-group-lbl">Cuatrimestre</div>
         <div class="sv-lf-pills sv-lf-pills--q">
           <button class="pill active" data-sv-cuatri="">Todo</button>
           <button class="pill" data-sv-cuatri="1" title="Enero-Abril">C1</button>
@@ -82,8 +92,9 @@
 
       <div class="sv-lf-sep"></div>
 
+      <!-- RAIL GROUP 3 · TERRITORIO -->
       <div class="sv-lf-group">
-        <div class="sv-lf-group-lbl">CCAA</div>
+        <div class="sv-lf-group-lbl">Territorio</div>
         <select id="sv-ccaa">
           <option value="">Todo el territorio</option>
           <option value="AN">Andaluc&iacute;a</option>
@@ -106,6 +117,7 @@
 
       <div class="sv-lf-sep"></div>
 
+      <!-- RAIL GROUP 4 · ESTADO -->
       <div class="sv-lf-group">
         <div class="sv-lf-group-lbl">Estado</div>
         <div class="sv-lf-pills">
@@ -118,6 +130,7 @@
 
       <div class="sv-lf-sep"></div>
 
+      <!-- RAIL GROUP 5 · DISCIPLINA -->
       <div class="sv-lf-group">
         <div class="sv-lf-group-lbl">Disciplina</div>
         <div class="sv-lf-pills">
@@ -135,10 +148,42 @@
         </div>
       </div>
 
+      <div class="sv-lf-sep"></div>
+
+      <!-- RAIL GROUP 6 · COBERTURA (p210 placeholders — real filters land in p211/p212) -->
+      <div class="sv-lf-group">
+        <div class="sv-lf-group-lbl">Cobertura</div>
+        <div class="sv-lf-pills">
+          <button class="pill pill--soon" type="button" disabled title="Próximamente">Con presupuesto</button>
+          <button class="pill pill--soon" type="button" disabled title="Próximamente">Con documentos</button>
+          <button class="pill pill--soon" type="button" disabled title="Próximamente">Sin disciplina</button>
+        </div>
+        <div class="sv-lf-hint">Filtros de cobertura · próximamente.</div>
+      </div>
+
+      <div class="sv-lf-sep"></div>
+
+      <!-- RAIL GROUP 7 · ACCIONES -->
+      <div class="sv-lf-group analytics-actions">
+        <div class="sv-lf-group-lbl">Acciones</div>
+        <button class="sv-reset-btn" id="sv-reset" type="button"><i class="bi bi-arrow-counterclockwise"></i><span>Restablecer filtros</span></button>
+      </div>
+
     </nav>
     <div class="sv-summary" id="sv-summary"></div>
   </aside>
-  <div class="sv-main">
+  <div class="sv-main analytics-main">
+
+    <!-- SHARED CONTENT HEADER (view-aware — populated by renderHeader) -->
+    <header class="analytics-header" id="analytics-header">
+      <div class="analytics-header-eyebrow">Observatorio · Análisis</div>
+      <div class="analytics-header-title" id="analytics-title">Estructura del dataset</div>
+      <div class="analytics-header-meta" id="analytics-meta"></div>
+    </header>
+
+    <!-- ACTIVE FILTER RIBBON (populated by renderRibbon) -->
+    <div class="analytics-filter-ribbon" id="sv-ribbon" aria-label="Filtros activos"></div>
+
     <div class="sv-body" id="sv-body">
       <!-- Rendered by estadisticas.js -->
       <div style="text-align:center;padding:60px 24px;color:var(--text3)">

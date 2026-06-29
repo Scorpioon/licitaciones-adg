@@ -905,3 +905,72 @@ body.sheet-open .shell-foot { pointer-events:none; }
   /* Active-filters summary (shown only when filters are set) — match the tighter gutter. */
   .active-filters-bar { padding:4px 14px; min-height:26px; }
 }
+
+/* ═══ p210 · SHARED ANALYTICS SHELL + MODULE PRIMITIVES ═════════════════════════
+   v0.6.62. Structural foundation for Estadísticas + Barómetro (p209 spec). The
+   shell maps onto the existing .sv-layout/.sv-sidebar/.sv-main (aliased via
+   .analytics-shell/.analytics-rail/.analytics-main on the same nodes), and adds
+   a view-aware content header, an active-filter ribbon, a stronger switcher, a
+   reset action, and unified .analytics-* card/grid/metric/chip primitives that
+   p211/p212 modules will compose. Existing .sv-*/.baro-* card systems are left
+   intact (byte-identical p207/p208 visuals); unifying them is p212 debt. */
+
+/* -- Switcher (Vista): stacked label + subtitle, scoped to the analytics rail -- */
+.analytics-switcher .sh-toggle__btn { display:flex; flex-direction:column; align-items:center; gap:1px; padding:6px 6px; line-height:1.1; }
+.sh-toggle__main { font-size:9px; letter-spacing:.07em; }
+.sh-toggle__sub  { font-size:6.5px; letter-spacing:.16em; text-transform:uppercase; opacity:.7; }
+
+/* -- Rail extras: group hint line, coverage placeholders, reset action -- */
+.sv-lf-hint { font-size:8px; color:var(--text3); line-height:1.5; margin:-3px 0 1px; }
+.pill--soon { opacity:.45; cursor:not-allowed; }
+.pill--soon:hover { background:none; color:var(--text2); border-color:transparent; }
+.sv-reset-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:6px 10px; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text2); cursor:pointer; transition:all .1s; }
+.sv-reset-btn:hover { border-color:var(--border); color:var(--text); background:var(--hover); }
+.sv-reset-btn i.bi { font-size:11px; }
+
+/* -- Shared content header (view-aware) -- aligned to .sv-body content gutter -- */
+.analytics-header { flex-shrink:0; padding:2px 24px 14px; border-bottom:1px solid var(--border2); }
+.analytics-header-eyebrow { font-size:7.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--text3); }
+.analytics-header-title { font-size:18px; font-weight:700; letter-spacing:-.01em; line-height:1.25; margin-top:5px; }
+.analytics-header-meta { font-size:9.5px; color:var(--text3); margin-top:5px; letter-spacing:.02em; }
+.analytics-header-meta strong { color:var(--text2); }
+
+/* -- Active filter ribbon -- compact chips, wrap freely, no prose -- */
+.analytics-filter-ribbon { flex-shrink:0; display:flex; flex-wrap:wrap; align-items:center; gap:5px; padding:10px 24px; border-bottom:1px solid var(--border2); background:var(--bg2); }
+.analytics-filter-ribbon:empty { display:none; }
+.analytics-chip { display:inline-flex; align-items:center; gap:4px; font-size:8.5px; letter-spacing:.03em; padding:3px 8px; border:1px solid var(--border2); border-radius:100px; background:var(--bg); color:var(--text2); white-space:nowrap; line-height:1.2; }
+.analytics-chip-k { font-size:7px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); }
+.analytics-chip-v { font-weight:700; color:var(--text); }
+.analytics-chip--muted { color:var(--text3); font-style:italic; }
+.analytics-chip--count strong { color:var(--text); }
+.analytics-chip--reset { cursor:pointer; border-style:dashed; color:var(--text3); transition:all .1s; }
+.analytics-chip--reset:hover { color:var(--s-des); border-color:var(--s-des); }
+.analytics-chip--reset i.bi { font-size:10px; }
+
+/* -- Unified module/card primitives (p211/p212 composition vocabulary) -- */
+.analytics-module-grid, .analytics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; }
+.analytics-card { border:1px solid var(--border2); border-radius:2px; padding:13px; min-width:0; overflow:hidden; }
+.analytics-card-title { font-size:7.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
+.analytics-card-note { font-size:8.5px; color:var(--text3); margin-top:10px; line-height:1.55; border-top:1px dashed var(--border2); padding-top:8px; }
+.analytics-card-note strong { color:var(--text2); }
+.analytics-metric { border:1px solid var(--border2); border-radius:2px; padding:13px; }
+.analytics-metric-val { font-size:26px; font-weight:700; letter-spacing:-.03em; }
+.analytics-metric-lbl { font-size:7.5px; letter-spacing:.15em; text-transform:uppercase; color:var(--text3); margin-top:4px; }
+.analytics-metric-sub { font-size:7.5px; color:var(--text3); margin-top:3px; letter-spacing:.03em; line-height:1.4; }
+.analytics-section-title { font-size:7.5px; letter-spacing:.25em; text-transform:uppercase; color:var(--text3); margin:22px 0 10px; padding-top:18px; border-top:1px solid var(--border2); }
+.analytics-empty { font-size:10px; color:var(--text3); padding:8px 0; }
+.analytics-caveat { font-size:10px; color:var(--text2); background:var(--bg2); border:1px solid var(--border2); border-radius:2px; padding:9px 12px; margin-top:8px; line-height:1.65; }
+.analytics-caveat strong { color:var(--text); }
+
+/* -- Responsive: tighten header/ribbon gutter when the rail stacks (<=768px) -- */
+@media (max-width:768px) {
+  .analytics-header { padding:2px 16px 12px; }
+  .analytics-header-title { font-size:16px; }
+  .analytics-filter-ribbon { padding:8px 16px; }
+}
+
+/* -- Print: the shell chrome is screen-only; the Barómetro report header
+      inside #baro-page remains the printed document head. -- */
+@media print {
+  .analytics-header, .analytics-filter-ribbon { display:none!important; }
+}
