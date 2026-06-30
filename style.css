@@ -485,7 +485,7 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 @media (max-width:860px)  { body.lic-page { height:auto; min-height:100vh; } body.lic-page .lic-main { flex:none; } }
 @media (max-width:800px)  { td:nth-child(4),th:nth-child(4) { display:none; } }
 @media (max-width:640px)  { td:nth-child(3),th:nth-child(3),td:nth-child(6),th:nth-child(6),td:nth-child(7),th:nth-child(7) { display:none; } .adj-wrap { display:none; } .home-grid { grid-template-columns:1fr; } }
-@media (max-width:600px)  { .sv-lf { padding:10px 14px; } .sv-summary { padding:6px 14px; } .sv-body { padding:16px 16px 44px; } .home-hero-title { font-size:18px; } }
+@media (max-width:600px)  { .sv-lf { padding:10px 14px; } .sv-summary { padding:6px 14px; } .sv-body, .baro-page { padding:16px 16px 44px; } .home-hero-title { font-size:18px; } }
 
 /* ─── F3 · RECURSOS + CALCULADORA ─────────────────────────────────────────── */
 .rc-page { padding:24px; max-width:1100px; margin:0 auto; }
@@ -565,7 +565,10 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 @media (max-width:860px) { .map-shell { flex-direction:column; } .map-sidebar { width:100%; max-height:200px; border-right:none; border-bottom:1px solid var(--border2); } .map-container { min-height:400px; } }
 
 /* ─── F6 · BARÓMETRO ──────────────────────────────────────────────────────── */
-.baro-page { flex:1; min-height:0; overflow-y:auto; padding:24px 24px 56px; max-width:1040px; margin:0 auto; width:100%; box-sizing:border-box; }
+/* p213: Barómetro shares the full Estadísticas content width + gutter (.sv-body).
+   The old max-width:1040px;margin:0 auto centered column was the DINA4/report-sheet
+   feel; removed so both views read as one dashboard surface. */
+.baro-page { flex:1; min-height:0; overflow-y:auto; padding:22px 28px 56px; width:100%; box-sizing:border-box; }
 .baro-header { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--border); }
 .baro-header-eyebrow { font-size:7.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--text3); margin-bottom:6px; }
 .baro-header-title { font-size:18px; font-weight:700; line-height:1.3; letter-spacing:-.01em; }
@@ -822,7 +825,7 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sv-lf-sep { height:1px; background:var(--border3); margin:4px 0; }
 .sv-lf .pill { padding:3px 9px; }
 .sv-lf-toggle { display:none; } /* 0.4.3h: hidden at desktop */
-@media (max-width:768px) { .sv-layout { flex-direction:column; } .sv-sidebar { width:100%; max-height:none; position:static; border-right:none; border-bottom:1px solid var(--border2); } .sv-main { padding:0; } .sv-body { padding:18px 16px 48px; } .sv-lf-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:8px 10px; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text2); cursor:pointer; } .sv-lf-toggle-chevron { margin-left:auto; transition:transform .2s; font-size:10px; } .sv-sidebar.sv-lf--open .sv-lf-toggle-chevron { transform:rotate(180deg); } .sv-lf { display:none; } .sv-sidebar.sv-lf--open .sv-lf { display:flex; } }
+@media (max-width:768px) { .sv-layout { flex-direction:column; } .sv-sidebar { width:100%; max-height:none; position:static; border-right:none; border-bottom:1px solid var(--border2); } .sv-main { padding:0; } .sv-body, .baro-page { padding:18px 16px 48px; } .sv-lf-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:8px 10px; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg2); color:var(--text2); cursor:pointer; } .sv-lf-toggle-chevron { margin-left:auto; transition:transform .2s; font-size:10px; } .sv-sidebar.sv-lf--open .sv-lf-toggle-chevron { transform:rotate(180deg); } .sv-lf { display:none; } .sv-sidebar.sv-lf--open .sv-lf { display:flex; } }
 
 /* ─── 124 · UI ADAPTER HARDENING ──────────────────────────────────────────── */
 .badge-review { display:inline-flex; align-items:center; font-size:7px; letter-spacing:.1em; font-weight:600; text-transform:uppercase; padding:2px 5px; border-radius:2px; background:var(--s-warn-bg); color:var(--s-warn); border:1px solid var(--s-warn); vertical-align:middle; margin-left:4px; }
@@ -992,7 +995,7 @@ body.sheet-open .shell-foot { pointer-events:none; }
 .arail-head { display:flex; flex-direction:column; gap:9px; }
 .arail-eyebrow { display:flex; align-items:center; gap:5px; font-size:7px; letter-spacing:.24em; text-transform:uppercase; color:var(--text3); font-weight:600; }
 .arail-eyebrow i.bi { font-size:9px; opacity:.65; }
-.arail-mode-sub { font-size:8.5px; letter-spacing:.02em; color:var(--text2); line-height:1.4; }
+/* p213: .arail-mode-sub removed — it duplicated the switcher sub + header title. */
 /* Switcher as the visual anchor (extends p210 .analytics-switcher) */
 .analytics-switcher .sh-toggle { border-radius:3px; }
 .analytics-switcher .sh-toggle__btn { padding:8px 6px; gap:2px; }
@@ -1010,6 +1013,10 @@ body.sheet-open .shell-foot { pointer-events:none; }
 .arail-dot--ok { background:var(--s-ok); }
 .arail-dot--sample { background:var(--s-warn); }
 .arail-dot--load { background:var(--border); }
+/* p213: dataset coverage centralized here (single always-visible home) */
+.arail-status-cov { display:flex; align-items:center; gap:6px; font-size:8px; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); border-top:1px solid var(--border3); padding-top:7px; }
+.arail-status-cov i.bi { font-size:9px; opacity:.7; }
+.arail-status-cov strong { color:var(--text2); font-weight:700; }
 
 /* -- Filter sheet: full-bleed divided sections instead of separator divs -- */
 .analytics-rail .sv-lf { gap:0; }
@@ -1048,6 +1055,12 @@ body.sheet-open .shell-foot { pointer-events:none; }
    the p210 shell + p211a layout; Barómetro (.baro-*) is untouched. Scoped to the
    .sv-body content area so the rail/header/ribbon are unaffected. */
 
+/* p213: shared Observatorio number scale — one source of truth for the headline
+   and secondary-metric sizes across Estadísticas (sv2) and Barómetro (baro2), so
+   the two views share a typographic rhythm. .analytics-main is the common ancestor
+   of #sv-body and #baro-page. */
+.analytics-main { --obs-num-hero:42px; --obs-num-metric:21px; }
+
 .sv2-stack { display:flex; flex-direction:column; gap:14px; }
 .sv2-grid { display:grid; gap:12px; min-width:0; }
 .sv2-grid--2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -1074,13 +1087,13 @@ body.sheet-open .shell-foot { pointer-events:none; }
 .sv2-state--ok .sv2-state-dot { background:var(--s-ok); }
 .sv2-state--sample .sv2-state-dot { background:var(--s-warn); }
 .sv2-state--load .sv2-state-dot { background:var(--border); }
-.sv2-hero-num { font-size:42px; font-weight:700; letter-spacing:-.035em; line-height:1; color:var(--text); }
+.sv2-hero-num { font-size:var(--obs-num-hero); font-weight:700; letter-spacing:-.035em; line-height:1; color:var(--text); }
 .sv2-hero-lbl { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-top:7px; }
 .sv2-hero-of { color:var(--text2); text-transform:none; letter-spacing:.02em; font-weight:600; }
 .sv2-hero-meta { font-size:8.5px; color:var(--text3); margin-top:9px; letter-spacing:.02em; line-height:1.5; }
 .sv2-hero-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border2); border:1px solid var(--border2); border-radius:2px; overflow:hidden; }
 .sv2-hero-metric { background:var(--bg); padding:13px 12px; display:flex; flex-direction:column; justify-content:center; min-width:0; }
-.sv2-hero-metric-val { font-size:21px; font-weight:700; letter-spacing:-.025em; color:var(--text); line-height:1.05; }
+.sv2-hero-metric-val { font-size:var(--obs-num-metric); font-weight:700; letter-spacing:-.025em; color:var(--text); line-height:1.05; }
 .sv2-hero-metric-lbl { font-size:7px; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); margin-top:5px; }
 .sv2-hero-metric-sub { font-size:7.5px; color:var(--text3); margin-top:2px; letter-spacing:.01em; }
 
@@ -1198,8 +1211,10 @@ body.sheet-open .shell-foot { pointer-events:none; }
 .baro2-empty-inline { font-size:9.5px; color:var(--text3); padding:10px 0; }
 
 /* -- A · Period hero -- */
-.baro2-hero { border:1px solid var(--border); border-radius:3px; background:var(--bg); padding:18px 20px; }
+.baro2-hero { border:1px solid var(--border); border-radius:3px; background:var(--bg); padding:20px 22px; }
 .baro2-hero-top { display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px; padding-bottom:16px; border-bottom:1px solid var(--border2); }
+/* p213: period nav right-aligns now the dataset coverage note moved to the rail */
+.baro2-hero-top .baro2-period { margin-left:auto; }
 .baro2-eyebrow { display:inline-flex; align-items:center; gap:6px; font-size:7.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); font-weight:700; }
 .baro2-eyebrow i.bi { font-size:11px; }
 .baro2-period { display:flex; align-items:center; gap:8px; }
@@ -1208,15 +1223,14 @@ body.sheet-open .shell-foot { pointer-events:none; }
 .baro2-period-label { font-size:13px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
 .baro2-period-tag { font-size:7px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; padding:2px 7px; border:1px solid var(--border2); color:var(--text3); border-radius:100px; }
 .baro2-period-tag--warn { border-color:var(--s-warn); color:var(--s-warn); }
-.baro2-dataset-note { margin-left:auto; font-size:8.5px; color:var(--text3); letter-spacing:.02em; }
-.baro2-dataset-note strong { color:var(--text2); }
-.baro2-hero-body { display:grid; grid-template-columns:minmax(220px,1fr) 2fr; gap:18px; padding-top:16px; }
+/* p213: .baro2-dataset-note removed — dataset coverage moved to the rail status panel. */
+.baro2-hero-body { display:grid; grid-template-columns:minmax(210px,1fr) 2fr; gap:18px; padding-top:16px; }
 .baro2-hero-lead { display:flex; flex-direction:column; justify-content:center; border-right:1px solid var(--border2); padding-right:18px; min-width:0; }
 .baro2-hero-state { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--text2); border:1px solid var(--border2); border-radius:100px; padding:3px 9px; margin-bottom:11px; }
 .baro2-state-dot { width:6px; height:6px; border-radius:50%; background:var(--text3); flex-shrink:0; }
 .baro2-state--ok .baro2-state-dot { background:var(--s-ok); }
 .baro2-state--sample .baro2-state-dot { background:var(--s-warn); }
-.baro2-hero-num { font-size:42px; font-weight:700; letter-spacing:-.035em; line-height:1; color:var(--text); }
+.baro2-hero-num { font-size:var(--obs-num-hero); font-weight:700; letter-spacing:-.035em; line-height:1; color:var(--text); }
 .baro2-hero-lbl { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-top:7px; }
 .baro2-hero-delta { display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
 .baro2-hero-delta-ref { font-size:8.5px; color:var(--text3); }
@@ -1224,7 +1238,7 @@ body.sheet-open .shell-foot { pointer-events:none; }
 .baro2-hero-read strong { color:var(--text); }
 .baro2-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border2); border:1px solid var(--border2); border-radius:2px; overflow:hidden; align-self:center; }
 .baro2-metric { background:var(--bg); padding:13px 12px; display:flex; flex-direction:column; justify-content:center; min-width:0; }
-.baro2-metric-val { font-size:20px; font-weight:700; letter-spacing:-.025em; color:var(--text); line-height:1.05; }
+.baro2-metric-val { font-size:var(--obs-num-metric); font-weight:700; letter-spacing:-.025em; color:var(--text); line-height:1.05; }
 .baro2-metric-lbl { font-size:7px; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); margin-top:5px; }
 .baro2-metric-sub { font-size:7.5px; color:var(--text3); margin-top:2px; letter-spacing:.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
@@ -1320,10 +1334,9 @@ body.sheet-open .shell-foot { pointer-events:none; }
   .baro2-hero-lead { border-right:none; border-bottom:1px solid var(--border2); padding-right:0; padding-bottom:16px; }
   .baro2-grid--2, .baro2-grid--3 { grid-template-columns:1fr; }
   .baro2-metrics { grid-template-columns:1fr 1fr; }
-  .baro2-dataset-note { margin-left:0; }
 }
 @media (max-width:600px) {
-  .baro2-hero { padding:15px; }
+  .baro2-hero { padding:16px; }
   .baro2-hero-num { font-size:34px; }
   .baro2-module { padding:13px; }
   .baro2-row-label { width:92px; }

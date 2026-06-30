@@ -226,9 +226,13 @@ function caveatChip(text) { return '<div class="analytics-caveat">' + text + '</
 // ── SHARED CONTENT HEADER + CONTEXTUAL TIME SEMANTICS (p210) ──────────────────
 // The time control means different things per view (the p209 usability trap):
 // Estadísticas filters the dataset; Barómetro selects the period it reads.
+// p213: one phrase per zone. The switcher (rail) owns the view name + Dataset/
+// Periodo sub; the header owns the structural title + a short role line; the rail
+// status panel owns canónicos/origen/freshness/coverage. `role` replaces the old
+// rail mode-sub (which duplicated the header title) and the count-heavy header meta.
 const VIEW_META = {
-  stats: { title:'Estructura del dataset',  railSub:'Estructura del dataset', timeLbl:'Filtro temporal',  timeHint:'Acota el dataset por fecha de publicación.' },
-  baro:  { title:'Lectura del cuatrimestre', railSub:'Lectura del periodo',   timeLbl:'Periodo analizado', timeHint:'Selecciona el cuatrimestre de lectura.' },
+  stats: { title:'Estructura del dataset', role:'Composición, cobertura y calidad del conjunto de datos', timeLbl:'Filtro temporal',  timeHint:'Acota el dataset por fecha de publicación.' },
+  baro:  { title:'Lectura del periodo',    role:'Actividad del cuatrimestre seleccionado',                timeLbl:'Periodo analizado', timeHint:'Selecciona el cuatrimestre de lectura.' },
 };
 
 function dataFreshnessLabel() {
@@ -243,24 +247,20 @@ function dataFreshnessLabel() {
 function renderHeader() {
   var m = VIEW_META[SV.view] || VIEW_META.stats;
   var titleEl = el('analytics-title'); if (titleEl) titleEl.textContent = m.title;
+  // p213: the header is structural only. The dataset counts/freshness/coverage
+  // live in the rail status panel (renderRailStatus); the headline figure lives
+  // in each hero; active filters live in the ribbon. The header just states the
+  // view's role so the top-left context stops repeating the same numbers.
   var metaEl = el('analytics-meta');
-  if (metaEl) {
-    var canon = (ADG.canonicalData && ADG.canonicalData.length) ? ADG.canonicalData.length : (ADG.data ? ADG.data.length : 0);
-    var raw = ADG.data ? ADG.data.length : 0;
-    var parts = [];
-    if (canon) parts.push('<strong>' + canon.toLocaleString('es-ES') + '</strong> registros canónicos');
-    if (raw)   parts.push('de <strong>' + raw.toLocaleString('es-ES') + '</strong> filas de origen');
-    var fresh = dataFreshnessLabel();
-    if (fresh) parts.push(fresh);
-    metaEl.innerHTML = parts.join(' · ');
-  }
+  if (metaEl) metaEl.textContent = m.role || '';
 }
 
 function syncTimeSemantics() {
   var m = VIEW_META[SV.view] || VIEW_META.stats;
   var lbl = el('sv-time-lbl');  if (lbl)  lbl.textContent = m.timeLbl;
   var hint = el('sv-time-hint'); if (hint) hint.textContent = m.timeHint;
-  var sub = el('sv-mode-sub');  if (sub)  sub.textContent = m.railSub;
+  // p213: the rail mode-sub was removed (it duplicated the switcher sub + header
+  // title). The view-aware context now lives only in the time-section label/hint.
 }
 
 // ── RAIL DATASET STATUS MINI-PANEL (p211) ─────────────────────────────────────
@@ -442,7 +442,7 @@ function render() {
       + renderTopTerrModule(ccaaArr, esCount, total)
     + '</div>'
     + '<div class="sv2-note sv2-note--foot">'
-      + '<strong>Cobertura.</strong> Expedientes de contratación pública (PLACSP · contrataciondelestado.es) con relevancia para diseño y comunicación visual. Cifras sobre <strong>registros canónicos</strong> (deduplicados), no sobre filas de origen; no representan el tamaño total del mercado.'
+      + '<strong>Cobertura 2024–actual.</strong> Expedientes de contratación pública (PLACSP · contrataciondelestado.es) con relevancia para diseño y comunicación visual. Cifras sobre <strong>registros canónicos</strong> (deduplicados), no sobre filas de origen; no representan el tamaño total del mercado.'
     + '</div>'
     + '</div>';
 }
@@ -455,7 +455,7 @@ function renderStatHero(d) {
     + '<div class="sv2-hero-lbl">registros canónicos'
       + (d.hasFilters ? ' <span class="sv2-hero-of">filtrados de ' + fmtNum(d.canonGlobal) + '</span>' : '')
     + '</div>'
-    + '<div class="sv2-hero-meta">Derivados de ' + fmtNum(d.rawRows) + ' filas de origen · Fuente PLACSP</div>'
+    + '<div class="sv2-hero-meta">Fuente PLACSP · contrataciondelestado.es</div>'
     + '</div>';
   const metric = (val, lbl, sub) => '<div class="sv2-hero-metric"><div class="sv2-hero-metric-val">' + val + '</div>'
     + '<div class="sv2-hero-metric-lbl">' + esc(lbl) + '</div>'
@@ -576,7 +576,10 @@ function renderTopTerrModule(ccaaArr, esCount, total) {
   const items = ccaaArr.slice(0, 6).map(function(e){
     return { main: (TERR[e[0]] && TERR[e[0]].name) || e[0], val: fmtNum(e[1]) };
   });
-  const note = esCount ? 'El ámbito estatal (ES) concentra el ' + formatPercent(esCount, total) + ' de los registros.' : '';
+  // p213: same territorial caveat vocabulary as Barómetro, kept near the
+  // territory module (one contextual placement per view).
+  const note = 'Estatal / ES puede introducir ruido territorial: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.'
+    + (esCount ? ' Aquí supone el ' + formatPercent(esCount, total) + ' de los registros.' : '');
   return sv2Module('Territorios con más registros', null, sv2List(items), { cls: 'sv2-module--compact', note: note });
 }
 
@@ -833,7 +836,7 @@ function renderBaroHero(p, pv, cur, prev, f) {
     + '<div class="baro2-hero-num">' + fmtNum(cur.total) + '</div>'
     + '<div class="baro2-hero-lbl">registros del periodo</div>'
     + '<div class="baro2-hero-delta">' + baro2Delta(cur.total, prev.total, f.hasPrev) + '<span class="baro2-hero-delta-ref">vs ' + esc(f.prevTitle) + (f.enCurso ? ' · orientativo' : '') + '</span></div>'
-    + '<div class="baro2-hero-read">Lectura de <strong>' + esc(periodTitle(p.year, p.cuatri)) + '</strong>: actividad, estados, disciplinas, presupuesto y territorio del cuatrimestre seleccionado.</div>'
+    + '<div class="baro2-hero-read"><strong>' + esc(periodTitle(p.year, p.cuatri)) + '</strong> · actividad, estados, disciplinas, presupuesto y territorio del cuatrimestre.</div>'
     + '</div>';
 
   var metric = function(val, lbl, sub){ return '<div class="baro2-metric"><div class="baro2-metric-val">' + val + '</div>'
@@ -848,9 +851,8 @@ function renderBaroHero(p, pv, cur, prev, f) {
 
   return '<section class="baro2-hero">'
     + '<div class="baro2-hero-top">'
-      + '<div class="baro2-eyebrow"><i class="bi bi-broadcast-pin"></i><span>Barómetro · Lectura del periodo</span></div>'
+      + '<div class="baro2-eyebrow"><i class="bi bi-broadcast-pin"></i><span>Barómetro</span></div>'
       + nav
-      + '<div class="baro2-dataset-note">Cobertura del dataset: <strong>2024–actual</strong></div>'
     + '</div>'
     + '<div class="baro2-hero-body">' + lead + metrics + '</div>'
     + '</section>';
