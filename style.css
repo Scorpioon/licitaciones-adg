@@ -1167,3 +1167,170 @@ body.sheet-open .shell-foot { pointer-events:none; }
 @media print {
   .sv2-hero, .sv2-module { break-inside:avoid; }
 }
+
+/* ═══ p212 · BARÓMETRO v2 PERIOD MODULES + SEMÁFORO ═════════════════════════════
+   v0.6.65. Redesigns renderBaro() into period-reading modules: a period hero, a
+   semáforo (señales positivas / negativas / cautelas) and thick-bar status /
+   discipline / budget / coverage / territory modules. Shares the p210 shell +
+   p211a layout and visually aligns with p211B (.sv2-*), but is period/narrative
+   oriented. Bars are thick and never pure-black: neutral fills use the slate
+   --baro2-ink token; discipline bars use the taxonomy color (discColor); status
+   uses semantic status colors. Scoped to .baro-page so Estadísticas is untouched. */
+
+.baro2-stack { display:flex; flex-direction:column; gap:14px; --baro2-ink:#586173; --baro2-soft:#c8ccd4; }
+[data-theme="dark"] .baro2-stack { --baro2-ink:#8b94a6; --baro2-soft:#3a3f4a; }
+.baro2-grid { display:grid; gap:12px; min-width:0; }
+.baro2-grid--2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.baro2-grid--3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+
+/* -- Module shell (mirrors sv2 vocabulary) -- */
+.baro2-module { border:1px solid var(--border2); border-radius:3px; padding:15px 16px; min-width:0; overflow:hidden; background:var(--bg); }
+.baro2-module--feature { border-color:var(--border); }
+.baro2-module-head { display:flex; align-items:flex-start; gap:10px; margin-bottom:13px; }
+.baro2-module-titles { min-width:0; flex:1; }
+.baro2-module-title { font-size:11px; font-weight:700; letter-spacing:.01em; color:var(--text); }
+.baro2-module-sub { font-size:8.5px; color:var(--text3); margin-top:3px; letter-spacing:.02em; line-height:1.45; }
+.baro2-module-tag { flex-shrink:0; font-size:6.5px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; color:var(--text3); border:1px solid var(--border2); border-radius:100px; padding:2px 8px; }
+.baro2-note { font-size:8.5px; color:var(--text3); margin-top:12px; line-height:1.6; border-top:1px dashed var(--border2); padding-top:9px; }
+.baro2-note strong { color:var(--text2); }
+.baro2-note--foot { border:1px solid var(--border2); border-radius:3px; background:var(--bg2); padding:11px 13px; margin-top:0; }
+.baro2-sub-lbl { font-size:7px; letter-spacing:.18em; text-transform:uppercase; color:var(--text3); margin-bottom:9px; }
+.baro2-empty-inline { font-size:9.5px; color:var(--text3); padding:10px 0; }
+
+/* -- A · Period hero -- */
+.baro2-hero { border:1px solid var(--border); border-radius:3px; background:var(--bg); padding:18px 20px; }
+.baro2-hero-top { display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px; padding-bottom:16px; border-bottom:1px solid var(--border2); }
+.baro2-eyebrow { display:inline-flex; align-items:center; gap:6px; font-size:7.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text3); font-weight:700; }
+.baro2-eyebrow i.bi { font-size:11px; }
+.baro2-period { display:flex; align-items:center; gap:8px; }
+.baro2-navbtn { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border2); border-radius:var(--radius); background:var(--bg); color:var(--text2); cursor:pointer; font-size:13px; transition:all .1s; }
+.baro2-navbtn:hover { border-color:var(--border); color:var(--text); background:var(--hover); }
+.baro2-period-label { font-size:13px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.baro2-period-tag { font-size:7px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; padding:2px 7px; border:1px solid var(--border2); color:var(--text3); border-radius:100px; }
+.baro2-period-tag--warn { border-color:var(--s-warn); color:var(--s-warn); }
+.baro2-dataset-note { margin-left:auto; font-size:8.5px; color:var(--text3); letter-spacing:.02em; }
+.baro2-dataset-note strong { color:var(--text2); }
+.baro2-hero-body { display:grid; grid-template-columns:minmax(220px,1fr) 2fr; gap:18px; padding-top:16px; }
+.baro2-hero-lead { display:flex; flex-direction:column; justify-content:center; border-right:1px solid var(--border2); padding-right:18px; min-width:0; }
+.baro2-hero-state { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--text2); border:1px solid var(--border2); border-radius:100px; padding:3px 9px; margin-bottom:11px; }
+.baro2-state-dot { width:6px; height:6px; border-radius:50%; background:var(--text3); flex-shrink:0; }
+.baro2-state--ok .baro2-state-dot { background:var(--s-ok); }
+.baro2-state--sample .baro2-state-dot { background:var(--s-warn); }
+.baro2-hero-num { font-size:42px; font-weight:700; letter-spacing:-.035em; line-height:1; color:var(--text); }
+.baro2-hero-lbl { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-top:7px; }
+.baro2-hero-delta { display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.baro2-hero-delta-ref { font-size:8.5px; color:var(--text3); }
+.baro2-hero-read { font-size:9.5px; color:var(--text2); line-height:1.55; margin-top:11px; }
+.baro2-hero-read strong { color:var(--text); }
+.baro2-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border2); border:1px solid var(--border2); border-radius:2px; overflow:hidden; align-self:center; }
+.baro2-metric { background:var(--bg); padding:13px 12px; display:flex; flex-direction:column; justify-content:center; min-width:0; }
+.baro2-metric-val { font-size:20px; font-weight:700; letter-spacing:-.025em; color:var(--text); line-height:1.05; }
+.baro2-metric-lbl { font-size:7px; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); margin-top:5px; }
+.baro2-metric-sub { font-size:7.5px; color:var(--text3); margin-top:2px; letter-spacing:.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* -- B · Semáforo / signals -- */
+.baro2-signal-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.baro2-signal { border:1px solid var(--border2); border-radius:3px; padding:12px 13px; background:var(--bg); display:flex; flex-direction:column; min-width:0; }
+.baro2-signal--positive { border-left:3px solid var(--s-ok); }
+.baro2-signal--negative { border-left:3px solid var(--s-des); }
+.baro2-signal--caution  { border-left:3px solid var(--s-warn); }
+.baro2-signal-head { display:flex; align-items:center; gap:7px; font-size:9px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; color:var(--text2); margin-bottom:10px; }
+.baro2-signal-head i.bi { font-size:13px; }
+.baro2-signal--positive .baro2-signal-head i.bi { color:var(--s-ok); }
+.baro2-signal--negative .baro2-signal-head i.bi { color:var(--s-des); }
+.baro2-signal--caution  .baro2-signal-head i.bi { color:var(--s-warn); }
+.baro2-signal-count { margin-left:auto; font-size:8px; font-weight:700; color:var(--text3); border:1px solid var(--border2); border-radius:100px; min-width:17px; text-align:center; padding:1px 5px; }
+.baro2-signal-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.baro2-signal-item { display:flex; flex-direction:column; gap:2px; }
+.baro2-signal-lbl { font-size:9.5px; font-weight:700; color:var(--text); line-height:1.35; }
+.baro2-signal-reason { font-size:8.5px; color:var(--text3); line-height:1.45; }
+.baro2-signal-reason strong { color:var(--text2); }
+.baro2-signal-empty { font-size:8.5px; color:var(--text3); font-style:italic; }
+
+/* -- Thick horizontal bars (disciplines / budget / territory) -- */
+.baro2-rows { display:flex; flex-direction:column; gap:7px; }
+.baro2-row { display:flex; align-items:center; gap:8px; min-width:0; }
+.baro2-row-mark { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+.baro2-row-label { font-size:9.5px; color:var(--text2); width:118px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.baro2-bar { flex:1; min-width:0; height:12px; background:var(--border3); border-radius:2px; overflow:hidden; }
+.baro2-bar-fill { height:100%; background:var(--baro2-ink); border-radius:2px; min-width:3px; transition:width .35s ease; }
+.baro2-row-val { font-size:9.5px; font-weight:700; color:var(--text); flex-shrink:0; text-align:right; min-width:78px; white-space:nowrap; }
+.baro2-row-pct { font-size:8px; font-weight:600; color:var(--text3); margin-left:5px; }
+
+/* -- C status segmented thick bar -- */
+.baro2-thickbar { display:flex; height:20px; border-radius:3px; overflow:hidden; background:var(--border3); gap:1px; }
+.baro2-segment { height:100%; min-width:3px; transition:width .35s ease; }
+.baro2-seg-legend { display:flex; flex-wrap:wrap; gap:9px 18px; margin-top:13px; }
+.baro2-seg-item { display:flex; align-items:center; gap:6px; font-size:9.5px; color:var(--text2); }
+.baro2-seg-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+.baro2-seg-val { font-weight:700; color:var(--text); }
+
+/* -- Delta chips -- */
+.baro2-delta { display:inline-flex; align-items:center; gap:1px; font-size:9px; font-weight:700; letter-spacing:.01em; }
+.baro2-delta i.bi { font-size:12px; }
+.baro2-delta--up { color:var(--s-ok); }
+.baro2-delta--down { color:var(--s-des); }
+.baro2-delta--flat { color:var(--text3); font-weight:600; }
+
+/* -- Facts -- */
+.baro2-facts { display:flex; flex-direction:column; gap:7px; }
+.baro2-fact { display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:10.5px; border-bottom:1px solid var(--border3); padding-bottom:7px; }
+.baro2-fact:last-child { border-bottom:none; padding-bottom:0; }
+.baro2-fact-lbl { color:var(--text2); }
+.baro2-fact-val { font-weight:700; color:var(--text); white-space:nowrap; }
+
+/* -- Coverage ratios -- */
+.baro2-ratios { display:flex; flex-direction:column; gap:11px; }
+.baro2-ratio { display:flex; flex-direction:column; gap:5px; }
+.baro2-ratio-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.baro2-ratio-lbl { font-size:9.5px; color:var(--text2); }
+.baro2-ratio-val { font-size:9.5px; font-weight:700; color:var(--text); white-space:nowrap; }
+.baro2-ratio-track { height:8px; background:var(--border3); border-radius:2px; overflow:hidden; }
+.baro2-ratio-fill { height:100%; background:var(--baro2-ink); border-radius:2px; min-width:3px; transition:width .35s ease; }
+
+/* -- Activity summary + cuatrimestre sparks -- */
+.baro2-activity-summary { display:flex; flex-direction:column; gap:7px; margin-bottom:14px; }
+.baro2-sparks { display:flex; align-items:flex-end; gap:7px; height:92px; padding:6px 0 0; }
+.baro2-spark-col { display:flex; flex-direction:column; align-items:center; flex:1; height:100%; justify-content:flex-end; gap:4px; }
+.baro2-spark-bar { width:100%; min-height:3px; background:var(--baro2-soft); border-radius:2px 2px 0 0; transition:height .35s ease; }
+.baro2-spark-bar.is-sel { background:var(--baro2-ink); }
+.baro2-spark-lbl { font-size:7.5px; color:var(--text3); }
+.baro2-spark-lbl.is-sel { font-weight:700; color:var(--text2); }
+.baro2-spark-val { font-size:8.5px; font-weight:700; color:var(--text); }
+
+/* -- H territorial warning callout -- */
+.baro2-callout { display:flex; align-items:flex-start; gap:9px; margin-top:13px; padding:10px 12px; border:1px solid var(--s-warn); border-radius:3px; background:var(--s-warn-bg); color:var(--s-warn); font-size:9px; line-height:1.55; }
+.baro2-callout i.bi { font-size:14px; flex-shrink:0; margin-top:1px; }
+.baro2-callout strong { color:var(--s-warn); }
+
+/* -- I empty / low-data state -- */
+.baro2-empty { display:flex; flex-direction:column; align-items:center; text-align:center; padding:56px 24px; border:1px dashed var(--border2); border-radius:3px; }
+.baro2-empty-icon { font-size:34px; color:var(--text3); opacity:.35; margin-bottom:14px; }
+.baro2-empty-title { font-size:12px; font-weight:700; color:var(--text2); letter-spacing:.01em; }
+.baro2-empty-sub { font-size:10px; color:var(--text3); margin-top:6px; line-height:1.5; max-width:380px; }
+.baro2-empty-nav { display:flex; align-items:center; gap:10px; margin-top:18px; }
+.baro2-empty-period { font-size:11px; font-weight:700; }
+
+/* -- Responsive -- */
+@media (max-width:1100px) {
+  .baro2-signal-grid { grid-template-columns:1fr; }
+}
+@media (max-width:860px) {
+  .baro2-hero-body { grid-template-columns:1fr; gap:16px; }
+  .baro2-hero-lead { border-right:none; border-bottom:1px solid var(--border2); padding-right:0; padding-bottom:16px; }
+  .baro2-grid--2, .baro2-grid--3 { grid-template-columns:1fr; }
+  .baro2-metrics { grid-template-columns:1fr 1fr; }
+  .baro2-dataset-note { margin-left:0; }
+}
+@media (max-width:600px) {
+  .baro2-hero { padding:15px; }
+  .baro2-hero-num { font-size:34px; }
+  .baro2-module { padding:13px; }
+  .baro2-row-label { width:92px; }
+}
+
+/* -- Print: keep modules together; chrome handled by the p210 print rules -- */
+@media print {
+  .baro2-hero, .baro2-module, .baro2-signal { break-inside:avoid; }
+  .baro2-navbtn { display:none!important; }
+}

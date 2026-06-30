@@ -99,6 +99,12 @@ function syncCuatri() {
 
 function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
 function avg(arr) { return arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0; }
+// Honest percentage label (p212): 0% only when the count is truly zero; "<1%"
+// when a count exists but rounds to 0; otherwise the normal integer percentage.
+function pctLabel(a, b) {
+  if (!b || !a) return '0%';
+  return Math.round(a / b * 100) === 0 ? '<1%' : Math.round(a / b * 100) + '%';
+}
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── ESTADÍSTICAS v2 VISUAL PRIMITIVES (p211B) ────────────────────────────────
@@ -197,7 +203,7 @@ function sv2List(items) {
 // pattern). p211/p212 will migrate each id below into a composable module fn.
 const ANALYTICS_MODULES = {
   stats: ['overview', 'cobertura', 'ciclo-vida', 'presupuesto', 'plazos', 'documentos'],
-  baro:  ['periodo', 'actividad', 'evolucion', 'distribucion', 'presupuesto', 'lectura'],
+  baro:  ['periodo', 'semaforo', 'actividad', 'estado', 'disciplinas', 'presupuesto', 'cobertura', 'territorio'],
 };
 
 // Reusable analytics primitives (shared shell vocabulary for p211/p212 modules).
@@ -657,6 +663,351 @@ function stepBaroPeriod(dir) {
 
 function medianOf(sortedVals) { return sortedVals.length ? sortedVals[Math.floor(sortedVals.length/2)] : 0; }
 
+// ── BARÓMETRO v2 (p212): period-reading surface + signal/semáforo base ───────
+// Estadísticas answers "¿qué hay dentro del dataset?"; Barómetro answers "¿qué
+// está pasando en el periodo seleccionado?". v2 turns the old report-card layout
+// into period intelligence modules: a period hero, a semáforo (señales positivas
+// / negativas / cautelas) derived only from visible metrics, and thick-bar
+// status/discipline/budget/coverage/territory modules. No black-box scoring, no
+// market forecast, no "AI says". Bars are thick and never pure-black (operator
+// feedback); discipline bars use the taxonomy color via discColor().
+
+// Pure metrics snapshot for one period's rows — shared by current & previous so
+// comparisons stay symmetric. Defensive against null/NaN.
+function baroPeriodMetrics(rows) {
+  var total = rows.length;
+  var byDisc = {}, sinDisc = 0;
+  rows.forEach(function(r){ var ds = r.disciplines||[]; if (!ds.length) sinDisc++; ds.forEach(function(d){ byDisc[d] = (byDisc[d]||0)+1; }); });
+  var conPpto = rows.filter(function(r){ return r.pressupost > 0; });
+  var pptoSorted = conPpto.map(function(r){ return r.pressupost; }).sort(function(a,b){ return a-b; });
+  var byCCAA = {};
+  rows.forEach(function(r){ if (r.ccaa) byCCAA[r.ccaa] = (byCCAA[r.ccaa]||0)+1; });
+  var withDocs = rows.filter(function(r){ return (r.documents||[]).length > 0; });
+  var vigentes    = rows.filter(function(r){ return r.estat === 'Vigente'; }).length;
+  var adjudicadas = rows.filter(function(r){ return r.estat === 'Adjudicado'; }).length;
+  var desiertas   = rows.filter(function(r){ return r.estat === 'Desierta'; }).length;
+  return {
+    total: total,
+    byDisc: byDisc, sinDisc: sinDisc, discCount: Object.keys(byDisc).length,
+    conPpto: conPpto, conPptoN: conPpto.length, sinPpto: total - conPpto.length,
+    median: medianOf(pptoSorted),
+    minPpto: pptoSorted.length ? pptoSorted[0] : 0,
+    maxPpto: pptoSorted.length ? pptoSorted[pptoSorted.length-1] : 0,
+    sumPpto: conPpto.reduce(function(s,r){ return s + r.pressupost; }, 0),
+    byCCAA: byCCAA, ccaaArr: Object.entries(byCCAA).sort(function(a,b){ return b[1]-a[1]; }),
+    esCount: byCCAA['ES'] || 0,
+    withDocsN: withDocs.length,
+    totalDocs: withDocs.reduce(function(s,r){ return s + (r.documents||[]).length; }, 0),
+    vigentes: vigentes, adjudicadas: adjudicadas, desiertas: desiertas,
+    otros: total - vigentes - adjudicadas - desiertas,
+  };
+}
+
+// Signal/semáforo generator (p212). Transparent rules only — every signal cites a
+// visible metric. Comparative signals require a real previous closed period and a
+// non-trivial current volume; cautions are honest framing that travels with the
+// dataset. Returns { positive, negative, caution } arrays of { label, reason }.
+function computeBaroSignals(cur, prev, f) {
+  var pos = [], neg = [], cau = [];
+  var lowCount = cur.total > 0 && cur.total < 10;
+  var canCompare = f.hasPrev && !f.futuro && !lowCount;
+
+  if (canCompare) {
+    var d = cur.total - prev.total;
+    if (d > 0)      pos.push({ label:'Más actividad que el periodo anterior', reason:'+'+d+' vs '+esc(f.prevTitle)+' ('+prev.total+')' });
+    else if (d < 0) neg.push({ label:'Menos actividad que el periodo anterior', reason:d+' vs '+esc(f.prevTitle)+' ('+prev.total+')' });
+
+    if (cur.conPptoN > prev.conPptoN)      pos.push({ label:'Más registros con presupuesto', reason:cur.conPptoN+' vs '+prev.conPptoN });
+    else if (cur.conPptoN < prev.conPptoN) neg.push({ label:'Menos registros con presupuesto', reason:cur.conPptoN+' vs '+prev.conPptoN });
+
+    var curDoc = pct(cur.withDocsN, cur.total), prevDoc = pct(prev.withDocsN, prev.total);
+    if (curDoc > prevDoc)      pos.push({ label:'Mayor cobertura documental', reason:curDoc+'% vs '+prevDoc+'%' });
+    else if (curDoc < prevDoc) neg.push({ label:'Menor cobertura documental', reason:curDoc+'% vs '+prevDoc+'%' });
+
+    if (cur.discCount > prev.discCount)      pos.push({ label:'Más disciplinas presentes', reason:cur.discCount+' vs '+prev.discCount });
+    else if (cur.discCount < prev.discCount) neg.push({ label:'Menos disciplinas presentes', reason:cur.discCount+' vs '+prev.discCount });
+
+    var curSin = pct(cur.sinDisc, cur.total), prevSin = pct(prev.sinDisc, prev.total);
+    if (cur.sinDisc > 0 && curSin > prevSin) neg.push({ label:'Más registros sin disciplina', reason:curSin+'% vs '+prevSin+'% · calidad de datos' });
+
+    var curDes = pct(cur.desiertas, cur.total), prevDes = pct(prev.desiertas, prev.total);
+    if (cur.desiertas >= 3 && curDes > prevDes) neg.push({ label:'Mayor proporción de desiertas', reason:curDes+'% vs '+prevDes+'%' });
+  }
+
+  // Cautions — always honest, derived from the period or the dataset itself.
+  if (lowCount)                  cau.push({ label:'Periodo de bajo volumen', reason:'Solo '+cur.total+' registros: evita conclusiones fuertes.' });
+  if (f.enCurso)                 cau.push({ label:'Periodo en curso', reason:'Cifras parciales; la comparación con periodos cerrados es orientativa.' });
+  if (!f.hasPrev && !f.futuro)   cau.push({ label:'Sin periodo anterior comparable', reason:'No hay cuatrimestre previo en la cobertura para comparar.' });
+  if (cur.esCount > 0)           cau.push({ label:'Concentración estatal (ES)', reason:'El ámbito estatal supone el '+pct(cur.esCount, cur.total)+'% y puede distorsionar la lectura territorial.' });
+  cau.push({ label:'Cobertura 2024–actual', reason:'El dataset no es un censo completo del mercado.' });
+  if (cur.conPptoN > 0)          cau.push({ label:'Presupuesto orientativo', reason:'El presupuesto base no equivale al valor de mercado.' });
+  cau.push({ label:'Documentos enlazados', reason:'Los documentos están enlazados, no leídos ni analizados.' });
+
+  return { positive: pos, negative: neg, caution: cau };
+}
+
+// ── Barómetro v2 visual primitives (thick bars, never pure-black fills) ──────
+// Thick horizontal bar row: optional taxonomy mark, label, thick track, value and
+// optional share. Defaults to the slate "ink" fill, not var(--text) (black).
+function baro2Row(label, val, max, total, fill, markColor, deltaHTML) {
+  return '<div class="baro2-row">'
+    + (markColor ? '<span class="baro2-row-mark" style="background:' + markColor + '"></span>' : '')
+    + '<div class="baro2-row-label" title="' + esc(label) + '">' + esc(label) + '</div>'
+    + '<div class="baro2-bar"><div class="baro2-bar-fill" style="width:' + pct(val, max) + '%'
+      + (fill ? ';background:' + fill : '') + '"></div></div>'
+    + '<div class="baro2-row-val">' + fmtNum(val)
+      + (total >= 0 ? '<span class="baro2-row-pct">' + pctLabel(val, total) + '</span>' : '')
+      + (deltaHTML || '')
+    + '</div></div>';
+}
+
+// Thick segmented status bar + legend. segs: [{label,val,color}]. Uses pctLabel so
+// non-zero small shares show "<1%" instead of a misleading 0%.
+function baro2Segments(segs, total) {
+  var active = segs.filter(function(s){ return s.val > 0; });
+  var bar = active.map(function(s){
+    return '<div class="baro2-segment" style="width:' + pct(s.val, total) + '%;background:' + s.color + '" title="' + esc(s.label) + '"></div>';
+  }).join('');
+  var legend = active.map(function(s){
+    return '<div class="baro2-seg-item"><span class="baro2-seg-dot" style="background:' + s.color + '"></span>'
+      + '<span class="baro2-seg-lbl">' + esc(s.label) + '</span>'
+      + '<span class="baro2-seg-val">' + fmtNum(s.val) + '<span class="baro2-row-pct">' + pctLabel(s.val, total) + '</span></span></div>';
+  }).join('');
+  return '<div class="baro2-thickbar">' + (bar || '<div class="baro2-segment" style="width:100%;background:var(--border2)"></div>') + '</div>'
+    + '<div class="baro2-seg-legend">' + legend + '</div>';
+}
+
+// Module shell mirroring the p211B sv2 vocabulary but period/narrative oriented.
+function baro2Module(title, sub, bodyHTML, opts) {
+  opts = opts || {};
+  var head = '<div class="baro2-module-head"><div class="baro2-module-titles">'
+    + '<div class="baro2-module-title">' + esc(title) + '</div>'
+    + (sub ? '<div class="baro2-module-sub">' + esc(sub) + '</div>' : '')
+    + '</div>' + (opts.tag ? '<span class="baro2-module-tag">' + esc(opts.tag) + '</span>' : '') + '</div>';
+  return '<section class="baro2-module' + (opts.cls ? ' ' + opts.cls : '') + '">'
+    + head + (bodyHTML || '') + (opts.note ? '<div class="baro2-note">' + opts.note + '</div>' : '') + '</section>';
+}
+
+function baro2Fact(lbl, val) {
+  return '<div class="baro2-fact"><span class="baro2-fact-lbl">' + esc(lbl) + '</span><span class="baro2-fact-val">' + val + '</span></div>';
+}
+function baro2RatioRow(label, n, total) {
+  return '<div class="baro2-ratio">'
+    + '<div class="baro2-ratio-head"><span class="baro2-ratio-lbl">' + esc(label) + '</span>'
+    + '<span class="baro2-ratio-val">' + fmtNum(n) + '<span class="baro2-row-pct">' + pctLabel(n, total) + '</span></span></div>'
+    + '<div class="baro2-ratio-track"><div class="baro2-ratio-fill" style="width:' + pct(n, total) + '%"></div></div>'
+    + '</div>';
+}
+// Count delta chip vs the previous comparable period.
+function baro2Delta(cur, prev, hasPrev) {
+  if (!hasPrev) return '<span class="baro2-delta baro2-delta--flat"><i class="bi bi-dash"></i>sin base comparable</span>';
+  var d = cur - prev, pc = prev ? Math.round(d/prev*100) : 0;
+  if (d > 0) return '<span class="baro2-delta baro2-delta--up"><i class="bi bi-arrow-up-short"></i>+' + d + ' · +' + pc + '%</span>';
+  if (d < 0) return '<span class="baro2-delta baro2-delta--down"><i class="bi bi-arrow-down-short"></i>' + d + ' · ' + pc + '%</span>';
+  return '<span class="baro2-delta baro2-delta--flat"><i class="bi bi-dash"></i>sin cambio</span>';
+}
+function discDeltaMini(cur, prev) {
+  var d = cur - prev;
+  if (d > 0) return '<span class="baro2-delta baro2-delta--up">+' + d + '</span>';
+  if (d < 0) return '<span class="baro2-delta baro2-delta--down">' + d + '</span>';
+  return '';
+}
+
+// ── A · PERIOD HERO ──────────────────────────────────────────────────────────
+function renderBaroHero(p, pv, cur, prev, f) {
+  var stateLbl = ADG.isSample ? 'Datos de muestra' : (dataFreshnessLabel() || 'Datos reales');
+  var stateCls = ADG.isSample ? 'sample' : 'ok';
+  var tags = ''
+    + (f.enCurso ? '<span class="baro2-period-tag baro2-period-tag--warn">periodo en curso</span>' : '')
+    + (f.futuro  ? '<span class="baro2-period-tag baro2-period-tag--warn">periodo futuro</span>' : '')
+    + (!p.explicit && !f.enCurso && !f.futuro ? '<span class="baro2-period-tag">último con datos</span>' : '');
+
+  var nav = '<div class="baro2-period">'
+    + '<button class="baro2-navbtn" id="baro-prev" type="button" aria-label="Cuatrimestre anterior"><i class="bi bi-chevron-left"></i></button>'
+    + '<div class="baro2-period-label">' + esc(periodTitle(p.year, p.cuatri)) + tags + '</div>'
+    + '<button class="baro2-navbtn" id="baro-next" type="button" aria-label="Cuatrimestre siguiente"><i class="bi bi-chevron-right"></i></button>'
+    + '</div>';
+
+  var lead = '<div class="baro2-hero-lead">'
+    + '<div class="baro2-hero-state baro2-state--' + stateCls + '"><span class="baro2-state-dot"></span>' + esc(stateLbl) + '</div>'
+    + '<div class="baro2-hero-num">' + fmtNum(cur.total) + '</div>'
+    + '<div class="baro2-hero-lbl">registros del periodo</div>'
+    + '<div class="baro2-hero-delta">' + baro2Delta(cur.total, prev.total, f.hasPrev) + '<span class="baro2-hero-delta-ref">vs ' + esc(f.prevTitle) + (f.enCurso ? ' · orientativo' : '') + '</span></div>'
+    + '<div class="baro2-hero-read">Lectura de <strong>' + esc(periodTitle(p.year, p.cuatri)) + '</strong>: actividad, estados, disciplinas, presupuesto y territorio del cuatrimestre seleccionado.</div>'
+    + '</div>';
+
+  var metric = function(val, lbl, sub){ return '<div class="baro2-metric"><div class="baro2-metric-val">' + val + '</div>'
+    + '<div class="baro2-metric-lbl">' + esc(lbl) + '</div>'
+    + (sub ? '<div class="baro2-metric-sub">' + esc(sub) + '</div>' : '') + '</div>'; };
+  var metrics = '<div class="baro2-metrics">'
+    + metric(fmtNum(prev.total), 'Periodo anterior', f.prevTitle)
+    + metric(fmtNum(cur.conPptoN), 'Con presupuesto', pctLabel(cur.conPptoN, cur.total) + ' del periodo')
+    + metric(fmt(cur.median), 'Mediana', 'presupuesto base')
+    + metric(fmtNum(cur.discCount), 'Disciplinas', 'presentes en el periodo')
+    + '</div>';
+
+  return '<section class="baro2-hero">'
+    + '<div class="baro2-hero-top">'
+      + '<div class="baro2-eyebrow"><i class="bi bi-broadcast-pin"></i><span>Barómetro · Lectura del periodo</span></div>'
+      + nav
+      + '<div class="baro2-dataset-note">Cobertura del dataset: <strong>2024–actual</strong></div>'
+    + '</div>'
+    + '<div class="baro2-hero-body">' + lead + metrics + '</div>'
+    + '</section>';
+}
+
+// ── B · SEMÁFORO / SIGNAL SYSTEM ─────────────────────────────────────────────
+function baro2SignalBlock(kind, title, icon, items) {
+  var body = items.length
+    ? items.map(function(s){ return '<li class="baro2-signal-item"><span class="baro2-signal-lbl">' + esc(s.label) + '</span><span class="baro2-signal-reason">' + s.reason + '</span></li>'; }).join('')
+    : '<li class="baro2-signal-empty">Sin señales en esta categoría</li>';
+  return '<div class="baro2-signal baro2-signal--' + kind + '">'
+    + '<div class="baro2-signal-head"><i class="bi ' + icon + '"></i><span>' + esc(title) + '</span><span class="baro2-signal-count">' + items.length + '</span></div>'
+    + '<ul class="baro2-signal-list">' + body + '</ul></div>';
+}
+function renderBaroSignals(sig) {
+  var grid = '<div class="baro2-signal-grid">'
+    + baro2SignalBlock('positive', 'Señales positivas', 'bi-arrow-up-circle', sig.positive)
+    + baro2SignalBlock('negative', 'Señales negativas', 'bi-arrow-down-circle', sig.negative)
+    + baro2SignalBlock('caution',  'Cautelas · lectura prudente', 'bi-shield-exclamation', sig.caution)
+    + '</div>';
+  return baro2Module('Semáforo del periodo', 'Señales derivadas de métricas visibles · sin puntuación opaca ni previsión de mercado', grid, { tag: 'Semáforo', cls: 'baro2-module--feature' });
+}
+
+// ── C · ACTIVITY / PERIOD VOLUME (with cuatrimestre evolution) ───────────────
+function renderBaroActivity(base, p, pv, cur, prev, f) {
+  var byPeriod = {};
+  base.forEach(function(r){ var k = periodKey(r); if (k) byPeriod[k] = (byPeriod[k]||0)+1; });
+  var seq = [], yy = p.year, cc = p.cuatri;
+  for (var i=0;i<6;i++){ seq.unshift({ year:yy, cuatri:cc, key: yy+'-C'+cc }); cc--; if (cc<1){ cc=3; yy--; } }
+  var serie = seq.map(function(s){ return { label: String(s.year).slice(2)+'·C'+s.cuatri, val: byPeriod[s.key]||0, sel: (s.year===p.year && s.cuatri===p.cuatri) }; });
+  var maxSerie = Math.max.apply(null, serie.map(function(s){ return s.val; }).concat([1]));
+  var sparks = serie.map(function(s){
+    return '<div class="baro2-spark-col"><div class="baro2-spark-bar' + (s.sel ? ' is-sel' : '') + '" style="height:' + pct(s.val, maxSerie) + '%"></div>'
+      + '<div class="baro2-spark-lbl' + (s.sel ? ' is-sel' : '') + '">' + s.label + '</div>'
+      + '<div class="baro2-spark-val">' + s.val + '</div></div>';
+  }).join('');
+
+  var hasSerie = serie.some(function(s){ return s.val; });
+  var summary = '<div class="baro2-activity-summary">'
+    + baro2Fact('Periodo seleccionado', '<strong>' + fmtNum(cur.total) + '</strong>')
+    + baro2Fact('Periodo anterior · ' + esc(f.prevTitle), fmtNum(prev.total))
+    + baro2Fact('Cambio', baro2Delta(cur.total, prev.total, f.hasPrev))
+    + '</div>';
+  var body = summary
+    + '<div class="baro2-sub-lbl">Evolución · últimos 6 cuatrimestres</div>'
+    + (hasSerie ? '<div class="baro2-sparks">' + sparks + '</div>' : '<div class="baro2-empty-inline">Sin datos temporales suficientes</div>');
+  var note = f.enCurso
+    ? 'El periodo está <strong>en curso</strong>: las cifras son parciales y la comparación con periodos cerrados es orientativa.'
+    : (!f.hasPrev ? 'Sin periodo anterior comparable en la cobertura: el cambio no puede calcularse de forma fiable.'
+      : 'C1 Ene–Abr · C2 May–Ago · C3 Sep–Dic. La barra resaltada es el periodo seleccionado.');
+  return baro2Module('Actividad del periodo', 'Registros canónicos y evolución por cuatrimestre', body, { tag: 'Volumen', note: note });
+}
+
+// ── D · STATUS / LIFECYCLE (thick segmented bar) ─────────────────────────────
+function renderBaroStatus(cur) {
+  var segs = [
+    { label: 'Vigente',    val: cur.vigentes,    color: 'var(--s-ok)'  },
+    { label: 'Adjudicado', val: cur.adjudicadas, color: 'var(--s-adj)' },
+    { label: 'Desierta',   val: cur.desiertas,   color: 'var(--s-des)' },
+  ];
+  if (cur.otros > 0) segs.push({ label: 'Otros / sin estado', val: cur.otros, color: 'var(--text3)' });
+  var body = cur.total ? baro2Segments(segs, cur.total) : '<div class="baro2-empty-inline">Sin registros en el periodo</div>';
+  return baro2Module('Estado del expediente', 'Distribución por estado declarado en el periodo', body, {
+    note: 'Porcentajes sobre los ' + fmtNum(cur.total) + ' registros del periodo. Un valor con registros nunca se muestra como 0%.'
+  });
+}
+
+// ── E · DISCIPLINE MIX (discipline colors, thick bars) ───────────────────────
+function renderBaroDisciplines(cur, prev) {
+  var entries = Object.entries(cur.byDisc).sort(function(a,b){ return b[1]-a[1]; });
+  if (cur.sinDisc) entries = entries.concat([['__none__', cur.sinDisc]]);
+  var max = entries.length ? Math.max.apply(null, entries.map(function(e){ return e[1]; })) : 1;
+  var bars = entries.length ? '<div class="baro2-rows">' + entries.slice(0, 12).map(function(e){
+    var key = e[0], val = e[1];
+    var label = key === '__none__' ? (t('disc_none') || 'Sin disciplina') : (DISC[key] && DISC[key].label || key);
+    var fill  = key === '__none__' ? 'var(--disc-none-fg)' : discColor(key).text;
+    var prevVal = key === '__none__' ? prev.sinDisc : (prev.byDisc[key] || 0);
+    return baro2Row(label, val, max, -1, fill, fill, ' ' + discDeltaMini(val, prevVal));
+  }).join('') + '</div>' : '<div class="baro2-empty-inline">Sin disciplinas registradas en el periodo</div>';
+  return baro2Module('Disciplinas del periodo', 'Reparto por disciplina · delta frente al periodo anterior', bars, {
+    tag: 'Composición', cls: 'baro2-module--feature',
+    note: 'Colores por disciplina (taxonomía ADG). «Sin disciplina» es un grupo de calidad de datos, no ausencia de actividad. Un registro puede tener varias disciplinas.'
+  });
+}
+
+// ── F · BUDGET PROFILE ───────────────────────────────────────────────────────
+function renderBaroBudget(cur) {
+  var facts = '<div class="baro2-facts">'
+    + baro2Fact('Con presupuesto', fmtNum(cur.conPptoN) + ' <span class="baro2-row-pct">' + pctLabel(cur.conPptoN, cur.total) + '</span>')
+    + baro2Fact('Sin informar', fmtNum(cur.sinPpto))
+    + baro2Fact('Mediana', fmt(cur.median))
+    + baro2Fact('Rango', fmt(cur.minPpto) + ' – ' + fmt(cur.maxPpto))
+    + baro2Fact('Suma informada', fmt(cur.sumPpto))
+    + '</div>';
+  var split = cur.total
+    ? '<div class="baro2-rows">'
+        + baro2Row('Con presupuesto', cur.conPptoN, cur.total, cur.total, 'var(--baro2-ink)', null)
+        + baro2Row('Sin presupuesto', cur.sinPpto, cur.total, cur.total, 'var(--baro2-soft)', null)
+      + '</div>'
+    : '<div class="baro2-empty-inline">Sin registros en el periodo</div>';
+  var body = facts + '<div class="baro2-sub-lbl" style="margin-top:13px">Reparto</div>' + split;
+  return baro2Module('Presupuesto del periodo', 'Sobre ' + fmtNum(cur.conPptoN) + ' registros con presupuesto base', body, {
+    note: cur.conPptoN
+      ? 'El presupuesto base de licitación es orientativo; no equivale al valor de mercado y excluye ' + fmtNum(cur.sinPpto) + ' registros sin presupuesto.'
+      : 'Ningún registro del periodo informa presupuesto, por lo que no se ofrece señal económica.'
+  });
+}
+
+// ── G · DOCUMENT / COVERAGE PROFILE ──────────────────────────────────────────
+function renderBaroCoverage(cur) {
+  var withDisc = cur.total - cur.sinDisc;
+  var withTerr = cur.ccaaArr.reduce(function(s,e){ return s + e[1]; }, 0);
+  var body = cur.total
+    ? '<div class="baro2-ratios">'
+        + baro2RatioRow('Con documentos enlazados', cur.withDocsN, cur.total)
+        + baro2RatioRow('Con disciplina asignada', withDisc, cur.total)
+        + baro2RatioRow('Con presupuesto', cur.conPptoN, cur.total)
+        + baro2RatioRow('Con territorio', withTerr, cur.total)
+      + '</div>'
+      + '<div class="baro2-facts" style="margin-top:13px">' + baro2Fact('Total de documentos enlazados', fmtNum(cur.totalDocs)) + '</div>'
+    : '<div class="baro2-empty-inline">Sin registros en el periodo</div>';
+  return baro2Module('Cobertura del periodo', 'Campos presentes sobre los registros del periodo', body, {
+    tag: 'Datos',
+    note: 'Documentos <strong>enlazados</strong> desde el expediente, no leídos ni analizados. Las ratios miden presencia de campo, no calidad.'
+  });
+}
+
+// ── H · TERRITORIAL READING + ES WARNING ─────────────────────────────────────
+function renderBaroTerritory(cur) {
+  var max = cur.ccaaArr.length ? cur.ccaaArr[0][1] : 1;
+  var bars = cur.ccaaArr.length ? '<div class="baro2-rows">' + cur.ccaaArr.slice(0, 8).map(function(e){
+    var name = (TERR[e[0]] && TERR[e[0]].name) || e[0];
+    var fill = e[0] === 'ES' ? 'var(--s-warn)' : 'var(--baro2-ink)';
+    return baro2Row(name, e[1], max, cur.total, fill, null);
+  }).join('') + '</div>' : '<div class="baro2-empty-inline">Sin territorio registrado en el periodo</div>';
+  var warning = '<div class="baro2-callout"><i class="bi bi-exclamation-triangle"></i><div>'
+    + 'Estatal / ES puede introducir ruido territorial: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.'
+    + (cur.esCount ? ' En este periodo el ámbito estatal supone el <strong>' + pct(cur.esCount, cur.total) + '%</strong> de los registros.' : '')
+    + '</div></div>';
+  return baro2Module('Territorio del periodo', 'Territorios con más registros en el periodo', bars + warning, { tag: 'Territorio' });
+}
+
+// ── I · EMPTY / LOW-DATA STATE ───────────────────────────────────────────────
+function renderBaroEmpty(p, f) {
+  return '<div class="baro2-empty">'
+    + '<i class="bi bi-calendar2-week baro2-empty-icon"></i>'
+    + '<div class="baro2-empty-title">Sin registros en ' + esc(periodTitle(p.year, p.cuatri)) + '</div>'
+    + '<div class="baro2-empty-sub">' + (f.futuro
+        ? 'Periodo futuro sin datos esperados con la cobertura actual (2024–actual).'
+        : 'No hay registros canónicos en este cuatrimestre con los filtros activos. Evita conclusiones sobre un periodo vacío.') + '</div>'
+    + '<div class="baro2-empty-nav">'
+      + '<button class="baro2-navbtn" id="baro-prev" type="button" aria-label="Cuatrimestre anterior"><i class="bi bi-chevron-left"></i></button>'
+      + '<span class="baro2-empty-period">' + esc(periodTitle(p.year, p.cuatri)) + '</span>'
+      + '<button class="baro2-navbtn" id="baro-next" type="button" aria-label="Cuatrimestre siguiente"><i class="bi bi-chevron-right"></i></button>'
+    + '</div></div>';
+}
+
 function renderBaro() {
   var page = el('baro-page'); if (!page) return;
   var canon = baroCanon();
@@ -666,155 +1017,52 @@ function renderBaro() {
   var pv = prevPeriod(p);
   var rows = periodRowsOf(base, p);
   var prevRows = periodRowsOf(base, pv);
-  var total = rows.length, prevTotal = prevRows.length;
 
-  var enCurso = (p.year === ctx.year && p.cuatri === ctx.cuatri);
-  var futuro  = (p.year > ctx.year) || (p.year === ctx.year && p.cuatri > ctx.cuatri);
-  var reportDate = new Date().toLocaleDateString('es-ES', { day:'numeric', month:'long', year:'numeric' });
+  var cur = baroPeriodMetrics(rows);
+  var prev = baroPeriodMetrics(prevRows);
 
-  // ── Cuatrimestre evolution series (last 6 periods ending at selection) ──────
-  var byPeriod = {};
-  base.forEach(function(r){ var k = periodKey(r); if (k) byPeriod[k] = (byPeriod[k]||0)+1; });
-  var seq = [], yy = p.year, cc = p.cuatri;
-  for (var i=0;i<6;i++){ seq.unshift({ year:yy, cuatri:cc, key: yy+'-C'+cc }); cc--; if (cc<1){ cc=3; yy--; } }
-  var serie = seq.map(function(s){ return { label: String(s.year).slice(2)+'·C'+s.cuatri, val: byPeriod[s.key]||0, sel: (s.year===p.year && s.cuatri===p.cuatri) }; });
-  var maxSerie = Math.max.apply(null, serie.map(function(s){ return s.val; }).concat([1]));
-  var sparks = serie.map(function(s){
-    return '<div class="baro-spark-col"><div class="baro-spark-bar" style="height:'+pct(s.val,maxSerie)+'%'+(s.sel?';background:var(--text)':';background:var(--border)')+'"></div>'
-      +'<div class="baro-spark-lbl"'+(s.sel?' style="font-weight:700;color:var(--text2)"':'')+'>'+s.label+'</div>'
-      +'<div class="baro-spark-val">'+s.val+'</div></div>';
-  }).join('');
+  var f = {
+    enCurso: (p.year === ctx.year && p.cuatri === ctx.cuatri),
+    futuro:  (p.year > ctx.year) || (p.year === ctx.year && p.cuatri > ctx.cuatri),
+    hasPrev: prev.total > 0,
+    prevTitle: periodTitle(pv.year, pv.cuatri),
+  };
 
-  // ── Period aggregates (current period) ──────────────────────────────────────
-  var byDisc = {}, sinDisc = 0;
-  rows.forEach(function(r){ var ds = r.disciplines||[]; if (!ds.length) sinDisc++; ds.forEach(function(d){ byDisc[d] = (byDisc[d]||0)+1; }); });
-  var byDiscPrev = {}, sinDiscPrev = 0;
-  prevRows.forEach(function(r){ var ds = r.disciplines||[]; if (!ds.length) sinDiscPrev++; ds.forEach(function(d){ byDiscPrev[d] = (byDiscPrev[d]||0)+1; }); });
-
-  var conPpto = rows.filter(function(r){ return r.pressupost > 0; });
-  var sinPpto = total - conPpto.length;
-  var pptoSorted = conPpto.map(function(r){ return r.pressupost; }).sort(function(a,b){ return a-b; });
-  var medianPpto = medianOf(pptoSorted);
-  var minPpto = pptoSorted.length ? pptoSorted[0] : 0;
-  var maxPpto = pptoSorted.length ? pptoSorted[pptoSorted.length-1] : 0;
-
-  var byCCAA = {};
-  rows.forEach(function(r){ if (r.ccaa) byCCAA[r.ccaa] = (byCCAA[r.ccaa]||0)+1; });
-  var ccaaArr = Object.entries(byCCAA).sort(function(a,b){ return b[1]-a[1]; });
-  var esCount = byCCAA['ES'] || 0, esPct = pct(esCount, total);
-
-  var withDocs = rows.filter(function(r){ return (r.documents||[]).length > 0; });
-  var totalDocs = withDocs.reduce(function(s,r){ return s + (r.documents||[]).length; }, 0);
-  var docPct = pct(withDocs.length, total);
-
-  // ── Delta chip (activity vs previous comparable cuatrimestre) ───────────────
-  function deltaChip(cur, prev) {
-    if (!prev) return '<span class="baro-delta flat"><i class="bi bi-dash"></i>sin base comparable</span>';
-    var d = cur - prev, pc = Math.round(d/prev*100);
-    if (d > 0) return '<span class="baro-delta up"><i class="bi bi-arrow-up-short"></i>+'+d+' ('+pc+'%)</span>';
-    if (d < 0) return '<span class="baro-delta down"><i class="bi bi-arrow-down-short"></i>'+d+' ('+pc+'%)</span>';
-    return '<span class="baro-delta flat"><i class="bi bi-dash"></i>sin cambio</span>';
-  }
-  function discDelta(cur, prev) {
-    var d = cur - prev;
-    if (d > 0) return '<span class="baro-delta up">+'+d+'</span>';
-    if (d < 0) return '<span class="baro-delta down">'+d+'</span>';
-    return '<span class="baro-delta flat">=</span>';
+  // ── I · Empty / low-data state (no modules, just the empty surface + nav) ───
+  if (!cur.total) {
+    page.innerHTML = '<div class="baro2-stack">' + renderBaroEmpty(p, f) + '</div>';
+    wireBaroControls();
+    return;
   }
 
-  // ── Discipline movement bars (p204 colors, incl. "sin disciplina") ──────────
-  var discEntries = Object.entries(byDisc).sort(function(a,b){ return b[1]-a[1]; });
-  if (sinDisc) discEntries = discEntries.concat([['__none__', sinDisc]]);
-  var maxDisc = discEntries.length ? Math.max.apply(null, discEntries.map(function(e){ return e[1]; })) : 1;
-  var discBars = discEntries.length ? discEntries.slice(0,12).map(function(e){
-    var key = e[0], val = e[1];
-    var label = key === '__none__' ? (t('disc_none') || 'Sin disciplina') : (DISC[key] && DISC[key].label || key);
-    var prev = key === '__none__' ? sinDiscPrev : (byDiscPrev[key]||0);
-    return '<div class="baro-bar-row">'
-      +'<div class="baro-bar-label" title="'+esc(label)+'">'+esc(label)+'</div>'
-      +'<div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(val,maxDisc)+'%;background:'+discColor(key).text+'"></div></div>'
-      +'<div class="baro-bar-val">'+val+' '+discDelta(val, prev)+'</div></div>';
-  }).join('') : '<div class="sv-empty">Sin disciplinas registradas en el periodo</div>';
+  var sig = computeBaroSignals(cur, prev, f);
 
-  // ── Territory bars ──────────────────────────────────────────────────────────
-  var maxCCAA = ccaaArr.length ? ccaaArr[0][1] : 1;
-  var ccaaBars = ccaaArr.length ? ccaaArr.slice(0,8).map(function(e){
-    var name = TERR[e[0]] && TERR[e[0]].name || e[0];
-    return '<div class="baro-bar-row"><div class="baro-bar-label" title="'+esc(name)+'">'+esc(name)+'</div>'
-      +'<div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(e[1],maxCCAA)+'%;background:var(--text)"></div></div>'
-      +'<div class="baro-bar-val">'+e[1]+'</div></div>';
-  }).join('') : '<div class="sv-empty">Sin territorio registrado en el periodo</div>';
-
-  // ── Narrative reading (computed facts only, cautious language) ───────────────
-  var read = [];
-  read.push('En <strong>'+periodTitle(p.year, p.cuatri)+'</strong> se registran <strong>'+total+'</strong> oportunidades canónicas en este dataset'
-    + (prevTotal ? (', frente a '+prevTotal+' en '+periodTitle(pv.year, pv.cuatri)+' ('+(total-prevTotal>=0?'+':'')+(total-prevTotal)+').') : ' (sin periodo anterior comparable en la cobertura actual).'));
-  if (enCurso) read.push('El periodo está <strong>en curso</strong>: las cifras son parciales y cualquier comparación con periodos cerrados es orientativa.');
-  var topD = discEntries.filter(function(e){ return e[0] !== '__none__'; })[0];
-  if (topD) read.push('Con la cobertura actual, la disciplina con más registros en el periodo es <strong>'+(DISC[topD[0]] && DISC[topD[0]].label || topD[0])+'</strong> ('+topD[1]+').');
-  if (sinDisc) read.push('Se observan <strong>'+sinDisc+'</strong> registros sin disciplina asignada (grupo de calidad de datos), que no deben leerse como ausencia de actividad.');
-  if (conPpto.length) read.push('Informan presupuesto <strong>'+conPpto.length+'</strong> de '+total+' registros; mediana <strong>'+fmt(medianPpto)+'</strong>. No representa el valor de mercado del periodo.');
-  else read.push('Ningún registro del periodo informa presupuesto, por lo que no se ofrece señal económica.');
-  if (esCount && esPct >= 40) read.push('La señal territorial está sesgada: el ámbito estatal (ES) concentra el <strong>'+esPct+'%</strong> de los registros del periodo.');
-  if (withDocs.length) read.push('Enlazan documentos <strong>'+withDocs.length+'</strong> registros ('+docPct+'%); son enlaces del expediente, no contenido leído ni analizado.');
-
-  // ── Assemble ────────────────────────────────────────────────────────────────
-  var periodNote = p.explicit ? '' : ' <span class="baro-tag-curso" style="background:var(--bg2);color:var(--text3);border-color:var(--border2)">último con datos</span>';
-  page.innerHTML = ''
-    + '<div class="baro-header">'
-      + '<div class="baro-header-left">'
-        + '<div class="baro-header-eyebrow">Barómetro del Sector · ADG-FAD</div>'
-        + '<div class="baro-header-title">Lectura temporal de contratación<br>en diseño y comunicación visual</div>'
-        + '<div class="baro-header-meta">Lectura generada el '+reportDate+(ADG.isSample?' · <span style="color:var(--s-warn)">Datos de muestra</span>':'')+'</div>'
-      + '</div>'
-      + '<div class="baro-header-right"><button class="htbtn" id="baro-print"><i class="bi bi-printer"></i><span>Imprimir</span></button></div>'
+  page.innerHTML = '<div class="baro2-stack">'
+    + renderBaroHero(p, pv, cur, prev, f)
+    + renderBaroSignals(sig)
+    + '<div class="baro2-grid baro2-grid--2">'
+      + renderBaroActivity(base, p, pv, cur, prev, f)
+      + renderBaroStatus(cur)
     + '</div>'
-    + '<div class="baro-section-title">Periodo</div>'
-    + '<div class="baro-period">'
-      + '<button class="htbtn" id="baro-prev" aria-label="Cuatrimestre anterior"><i class="bi bi-chevron-left"></i></button>'
-      + '<div class="baro-period-label">'+periodTitle(p.year, p.cuatri)
-        + (enCurso ? ' <span class="baro-tag-curso">periodo en curso</span>' : '')
-        + (futuro ? ' <span class="baro-tag-curso" style="border-color:var(--s-warn);color:var(--s-warn)">periodo futuro</span>' : '')
-        + periodNote
-      + '</div>'
-      + '<button class="htbtn" id="baro-next" aria-label="Cuatrimestre siguiente"><i class="bi bi-chevron-right"></i></button>'
+    + renderBaroDisciplines(cur, prev)
+    + '<div class="baro2-grid baro2-grid--2">'
+      + renderBaroBudget(cur)
+      + renderBaroCoverage(cur)
     + '</div>'
-    + '<div class="baro-section-title">Actividad registrada</div>'
-    + '<div class="baro-bignums" style="grid-template-columns:repeat(4,1fr)">'
-      + '<div class="baro-bignum"><div class="baro-bignum-val">'+total+'</div><div class="baro-bignum-lbl">Registros canónicos</div><div class="baro-bignum-sub">en el periodo</div></div>'
-      + '<div class="baro-bignum"><div class="baro-bignum-val" style="font-size:13px;padding-top:5px">'+deltaChip(total, prevTotal)+'</div><div class="baro-bignum-lbl">Cambio vs anterior</div><div class="baro-bignum-sub">'+cuatriShort(pv.cuatri)+' '+pv.year+(enCurso?' · orientativo':'')+'</div></div>'
-      + '<div class="baro-bignum"><div class="baro-bignum-val">'+conPpto.length+'</div><div class="baro-bignum-lbl">Con presupuesto</div><div class="baro-bignum-sub">'+sinPpto+' sin informar</div></div>'
-      + '<div class="baro-bignum"><div class="baro-bignum-val">'+fmt(medianPpto)+'</div><div class="baro-bignum-lbl">Mediana de presupuesto</div><div class="baro-bignum-sub">presupuesto informado</div></div>'
+    + renderBaroTerritory(cur)
+    + '<div class="baro2-note baro2-note--foot">'
+      + '<strong>Lectura del periodo.</strong> Barómetro lee el cuatrimestre seleccionado; Estadísticas describe el dataset completo. '
+      + 'Cifras sobre <strong>registros canónicos</strong> (deduplicados) de cobertura <strong>2024–actual</strong> · Fuente PLACSP · contrataciondelestado.es · '
+      + 'Datos ' + (ADG.isSample ? 'de muestra' : 'reales') + '. No representa el tamaño total del mercado.'
     + '</div>'
-    + (enCurso ? '<div class="baro-insight warn" style="margin-top:8px"><i class="bi bi-hourglass-split"></i><div>Periodo en curso: la cuatrimestre seleccionada aún no ha terminado. Las cifras son parciales y la comparación con periodos cerrados es <strong>orientativa</strong>.</div></div>' : '')
-    + (futuro ? '<div class="baro-insight warn" style="margin-top:8px"><i class="bi bi-calendar-x"></i><div>Periodo futuro sin datos esperados con la cobertura actual.</div></div>' : '')
-    + (!prevTotal && !futuro ? '<div class="baro-insight" style="margin-top:8px"><i class="bi bi-info-circle"></i><div>Sin periodo anterior comparable en el dataset: el cambio no puede calcularse de forma fiable.</div></div>' : '')
-    + '<div class="baro-section-title">Evolución por cuatrimestre</div>'
-    + '<div class="baro-card">'+(serie.some(function(s){return s.val;}) ? '<div class="baro-sparks">'+sparks+'</div><div class="baro-card-note">Registros canónicos por cuatrimestre (C1 Ene-Abr · C2 May-Ago · C3 Sep-Dic). La barra resaltada es el periodo seleccionado.</div>' : '<div class="sv-empty">Sin datos temporales suficientes</div>')+'</div>'
-    + '<div class="baro-section-title">Distribución y territorio</div>'
-    + '<div class="baro-grid">'
-      + '<div class="baro-card"><div class="baro-card-title">Distribución por disciplina</div><div class="baro-bars">'+discBars+'</div><div class="baro-card-note">Delta frente a '+periodTitle(pv.year, pv.cuatri)+'. «Sin disciplina» es un grupo de calidad de datos. Colores por disciplina (p204).</div></div>'
-      + '<div class="baro-card"><div class="baro-card-title">Territorio</div><div class="baro-bars">'+ccaaBars+'</div>'+(esCount?'<div class="baro-card-note">El ámbito estatal (ES) supone el '+esPct+'% del periodo; la distribución territorial puede estar sesgada hacia licitaciones estatales.</div>':'')+'</div>'
-    + '</div>'
-    + '<div class="baro-section-title">Presupuesto y documentos</div>'
-    + '<div class="baro-grid">'
-      + '<div class="baro-card"><div class="baro-card-title">Presupuesto informado</div><div class="baro-bars">'
-        + '<div class="baro-bar-row"><div class="baro-bar-label">Con presupuesto</div><div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(conPpto.length,total||1)+'%;background:var(--text)"></div></div><div class="baro-bar-val">'+conPpto.length+'</div></div>'
-        + '<div class="baro-bar-row"><div class="baro-bar-label">Sin presupuesto</div><div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(sinPpto,total||1)+'%;background:var(--border)"></div></div><div class="baro-bar-val">'+sinPpto+'</div></div>'
-        + '</div><div class="baro-card-note">Mediana '+fmt(medianPpto)+' · rango '+fmt(minPpto)+' – '+fmt(maxPpto)+'. El presupuesto base es orientativo y no equivale al valor de mercado.</div></div>'
-      + '<div class="baro-card"><div class="baro-card-title">Documentos enlazados</div><div class="baro-bars">'
-        + '<div class="baro-bar-row"><div class="baro-bar-label">Con documentos</div><div class="baro-bar-track"><div class="baro-bar-fill" style="width:'+pct(withDocs.length,total||1)+'%;background:var(--text)"></div></div><div class="baro-bar-val">'+withDocs.length+' ('+docPct+'%)</div></div>'
-        + '</div><div class="baro-card-note">'+totalDocs+' documentos <strong>enlazados</strong> desde el expediente, no leídos ni analizados.</div></div>'
-    + '</div>'
-    + '<div class="baro-section-title">Lectura orientativa</div>'
-    + '<div class="baro-insights">'+read.map(function(x){ return '<div class="baro-insight"><i class="bi bi-dot"></i><div>'+x+'</div></div>'; }).join('')+'</div>'
-    + '<div class="baro-footer">'
-      + '<div>Lectura orientativa generada a partir de cifras calculadas · ADG Plataforma · '+reportDate+'</div>'
-      + '<div>Fuente: PLACSP · contrataciondelestado.es · Registros canónicos (deduplicados) · Datos '+(ADG.isSample?'de muestra':'reales')+'</div>'
-      + '<div style="margin-top:6px"><strong>ADG-FAD</strong> · <a href="https://adg-fad.org" target="_blank" rel="noopener">adg-fad.org</a></div>'
     + '</div>';
 
-  // Wire period controls (IIFE-scoped — cannot use inline onclick).
+  wireBaroControls();
+}
+
+// Wire period controls (IIFE-scoped — cannot use inline onclick). Present in both
+// the populated and empty states, so it is shared.
+function wireBaroControls() {
   var bp = el('baro-prev'); if (bp) bp.addEventListener('click', function(){ stepBaroPeriod(-1); });
   var bn = el('baro-next'); if (bn) bn.addEventListener('click', function(){ stepBaroPeriod(1); });
   var pr = el('baro-print'); if (pr) pr.addEventListener('click', function(){ window.print(); });
