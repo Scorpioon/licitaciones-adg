@@ -1347,3 +1347,68 @@ body.sheet-open .shell-foot { pointer-events:none; }
   .baro2-hero, .baro2-module, .baro2-signal { break-inside:avoid; }
   .baro2-navbtn { display:none!important; }
 }
+
+/* ═══ p214 · VISUAL CHART GRAMMAR PASS ═════════════════════════════════════════
+   v0.6.67. Upgrades the Estadísticas (sv2) chart marks to match the confident,
+   never-pure-black grammar established for Barómetro (baro2) in p212:
+   · a dependency-free SVG discipline donut/quesito (new centerpiece);
+   · thicker bars / segmented bars with better vertical rhythm;
+   · neutral slate fills (--sv2-ink / --sv2-soft) instead of text-black "redaction"
+     blocks; discipline marks keep their taxonomy color via discColor();
+   · honest small-percentage labels (pctLabel: "<1%" for non-zero, never 0%);
+   · budget/status module parity (notes pinned to a shared baseline).
+   Appended after p211B/p212 so these re-declared selectors win by source order.
+   Scoped to sv2 (Estadísticas); Barómetro baro2 grammar is preserved as-is. */
+
+/* Slate ink tokens for Estadísticas neutral marks — same identity as --baro2-ink. */
+.sv2-stack { --sv2-ink:#586173; --sv2-soft:#c8ccd4; }
+[data-theme="dark"] .sv2-stack { --sv2-ink:#8b94a6; --sv2-soft:#3a3f4a; }
+
+/* -- Thicker horizontal bars (budget buckets) · neutral slate, never black -- */
+.sv2-bar-track { height:11px; border-radius:2px; }
+.sv2-bar-fill  { background:var(--sv2-ink); border-radius:2px; min-width:3px; }
+
+/* -- Thicker segmented lifecycle / document bars -- */
+.sv2-seg { height:16px; border-radius:3px; }
+.sv2-seg--thick { height:24px; }
+.sv2-seg-dot { width:9px; height:9px; }
+
+/* -- Thicker coverage ratio tracks · slate fill -- */
+.sv2-ratio-track { height:9px; border-radius:2px; }
+.sv2-ratio-fill  { background:var(--sv2-ink); border-radius:2px; min-width:3px; }
+
+/* -- A · Discipline donut / quesito -------------------------------------------- */
+.sv2-donut-layout { display:grid; grid-template-columns:150px 1fr; gap:24px; align-items:center; min-width:0; }
+.sv2-donut-wrap { position:relative; width:150px; height:150px; flex-shrink:0; }
+.sv2-donut { width:100%; height:100%; display:block; }
+.sv2-donut-seg { transition:opacity .15s ease; }
+/* Pure-CSS/SVG hover highlight: dim siblings, keep the hovered slice full. */
+.sv2-donut:hover .sv2-donut-seg { opacity:.3; }
+.sv2-donut .sv2-donut-seg:hover { opacity:1; }
+.sv2-donut-core { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; text-align:center; }
+.sv2-donut-core-num { font-size:26px; font-weight:700; letter-spacing:-.035em; color:var(--text); line-height:1; }
+.sv2-donut-core-lbl { font-size:7px; letter-spacing:.16em; text-transform:uppercase; color:var(--text3); margin-top:5px; }
+.sv2-donut-legend { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:7px 20px; min-width:0; }
+.sv2-donut-legrow { display:flex; align-items:center; gap:8px; min-width:0; }
+.sv2-donut-legdot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+.sv2-donut-leglbl { font-size:9.5px; color:var(--text2); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv2-donut-legval { font-size:9.5px; font-weight:700; color:var(--text); flex-shrink:0; white-space:nowrap; }
+
+/* -- F · Budget / status module parity: pin notes to a shared bottom baseline so
+      the two grid-paired modules read as equal, deliberate boxes. -- */
+.sv2-grid > .sv2-module { display:flex; flex-direction:column; }
+.sv2-grid > .sv2-module > .sv2-note { margin-top:auto; }
+
+/* -- Responsive -- */
+@media (max-width:860px) {
+  .sv2-donut-layout { grid-template-columns:1fr; justify-items:center; gap:18px; }
+  .sv2-donut-legend { width:100%; }
+}
+@media (max-width:600px) {
+  .sv2-donut-legend { grid-template-columns:1fr; }
+}
+
+/* -- Print: donut is vector, keep it whole -- */
+@media print {
+  .sv2-donut-layout, .sv2-donut-wrap { break-inside:avoid; }
+}

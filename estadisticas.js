@@ -112,7 +112,13 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 // and defensive (null/NaN safe). Monochrome base; discipline color is used only
 // as a taxonomy identity mark via discColor(). No chart library, no claims.
 function fmtNum(n) { return (Number(n) || 0).toLocaleString('es-ES'); }
-function formatPercent(a, b) { return pct(a, b) + '%'; }
+// p214: percentage display is unified on the honest pctLabel rule (0% only when the
+// count is truly zero; "<1%" when a non-zero count rounds to zero). formatPercent is
+// kept as an alias so existing call-sites read naturally and never emit a misleading 0%.
+function formatPercent(a, b) { return pctLabel(a, b); }
+// p214: canonical small-percentage helper (spec name). Same rule as pctLabel; exposed
+// under the documented name so chart/label code can call it explicitly.
+function pctSmart(count, total) { return pctLabel(count, total); }
 
 // Budget bucket label for a single amount (honest fixed ranges, no scoring).
 function budgetBucket(p) {
@@ -150,13 +156,14 @@ function sv2Module(title, sub, bodyHTML, opts) {
 // Horizontal bar row: optional taxonomy mark, label, track (vs max), value and
 // optional share-of-total percentage.
 function sv2BarRow(label, val, max, total, color, markColor) {
-  var share = total ? pct(val, total) : -1;
+  var hasShare = !!total; // total>0 → show share; falsy → geometry-only bar
+  // p214: no explicit color ⇒ inherit the CSS slate fill (--sv2-ink), never black.
   return '<div class="sv2-bar">'
     + (markColor ? '<span class="sv2-bar-mark" style="background:' + markColor + '"></span>' : '')
     + '<div class="sv2-bar-label" title="' + esc(label) + '">' + esc(label) + '</div>'
     + '<div class="sv2-bar-track"><div class="sv2-bar-fill" style="width:' + pct(val, max) + '%'
       + (color ? ';background:' + color : '') + '"></div></div>'
-    + '<div class="sv2-bar-val">' + fmtNum(val) + (share >= 0 ? '<span class="sv2-bar-pct">' + share + '%</span>' : '') + '</div>'
+    + '<div class="sv2-bar-val">' + fmtNum(val) + (hasShare ? '<span class="sv2-bar-pct">' + pctLabel(val, total) + '</span>' : '') + '</div>'
     + '</div>';
 }
 
@@ -165,13 +172,16 @@ function sv2RatioRow(label, n, total) {
   var p = pct(n, total);
   return '<div class="sv2-ratio">'
     + '<div class="sv2-ratio-head"><span class="sv2-ratio-lbl">' + esc(label) + '</span>'
-    + '<span class="sv2-ratio-val">' + fmtNum(n) + '<span class="sv2-bar-pct">' + p + '%</span></span></div>'
+    + '<span class="sv2-ratio-val">' + fmtNum(n) + '<span class="sv2-bar-pct">' + pctLabel(n, total) + '</span></span></div>'
     + '<div class="sv2-ratio-track"><div class="sv2-ratio-fill" style="width:' + p + '%"></div></div>'
     + '</div>';
 }
 
 // Segmented single-bar + legend (lifecycle/status). segs: [{label,val,color}].
-function sv2Segments(segs, total) {
+// p214: opts.thick renders the strong lifecycle bar; legend shares use pctLabel so a
+// small non-zero segment (e.g. Desierta 12) reads "<1%", never a misleading 0%.
+function sv2Segments(segs, total, opts) {
+  opts = opts || {};
   var active = segs.filter(function(s){ return s.val > 0; });
   var bar = active.map(function(s){
     return '<div class="sv2-seg-fill" style="width:' + pct(s.val, total) + '%;background:' + s.color + '" title="' + esc(s.label) + '"></div>';
@@ -179,9 +189,10 @@ function sv2Segments(segs, total) {
   var legend = active.map(function(s){
     return '<div class="sv2-seg-item"><span class="sv2-seg-dot" style="background:' + s.color + '"></span>'
       + '<span class="sv2-seg-lbl">' + esc(s.label) + '</span>'
-      + '<span class="sv2-seg-val">' + fmtNum(s.val) + '<span class="sv2-bar-pct">' + pct(s.val, total) + '%</span></span></div>';
+      + '<span class="sv2-seg-val">' + fmtNum(s.val) + '<span class="sv2-bar-pct">' + pctLabel(s.val, total) + '</span></span></div>';
   }).join('');
-  return '<div class="sv2-seg">' + (bar || '<div class="sv2-seg-fill" style="width:100%;background:var(--border2)"></div>') + '</div>'
+  return '<div class="sv2-seg' + (opts.thick ? ' sv2-seg--thick' : '') + '">'
+    + (bar || '<div class="sv2-seg-fill" style="width:100%;background:var(--border2)"></div>') + '</div>'
     + '<div class="sv2-seg-legend">' + legend + '</div>';
 }
 
@@ -194,6 +205,58 @@ function sv2List(items) {
       + (it.sub ? '<div class="sv2-list-sub" title="' + esc(it.sub) + '">' + esc(it.sub) + '</div>' : '') + '</div>'
       + '<div class="sv2-list-val">' + it.val + '</div></li>';
   }).join('') + '</ol>';
+}
+
+// ── DISCIPLINE DONUT / QUESITO (p214) ─────────────────────────────────────────
+// Dependency-free SVG donut. Each slice is a <circle> with pathLength=100 so
+// stroke-dasharray is a direct percentage, rotated to its cumulative start (clockwise
+// from 12 o'clock). Pure + defensive: skips zero/empty slices, degrades to a neutral
+// ring when there is nothing to plot. Colors come from discColor() (taxonomy identity)
+// and a neutral token for the "Sin disciplina" data-quality bucket.
+// items: [{ key, label, val, color }]. `total` is the composition denominator.
+function donutSegments(items, total) {
+  var cum = 0, segs = [];
+  if (!total) return segs;
+  for (var i = 0; i < items.length; i++) {
+    var val = items[i].val;
+    if (!(val > 0)) continue;
+    var p = val / total * 100;
+    segs.push({ key: items[i].key, label: items[i].label, color: items[i].color, val: val, p: p, start: cum });
+    cum += p;
+  }
+  return segs;
+}
+
+function renderDonut(items, total, coreNum, coreLbl) {
+  var segs = donutSegments(items, total);
+  // Stroke color goes in `style` (not the stroke attribute): CSS var() resolves in a
+  // style attribute but NOT in an SVG presentation attribute, so the neutral
+  // var(--disc-none-fg) / var(--border3) tokens would otherwise be dropped.
+  var ring = segs.map(function(s){
+    var deg = (s.start * 3.6 - 90).toFixed(2);
+    var title = esc(s.label) + ' · ' + fmtNum(s.val) + ' (' + pctLabel(s.val, total) + ')';
+    return '<circle class="sv2-donut-seg" cx="18" cy="18" r="15.915" fill="none" style="stroke:' + s.color
+      + '" stroke-width="5.2" pathLength="100" stroke-dasharray="' + s.p.toFixed(3) + ' ' + (100 - s.p).toFixed(3)
+      + '" transform="rotate(' + deg + ' 18 18)"><title>' + title + '</title></circle>';
+  }).join('');
+  return '<div class="sv2-donut-wrap">'
+    + '<svg class="sv2-donut" viewBox="0 0 36 36" role="img" aria-label="Distribución por disciplina">'
+    + '<circle cx="18" cy="18" r="15.915" fill="none" style="stroke:var(--border3)" stroke-width="5.2"></circle>'
+    + ring
+    + '</svg>'
+    + '<div class="sv2-donut-core"><div class="sv2-donut-core-num">' + fmtNum(coreNum) + '</div>'
+    + '<div class="sv2-donut-core-lbl">' + esc(coreLbl || 'registros') + '</div></div>'
+    + '</div>';
+}
+
+function renderDonutLegend(items, total) {
+  return '<ul class="sv2-donut-legend">' + items.map(function(e){
+    return '<li class="sv2-donut-legrow">'
+      + '<span class="sv2-donut-legdot" style="background:' + e.color + '"></span>'
+      + '<span class="sv2-donut-leglbl" title="' + esc(e.label) + '">' + esc(e.label) + '</span>'
+      + '<span class="sv2-donut-legval">' + fmtNum(e.val) + '<span class="sv2-bar-pct">' + pctLabel(e.val, total) + '</span></span>'
+      + '</li>';
+  }).join('') + '</ul>';
 }
 
 // ── MODULE REGISTRY FOUNDATION (p210) ────────────────────────────────────────
@@ -471,24 +534,29 @@ function renderStatHero(d) {
 
 // ── B · DISCIPLINE DISTRIBUTION (featured, central module) ────────────────────
 function renderDisciplineModule(discArr, sinDisc, total) {
-  const entries = discArr.concat(sinDisc ? [['__none__', sinDisc]] : []);
+  // p214: the discipline distribution is now a donut/quesito centerpiece. Each slice
+  // uses the taxonomy color (discColor) so Editorial reads as Editorial everywhere;
+  // "Sin disciplina" is a neutral data-quality bucket, never mistaken for a discipline.
+  // The donut is a true composition, so its denominator is the sum of discipline
+  // mentions (+ the sin-disciplina records) — a record can carry several disciplines.
+  const items = discArr.map(function(e){
+    return { key: e[0], label: (DISC[e[0]] && DISC[e[0]].label) || e[0], val: e[1], color: discColor(e[0]).text };
+  });
+  if (sinDisc) items.push({ key: '__none__', label: (t('disc_none') || 'Sin disciplina'), val: sinDisc, color: 'var(--disc-none-fg)' });
+  const donutTotal = items.reduce(function(s, e){ return s + e.val; }, 0);
   let bodyHTML;
-  if (!entries.length) {
+  if (!items.length || !donutTotal) {
     bodyHTML = emptyInline();
   } else {
-    const max = Math.max.apply(null, entries.map(e => e[1]).concat([1]));
-    bodyHTML = '<div class="sv2-bars sv2-bars--2col">' + entries.slice(0, 14).map(function(e){
-      const key = e[0], val = e[1];
-      const label = key === '__none__' ? (t('disc_none') || 'Sin disciplina') : (DISC[key] && DISC[key].label || key);
-      const mark  = key === '__none__' ? 'var(--border)' : discColor(key).text;
-      // Monochrome fill + taxonomy color mark; share is % of filtered records.
-      return sv2BarRow(label, val, max, total, null, mark);
-    }).join('') + '</div>';
+    bodyHTML = '<div class="sv2-donut-layout">'
+      + renderDonut(items, donutTotal, total, 'registros')
+      + renderDonutLegend(items, donutTotal)
+      + '</div>';
   }
   const note = sinDisc
-    ? '«Sin disciplina» (' + fmtNum(sinDisc) + ') es un grupo de calidad de datos: expedientes aún sin clasificar. Un registro puede tener varias disciplinas, por lo que los porcentajes pueden sumar más de 100%.'
-    : 'Un registro puede tener varias disciplinas, por lo que los porcentajes pueden sumar más de 100%.';
-  return sv2Module('Distribución por disciplina', 'Reparto de la selección · % sobre registros filtrados', bodyHTML,
+    ? '«Sin disciplina» (' + fmtNum(sinDisc) + ') es un grupo de calidad de datos: expedientes aún sin clasificar. El quesito reparte las <strong>menciones</strong> de disciplina de la selección; un registro puede aportar varias, por eso el centro muestra los registros y las porciones suman el 100% de las menciones.'
+    : 'El quesito reparte las <strong>menciones</strong> de disciplina de la selección; un registro puede aportar varias, por eso el centro muestra los registros y las porciones suman el 100% de las menciones.';
+  return sv2Module('Distribución por disciplina', 'Reparto de la selección · quesito por menciones de disciplina', bodyHTML,
     { cls: 'sv2-module--feature', tag: 'Composición', note: note });
 }
 
@@ -500,7 +568,7 @@ function renderStatusModule(s, total) {
     { label: 'Desierta',   val: s.desiertas,   color: 'var(--s-des)' },
   ];
   if (s.otrosEstat > 0) segs.push({ label: 'Otros / sin estado', val: s.otrosEstat, color: 'var(--text3)' });
-  return sv2Module('Estado del expediente', 'Distribución por estado declarado', sv2Segments(segs, total), {
+  return sv2Module('Estado del expediente', 'Distribución por estado declarado', sv2Segments(segs, total, { thick: true }), {
     note: '«Sin adjudicar» (' + fmtNum(s.sinAdjudicar) + ') es una clasificación de ciclo de vida y no equivale al estado «Vigente»: el plazo de presentación puede estar vencido.'
   });
 }
@@ -516,7 +584,8 @@ function renderBudgetModule(b) {
     + '</div>';
   const bucketBars = b.conPpto
     ? '<div class="sv2-buckets">' + b.bucketOrder.map(function(k){
-        return sv2BarRow(k, b.buckets[k], b.bucketMax, b.conPpto, 'var(--text)', null);
+        // p214: no explicit color ⇒ neutral slate fill (--sv2-ink), not black.
+        return sv2BarRow(k, b.buckets[k], b.bucketMax, b.conPpto, null, null);
       }).join('') + '</div>'
     : emptyInline();
   const bodyHTML = '<div class="sv2-split-cols">'
@@ -547,10 +616,10 @@ function renderCoverageModule(c, total) {
 function renderDocumentsModule(withDocs, totalDocs, total) {
   const sinDocs = total - withDocs;
   const segs = [
-    { label: 'Con documentos enlazados', val: withDocs, color: 'var(--text)' },
-    { label: 'Sin documentos',           val: sinDocs,  color: 'var(--border2)' },
+    { label: 'Con documentos enlazados', val: withDocs, color: 'var(--sv2-ink)' },
+    { label: 'Sin documentos',           val: sinDocs,  color: 'var(--sv2-soft)' },
   ];
-  const bodyHTML = sv2Segments(segs, total)
+  const bodyHTML = sv2Segments(segs, total, { thick: true })
     + '<div class="sv2-facts" style="margin-top:12px">'
     + factRow('Total de documentos enlazados', fmtNum(totalDocs))
     + '</div>';
