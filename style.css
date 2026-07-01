@@ -1412,3 +1412,41 @@ body.sheet-open .shell-foot { pointer-events:none; }
 @media print {
   .sv2-donut-layout, .sv2-donut-wrap { break-inside:avoid; }
 }
+
+/* ═══ p215 · MODULE FIT / WIDTH NORMALIZATION / DONUT INTERACTION ═══════════════
+   v0.6.68. Scoped refinement over p213/p214.
+   (A) WIDTH: a shared, centered content column caps the analytics reading width so
+       neither Estadísticas nor Barómetro reads edge-to-edge on wide viewports. The
+       full-bleed header/ribbon borders are kept; only their content is centered via
+       a matching max() gutter, so the left-rail relationship is untouched. Applied
+       above 768px only — at/below 768 the rail stacks and the existing responsive
+       gutters (16px) are correct, so this rule stays out of their way.
+   (B) FIT: the donut crop fix is in the JS viewBox (-2 -2 40 40); here the center
+       just gets horizontal room + line-height to echo the hovered discipline.
+   (C) DONUT INTERACTION: legend/slice hover+focus drives the center; is-focus dims
+       siblings and is-active keeps the referenced slice full (mirrors the pure-CSS
+       :hover behavior for legend-driven and keyboard focus).
+   (D) BUDGET/RANGE PARITY is a JS-only change (bar length now shares the range
+       denominator with its % label).
+   Appended last so these declarations win by source order. */
+
+/* -- A · Shared centered content column (wide desktops only) -- */
+.analytics-main { --obs-content-max:1160px; }
+@media (min-width:769px) {
+  .analytics-header,
+  .analytics-filter-ribbon,
+  .sv-body,
+  .baro-page { padding-inline:max(28px, calc((100% - var(--obs-content-max)) / 2)); }
+}
+
+/* -- B/C · Donut center room + legend/slice-driven highlight -- */
+.sv2-donut-core { padding:0 12px; }
+.sv2-donut-core-lbl { line-height:1.35; }
+.sv2-donut.is-focus .sv2-donut-seg { opacity:.3; }
+.sv2-donut .sv2-donut-seg.is-active { opacity:1; }
+.sv2-donut-seg { cursor:pointer; }
+.sv2-donut-seg:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.sv2-donut-legrow { cursor:pointer; }
+.sv2-donut-legrow:hover .sv2-donut-leglbl,
+.sv2-donut-legrow:focus-visible .sv2-donut-leglbl { color:var(--text); }
+.sv2-donut-legrow:focus-visible { outline:2px solid var(--text); outline-offset:2px; border-radius:3px; }

@@ -232,31 +232,85 @@ function renderDonut(items, total, coreNum, coreLbl) {
   // Stroke color goes in `style` (not the stroke attribute): CSS var() resolves in a
   // style attribute but NOT in an SVG presentation attribute, so the neutral
   // var(--disc-none-fg) / var(--border3) tokens would otherwise be dropped.
+  // p215: interaction data lives on each slice (label/value/share/key) so the
+  // center can echo the hovered discipline; slices are keyboard-focusable buttons.
   var ring = segs.map(function(s){
     var deg = (s.start * 3.6 - 90).toFixed(2);
-    var title = esc(s.label) + ' · ' + fmtNum(s.val) + ' (' + pctLabel(s.val, total) + ')';
+    var share = pctLabel(s.val, total);
+    var title = esc(s.label) + ' · ' + fmtNum(s.val) + ' (' + share + ')';
     return '<circle class="sv2-donut-seg" cx="18" cy="18" r="15.915" fill="none" style="stroke:' + s.color
       + '" stroke-width="5.2" pathLength="100" stroke-dasharray="' + s.p.toFixed(3) + ' ' + (100 - s.p).toFixed(3)
-      + '" transform="rotate(' + deg + ' 18 18)"><title>' + title + '</title></circle>';
+      + '" transform="rotate(' + deg + ' 18 18)" tabindex="0" role="button" aria-label="' + title + '"'
+      + ' data-key="' + esc(s.key) + '" data-lbl="' + esc(s.label) + '" data-val="' + fmtNum(s.val) + '" data-share="' + share + '">'
+      + '<title>' + title + '</title></circle>';
   }).join('');
+  // p215: viewBox is padded (-2 -2 40 40) so the 5.2-wide stroke can never be
+  // clipped at the ring's top/bottom (r 15.915 + stroke 2.6 = 18.515 > the old 18).
   return '<div class="sv2-donut-wrap">'
-    + '<svg class="sv2-donut" viewBox="0 0 36 36" role="img" aria-label="Distribución por disciplina">'
+    + '<svg class="sv2-donut" viewBox="-2 -2 40 40" role="img" aria-label="Distribución por disciplina">'
     + '<circle cx="18" cy="18" r="15.915" fill="none" style="stroke:var(--border3)" stroke-width="5.2"></circle>'
     + ring
     + '</svg>'
-    + '<div class="sv2-donut-core"><div class="sv2-donut-core-num">' + fmtNum(coreNum) + '</div>'
+    + '<div class="sv2-donut-core" data-default-num="' + fmtNum(coreNum) + '" data-default-lbl="' + esc(coreLbl || 'registros') + '">'
+    + '<div class="sv2-donut-core-num">' + fmtNum(coreNum) + '</div>'
     + '<div class="sv2-donut-core-lbl">' + esc(coreLbl || 'registros') + '</div></div>'
     + '</div>';
 }
 
 function renderDonutLegend(items, total) {
+  // p215: legend rows carry the same interaction data + key as their slice so
+  // hovering/focusing a row drives the donut center and highlights the slice.
   return '<ul class="sv2-donut-legend">' + items.map(function(e){
-    return '<li class="sv2-donut-legrow">'
+    var share = pctLabel(e.val, total);
+    return '<li class="sv2-donut-legrow" tabindex="0" role="button"'
+      + ' data-key="' + esc(e.key) + '" data-lbl="' + esc(e.label) + '" data-val="' + fmtNum(e.val) + '" data-share="' + share + '">'
       + '<span class="sv2-donut-legdot" style="background:' + e.color + '"></span>'
       + '<span class="sv2-donut-leglbl" title="' + esc(e.label) + '">' + esc(e.label) + '</span>'
-      + '<span class="sv2-donut-legval">' + fmtNum(e.val) + '<span class="sv2-bar-pct">' + pctLabel(e.val, total) + '</span></span>'
+      + '<span class="sv2-donut-legval">' + fmtNum(e.val) + '<span class="sv2-bar-pct">' + share + '</span></span>'
       + '</li>';
   }).join('') + '</ul>';
+}
+
+// p215: wire donut interaction after render. Hovering/focusing a slice or legend
+// row shows that discipline's label + value + share in the center; leaving/blurring
+// restores the default (total records). Legend hover also highlights its slice via
+// is-focus/is-active classes. Dependency-free, keyboard-accessible, defensive.
+function wireDonut() {
+  var core = document.querySelector('.sv2-donut-core');
+  if (!core) return;
+  var numEl = core.querySelector('.sv2-donut-core-num');
+  var lblEl = core.querySelector('.sv2-donut-core-lbl');
+  var defNum = core.getAttribute('data-default-num') || '';
+  var defLbl = core.getAttribute('data-default-lbl') || '';
+  var svg = document.querySelector('.sv2-donut');
+  function highlight(key) {
+    if (!svg) return;
+    svg.classList.add('is-focus');
+    svg.querySelectorAll('.sv2-donut-seg').forEach(function(s){
+      s.classList.toggle('is-active', s.getAttribute('data-key') === key);
+    });
+  }
+  function clearHighlight() {
+    if (!svg) return;
+    svg.classList.remove('is-focus');
+    svg.querySelectorAll('.sv2-donut-seg').forEach(function(s){ s.classList.remove('is-active'); });
+  }
+  function show(node) {
+    if (numEl) numEl.textContent = node.getAttribute('data-val');
+    if (lblEl) lblEl.textContent = node.getAttribute('data-lbl') + ' · ' + node.getAttribute('data-share');
+    highlight(node.getAttribute('data-key'));
+  }
+  function reset() {
+    if (numEl) numEl.textContent = defNum;
+    if (lblEl) lblEl.textContent = defLbl;
+    clearHighlight();
+  }
+  document.querySelectorAll('.sv2-donut-seg, .sv2-donut-legrow').forEach(function(n){
+    n.addEventListener('mouseenter', function(){ show(n); });
+    n.addEventListener('mouseleave', reset);
+    n.addEventListener('focus', function(){ show(n); });
+    n.addEventListener('blur', reset);
+  });
 }
 
 // ── MODULE REGISTRY FOUNDATION (p210) ────────────────────────────────────────
@@ -453,7 +507,6 @@ function render() {
   const bucketOrder = ['< 10K','10K–50K','50K–100K','100K–500K','> 500K'];
   const buckets = {}; bucketOrder.forEach(k => buckets[k] = 0);
   conPpto.forEach(r => { buckets[budgetBucket(r.pressupost)]++; });
-  const bucketMax = Math.max.apply(null, bucketOrder.map(k => buckets[k]).concat([1]));
 
   // ── Disciplines (incl. neutral "sin disciplina" bucket) ──────────────────
   const byDisc = {}; let sinDisc = 0;
@@ -493,7 +546,7 @@ function render() {
     + renderDisciplineModule(discArr, sinDisc, total)
     + '<div class="sv2-grid sv2-grid--2">'
       + renderStatusModule({ vigentes, adjudicadas, desiertas, otrosEstat, sinAdjudicar }, total)
-      + renderBudgetModule({ conPpto: conPpto.length, sinPpto, sumPpto, medianPpto, minPpto, maxPpto, buckets, bucketOrder, bucketMax })
+      + renderBudgetModule({ conPpto: conPpto.length, sinPpto, sumPpto, medianPpto, minPpto, maxPpto, buckets, bucketOrder })
     + '</div>'
     + '<div class="sv2-grid sv2-grid--2">'
       + renderCoverageModule({ conPpto: conPpto.length, withDisc, withTerr, withDate, withOrg }, total)
@@ -508,6 +561,9 @@ function render() {
       + '<strong>Cobertura 2024–actual.</strong> Expedientes de contratación pública (PLACSP · contrataciondelestado.es) con relevancia para diseño y comunicación visual. Cifras sobre <strong>registros canónicos</strong> (deduplicados), no sobre filas de origen; no representan el tamaño total del mercado.'
     + '</div>'
     + '</div>';
+
+  // p215: attach donut center interaction now the markup is in the DOM.
+  wireDonut();
 }
 
 // ── A · HERO / DATASET SNAPSHOT ──────────────────────────────────────────────
@@ -584,8 +640,10 @@ function renderBudgetModule(b) {
     + '</div>';
   const bucketBars = b.conPpto
     ? '<div class="sv2-buckets">' + b.bucketOrder.map(function(k){
+        // p215: bar length and the % label now share ONE denominator (records with
+        // budget), so a "1072 · 32%" row reads as a 32%-long bar, not a full bar.
         // p214: no explicit color ⇒ neutral slate fill (--sv2-ink), not black.
-        return sv2BarRow(k, b.buckets[k], b.bucketMax, b.conPpto, null, null);
+        return sv2BarRow(k, b.buckets[k], b.conPpto, b.conPpto, null, null);
       }).join('') + '</div>'
     : emptyInline();
   const bodyHTML = '<div class="sv2-split-cols">'
