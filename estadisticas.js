@@ -1051,6 +1051,10 @@ function renderBaroStatus(cur) {
 function renderBaroDisciplines(cur, prev) {
   var entries = Object.entries(cur.byDisc).sort(function(a,b){ return b[1]-a[1]; });
   if (cur.sinDisc) entries = entries.concat([['__none__', cur.sinDisc]]);
+  // p216: these bars are intentionally RELATIVE-TO-TOP (max = the largest discipline
+  // count) as a ranked mix, and they carry NO share-of-total percentage — baro2Row is
+  // called with total = -1 so the % label is suppressed. Only the raw count + delta
+  // show, so a full-length top bar can never contradict a share-of-period label.
   var max = entries.length ? Math.max.apply(null, entries.map(function(e){ return e[1]; })) : 1;
   var bars = entries.length ? '<div class="baro2-rows">' + entries.slice(0, 12).map(function(e){
     var key = e[0], val = e[1];
@@ -1107,13 +1111,35 @@ function renderBaroCoverage(cur) {
   });
 }
 
+// ── ADJUDICATARIAS PREP (p216 audit · not wired) ─────────────────────────────
+// p217 prep only — NOT rendered anywhere yet. Pure + defensive. Aggregates the
+// awarded-company name from the single reliable, already-normalized field
+// `r.adjudicatari` (cleaned in app.js normalizeItem: HTML-stripped, entity-decoded,
+// junk placeholders like "detalle"/"adjudicaci…" collapsed to ''). It does NOT read
+// `award_results` (present in the data but its shape is unaudited in the frontend),
+// does NOT infer names from free text, and does NOT classify. Returns entries
+// [name, count] sorted desc, plus how many rows carried a usable adjudicataria.
+function adjudicatariaCounts(rows) {
+  var by = {}, withAdj = 0;
+  (rows || []).forEach(function(r){
+    var name = r && typeof r.adjudicatari === 'string' ? r.adjudicatari.trim() : '';
+    if (!name) return;
+    withAdj++;
+    by[name] = (by[name] || 0) + 1;
+  });
+  return { entries: Object.entries(by).sort(function(a,b){ return b[1]-a[1]; }), withAdj: withAdj };
+}
+
 // ── H · TERRITORIAL READING + ES WARNING ─────────────────────────────────────
 function renderBaroTerritory(cur) {
-  var max = cur.ccaaArr.length ? cur.ccaaArr[0][1] : 1;
+  // p216: bar length and the % label now share ONE denominator (the period total),
+  // so a row that labels "61%" renders a 61%-long bar — it is a share-of-period bar,
+  // NOT relative-to-top. (Pre-p216 the fill used the top-territory count as its max,
+  // so the largest territory always rendered full while its label read e.g. 61%.)
   var bars = cur.ccaaArr.length ? '<div class="baro2-rows">' + cur.ccaaArr.slice(0, 8).map(function(e){
     var name = (TERR[e[0]] && TERR[e[0]].name) || e[0];
     var fill = e[0] === 'ES' ? 'var(--s-warn)' : 'var(--baro2-ink)';
-    return baro2Row(name, e[1], max, cur.total, fill, null);
+    return baro2Row(name, e[1], cur.total, cur.total, fill, null);
   }).join('') + '</div>' : '<div class="baro2-empty-inline">Sin territorio registrado en el periodo</div>';
   var warning = '<div class="baro2-callout"><i class="bi bi-exclamation-triangle"></i><div>'
     + 'Estatal / ES puede introducir ruido territorial: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.'
