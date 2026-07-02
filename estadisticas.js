@@ -319,8 +319,8 @@ function wireDonut() {
 // and p208 renderBaro() still produce the section bodies inline (strangler
 // pattern). p211/p212 will migrate each id below into a composable module fn.
 const ANALYTICS_MODULES = {
-  stats: ['overview', 'cobertura', 'ciclo-vida', 'presupuesto', 'plazos', 'documentos'],
-  baro:  ['periodo', 'semaforo', 'actividad', 'estado', 'disciplinas', 'presupuesto', 'cobertura', 'territorio'],
+  stats: ['overview', 'cobertura', 'ciclo-vida', 'presupuesto', 'plazos', 'documentos', 'adjudicatarias', 'adjudicatarias-territorio'],
+  baro:  ['periodo', 'semaforo', 'actividad', 'estado', 'disciplinas', 'presupuesto', 'cobertura', 'territorio', 'adjudicatarias'],
 };
 
 // Reusable analytics primitives (shared shell vocabulary for p211/p212 modules).
@@ -539,6 +539,9 @@ function render() {
   rows.forEach(r => { if (r.organisme) byOrg[r.organisme] = (byOrg[r.organisme]||0)+1; });
   const orgArr = Object.entries(byOrg).sort((a,b)=>b[1]-a[1]).slice(0,6);
 
+  // ── Adjudicatarias (informed-only; source of truth = r.adjudicatari) ──────
+  const adj = adjudicatariaCounts(rows);
+
   // ── Assemble v2 modules (ANALYTICS_MODULES.stats composition) ────────────
   body.innerHTML = '<div class="sv2-stack">'
     + renderStatHero({ total, canonGlobal, rawRows, hasFilters, state,
@@ -556,6 +559,10 @@ function render() {
       + renderTopOrgsModule(orgArr)
       + renderTopBudgetModule(topBudget)
       + renderTopTerrModule(ccaaArr, esCount, total)
+    + '</div>'
+    + '<div class="sv2-grid sv2-grid--2">'
+      + renderTopAdjudicatariasModule(adj)
+      + renderAdjByTerritoryModule(rows)
     + '</div>'
     + '<div class="sv2-note sv2-note--foot">'
       + '<strong>Cobertura 2024–actual.</strong> Expedientes de contratación pública (PLACSP · contrataciondelestado.es) con relevancia para diseño y comunicación visual. Cifras sobre <strong>registros canónicos</strong> (deduplicados), no sobre filas de origen; no representan el tamaño total del mercado.'
@@ -708,6 +715,53 @@ function renderTopTerrModule(ccaaArr, esCount, total) {
   const note = 'Estatal / ES puede introducir ruido territorial: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.'
     + (esCount ? ' Aquí supone el ' + formatPercent(esCount, total) + ' de los registros.' : '');
   return sv2Module('Territorios con más registros', null, sv2List(items), { cls: 'sv2-module--compact', note: note });
+}
+
+// ── G2 · TOP ADJUDICATARIAS (descriptive, informed-only) ──────────────────────
+// p217: who appears most often as adjudicataria in the current filtered canonical
+// selection. Counts the `adjudicatari` field only; % is over rows WITH adjudicataria
+// informed (never over all records, never "market share"). Presupuesto base is shown
+// as a secondary, explicitly-orientativo figure — never an award amount.
+function renderTopAdjudicatariasModule(adj) {
+  if (!adj.withAdj) {
+    return sv2Module('Adjudicatarias informadas', null,
+      '<div class="sv2-empty-inline">Sin adjudicataria informada en la selección</div>',
+      { cls: 'sv2-module--compact', tag: 'Adjudicación',
+        note: 'Solo se listan registros con el campo adjudicataria poblado; la mayoría de expedientes vigentes o sin adjudicar todavía no lo informan.' });
+  }
+  const items = adj.entries.slice(0, 8).map(function(e){
+    const val = fmtNum(e.count) + '<span class="sv2-bar-pct">' + pctLabel(e.count, adj.withAdj) + '</span>';
+    const sub = e.budgetSum > 0 ? 'Presupuesto base informado · ' + fmt(e.budgetSum) : null;
+    return { main: e.name, sub: sub, val: val };
+  });
+  return sv2Module('Top adjudicatarias', 'Sobre ' + fmtNum(adj.withAdj) + ' registros con adjudicataria informada', sv2List(items), {
+    cls: 'sv2-module--compact', tag: 'Adjudicación',
+    note: 'Reparto sobre los <strong>' + fmtNum(adj.withAdj) + '</strong> registros con adjudicataria informada (no sobre el total ni sobre el mercado). Cuenta apariciones del campo adjudicataria; no usa award_results ni infiere nombres. El presupuesto base es orientativo y no equivale al importe de adjudicación.'
+  });
+}
+
+// ── G3 · ADJUDICATARIAS BY TERRITORY (leading company per territory) ──────────
+// p217: territory-aware view without overbuilding — the leading adjudicataria(s)
+// per territory over informed rows. If a territory filter is active, getRows() has
+// already scoped `rows`, so this naturally becomes "within that territory". ES kept
+// with the same territorial-noise caveat; no implied local ownership of ES tenders.
+function renderAdjByTerritoryModule(rows) {
+  const terrs = adjudicatariasByTerritory(rows);
+  if (!terrs.length) {
+    return sv2Module('Adjudicatarias por territorio', null,
+      '<div class="sv2-empty-inline">Sin adjudicataria informada por territorio en la selección</div>',
+      { cls: 'sv2-module--compact', tag: 'Territorio' });
+  }
+  const hasES = terrs.some(function(e){ return e.ccaa === 'ES'; });
+  const items = terrs.slice(0, 6).map(function(e){
+    const name = (TERR[e.ccaa] && TERR[e.ccaa].name) || e.ccaa;
+    const lead = e.top.slice(0, 2).map(function(tp){ return tp[0] + ' (' + tp[1] + ')'; }).join(' · ');
+    return { main: name, sub: lead, val: fmtNum(e.withAdj) };
+  });
+  const note = 'Adjudicataria principal por territorio, sobre registros con adjudicataria informada; el valor es el nº de adjudicaciones informadas del territorio.'
+    + (hasES ? ' Estatal / ES puede introducir ruido territorial: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.' : '');
+  return sv2Module('Adjudicatarias por territorio', 'Adjudicataria principal en los territorios con más adjudicaciones informadas', sv2List(items), {
+    cls: 'sv2-module--compact', tag: 'Territorio', note: note });
 }
 
 // ── H · EMPTY / LOW DATA STATE ───────────────────────────────────────────────
@@ -1111,23 +1165,51 @@ function renderBaroCoverage(cur) {
   });
 }
 
-// ── ADJUDICATARIAS PREP (p216 audit · not wired) ─────────────────────────────
-// p217 prep only — NOT rendered anywhere yet. Pure + defensive. Aggregates the
-// awarded-company name from the single reliable, already-normalized field
-// `r.adjudicatari` (cleaned in app.js normalizeItem: HTML-stripped, entity-decoded,
-// junk placeholders like "detalle"/"adjudicaci…" collapsed to ''). It does NOT read
-// `award_results` (present in the data but its shape is unaudited in the frontend),
-// does NOT infer names from free text, and does NOT classify. Returns entries
-// [name, count] sorted desc, plus how many rows carried a usable adjudicataria.
+// ── ADJUDICATARIAS AGGREGATION (p216 audit · p217 wired) ─────────────────────
+// Pure + defensive. Aggregates the awarded-company name from the single reliable,
+// already-normalized field `r.adjudicatari` (cleaned in app.js normalizeItem:
+// HTML-stripped, entity-decoded, junk placeholders like "detalle"/"adjudicaci…"
+// collapsed to ''). It does NOT read `award_results` (present in the data but its
+// shape is unaudited in the frontend), does NOT infer names from free text/titles/
+// organisms/URLs, and does NOT classify. Per entry it also carries how many of that
+// company's records inform a presupuesto base (>0) and the sum of that base — which
+// is orientativo and NOT an award amount — plus a ccaa territory breakdown.
+// Returns { entries:[{ name, count, budgetCount, budgetSum, territories }] sorted by
+// count desc, withAdj: rows with a usable adjudicataria, total: rows.length }.
 function adjudicatariaCounts(rows) {
   var by = {}, withAdj = 0;
   (rows || []).forEach(function(r){
     var name = r && typeof r.adjudicatari === 'string' ? r.adjudicatari.trim() : '';
     if (!name) return;
     withAdj++;
-    by[name] = (by[name] || 0) + 1;
+    var e = by[name] || (by[name] = { name: name, count: 0, budgetCount: 0, budgetSum: 0, territories: {} });
+    e.count++;
+    var p = r.pressupost;
+    if (typeof p === 'number' && p > 0) { e.budgetCount++; e.budgetSum += p; }
+    if (r.ccaa) e.territories[r.ccaa] = (e.territories[r.ccaa] || 0) + 1;
   });
-  return { entries: Object.entries(by).sort(function(a,b){ return b[1]-a[1]; }), withAdj: withAdj };
+  var entries = Object.keys(by).map(function(k){ return by[k]; }).sort(function(a,b){ return b.count - a.count; });
+  return { entries: entries, withAdj: withAdj, total: (rows || []).length };
+}
+
+// Territory → leading adjudicatarias, built only from `r.adjudicatari` + `r.ccaa`.
+// Pure + defensive; same source-of-truth rules as adjudicatariaCounts. Returns one
+// entry per ccaa that has at least one informed adjudicataria, sorted by informed
+// count desc, each with its ranked [name, count] list (`top`).
+function adjudicatariasByTerritory(rows) {
+  var terr = {};
+  (rows || []).forEach(function(r){
+    var name = r && typeof r.adjudicatari === 'string' ? r.adjudicatari.trim() : '';
+    if (!name || !r.ccaa) return;
+    var e = terr[r.ccaa] || (terr[r.ccaa] = { ccaa: r.ccaa, withAdj: 0, byName: {} });
+    e.withAdj++;
+    e.byName[name] = (e.byName[name] || 0) + 1;
+  });
+  return Object.keys(terr).map(function(k){
+    var e = terr[k];
+    e.top = Object.entries(e.byName).sort(function(a,b){ return b[1]-a[1]; });
+    return e;
+  }).sort(function(a,b){ return b.withAdj - a.withAdj; });
 }
 
 // ── H · TERRITORIAL READING + ES WARNING ─────────────────────────────────────
@@ -1146,6 +1228,30 @@ function renderBaroTerritory(cur) {
     + (cur.esCount ? ' En este periodo el ámbito estatal supone el <strong>' + pct(cur.esCount, cur.total) + '%</strong> de los registros.' : '')
     + '</div></div>';
   return baro2Module('Territorio del periodo', 'Territorios con más registros en el periodo', bars + warning, { tag: 'Territorio' });
+}
+
+// ── H2 · PERIOD ADJUDICATARIAS (compact, informed-only) ──────────────────────
+// p217: top adjudicatarias for the selected period only. Bars share ONE denominator
+// with their label (withAdj = rows in the period WITH adjudicataria informed), so a
+// row labelled 37% renders a 37%-long bar (p216 semantics). Never over all period
+// records, never "market share", never award_results.
+function renderBaroAdjudicatarias(adj) {
+  var body, sub;
+  if (!adj.withAdj) {
+    sub = 'Adjudicatarias informadas en el periodo';
+    body = '<div class="baro2-empty-inline">Sin adjudicataria informada en el periodo</div>';
+  } else {
+    sub = 'Sobre ' + fmtNum(adj.withAdj) + ' registros del periodo con adjudicataria informada';
+    body = '<div class="baro2-rows">' + adj.entries.slice(0, 8).map(function(e){
+      return baro2Row(e.name, e.count, adj.withAdj, adj.withAdj, 'var(--baro2-ink)', null);
+    }).join('') + '</div>';
+  }
+  return baro2Module('Adjudicatarias del periodo', sub, body, {
+    tag: 'Adjudicación',
+    note: adj.withAdj
+      ? 'Reparto sobre los <strong>' + fmtNum(adj.withAdj) + '</strong> registros del periodo con adjudicataria informada, no sobre todos los registros ni sobre el mercado. Cuenta apariciones del campo adjudicataria; no usa award_results ni infiere nombres.'
+      : 'La mayoría de expedientes del periodo aún no informan adjudicataria (p. ej. vigentes o sin adjudicar). No se listan hasta que el dato existe.'
+  });
 }
 
 // ── I · EMPTY / LOW-DATA STATE ───────────────────────────────────────────────
@@ -1175,6 +1281,7 @@ function renderBaro() {
 
   var cur = baroPeriodMetrics(rows);
   var prev = baroPeriodMetrics(prevRows);
+  var adj = adjudicatariaCounts(rows); // period-scoped, informed-only
 
   var f = {
     enCurso: (p.year === ctx.year && p.cuatri === ctx.cuatri),
@@ -1205,6 +1312,7 @@ function renderBaro() {
       + renderBaroCoverage(cur)
     + '</div>'
     + renderBaroTerritory(cur)
+    + renderBaroAdjudicatarias(adj)
     + '<div class="baro2-note baro2-note--foot">'
       + '<strong>Lectura del periodo.</strong> Barómetro lee el cuatrimestre seleccionado; Estadísticas describe el dataset completo. '
       + 'Cifras sobre <strong>registros canónicos</strong> (deduplicados) de cobertura <strong>2024–actual</strong> · Fuente PLACSP · contrataciondelestado.es · '
