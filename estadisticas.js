@@ -9,6 +9,11 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * v0.6.71-78 Jul 2026  p218-p225 observatorio completion: structural semáforo in
+ *                      Estadísticas (computeStatsSignals, reuses baro2-signal*),
+ *                      presupuesto-base ≠ importe de adjudicación copy, ES/Estatal
+ *                      framed as ámbito (not a peer territory), claim audit clean.
+ *                      award_results stays DO-NOT-USE; adjudicataria = r.adjudicatari.
  * 0.4.3c Mar 2026  Quarter filter; renderBaro uses getRows(); sidebar in .main.
  * b4.0  Mar 2026  Header updated. Barometro toggle pending (Phase 3).
  * v2.1  Mar 2026  IIFE wrap -- fix 'el' already declared.
@@ -319,7 +324,7 @@ function wireDonut() {
 // and p208 renderBaro() still produce the section bodies inline (strangler
 // pattern). p211/p212 will migrate each id below into a composable module fn.
 const ANALYTICS_MODULES = {
-  stats: ['overview', 'cobertura', 'ciclo-vida', 'presupuesto', 'plazos', 'documentos', 'adjudicatarias', 'adjudicatarias-territorio'],
+  stats: ['overview', 'semaforo', 'cobertura', 'ciclo-vida', 'presupuesto', 'plazos', 'documentos', 'adjudicatarias', 'adjudicatarias-territorio'],
   baro:  ['periodo', 'semaforo', 'actividad', 'estado', 'disciplinas', 'presupuesto', 'cobertura', 'territorio', 'adjudicatarias'],
 };
 
@@ -542,10 +547,18 @@ function render() {
   // ── Adjudicatarias (informed-only; source of truth = r.adjudicatari) ──────
   const adj = adjudicatariaCounts(rows);
 
+  // ── Structural semáforo (p220): dataset-level signals, no comparison ─────
+  const sig = computeStatsSignals({
+    total, sinAdjudicar, conPpto: conPpto.length, sinPpto, sinDisc,
+    esCount, withTerr, withDate, withOrg, withDocs: withDocs.length,
+    discCount: discArr.length, withAdj: adj.withAdj,
+  });
+
   // ── Assemble v2 modules (ANALYTICS_MODULES.stats composition) ────────────
   body.innerHTML = '<div class="sv2-stack">'
     + renderStatHero({ total, canonGlobal, rawRows, hasFilters, state,
         sinAdjudicar, conPpto: conPpto.length, sumPpto, discCount: discArr.length })
+    + renderStatsSignals(sig)
     + renderDisciplineModule(discArr, sinDisc, total)
     + '<div class="sv2-grid sv2-grid--2">'
       + renderStatusModule({ vigentes, adjudicadas, desiertas, otrosEstat, sinAdjudicar }, total)
@@ -593,6 +606,51 @@ function renderStatHero(d) {
     + metric(fmtNum(d.discCount), 'Disciplinas', 'en la selección')
     + '</div>';
   return '<section class="sv2-hero">' + lead + metrics + '</section>';
+}
+
+// ── A2 · STRUCTURAL SEMÁFORO (p220) ──────────────────────────────────────────
+// Dataset-level signal system for Estadísticas, mirroring computeBaroSignals but
+// STRUCTURAL: no previous period, no comparison, no score, no forecast. Every
+// signal cites a metric already visible in the render() modules (coverage ratios,
+// sin-disciplina, presupuesto, documentos, ES share). Thresholds are transparent
+// and appear in each reason. Returns { positive, negative, caution } arrays of
+// { label, reason }, rendered with the existing baro2-signal* vocabulary.
+function computeStatsSignals(d) {
+  var pos = [], neg = [], cau = [];
+  var tot = d.total;
+
+  // Positive: high field coverage / breadth, with the numbers in view.
+  if (tot && pct(d.withDate, tot) >= 90) pos.push({ label:'Alta cobertura de fecha de publicación', reason:fmtNum(d.withDate)+' de '+fmtNum(tot)+' registros ('+pctLabel(d.withDate, tot)+') informan fecha.' });
+  if (tot && pct(d.withOrg, tot) >= 90)  pos.push({ label:'Alta cobertura de organismo', reason:fmtNum(d.withOrg)+' de '+fmtNum(tot)+' registros ('+pctLabel(d.withOrg, tot)+') informan organismo.' });
+  if (d.discCount >= 6)                  pos.push({ label:'Amplitud de disciplinas', reason:d.discCount+' disciplinas presentes en la selección.' });
+  if (tot && pct(d.conPpto, tot) >= 50)  pos.push({ label:'Presupuesto base informado con frecuencia', reason:fmtNum(d.conPpto)+' de '+fmtNum(tot)+' registros ('+pctLabel(d.conPpto, tot)+') con presupuesto base.' });
+
+  // Negative: structural data-quality gaps.
+  if (tot && pct(d.sinDisc, tot) >= 25)          neg.push({ label:'Alta proporción sin disciplina', reason:fmtNum(d.sinDisc)+' registros ('+pctLabel(d.sinDisc, tot)+') aún sin clasificar · calidad de datos.' });
+  if (tot && pct(d.withDocs, tot) < 50)          neg.push({ label:'Cobertura documental baja', reason:'Solo '+fmtNum(d.withDocs)+' de '+fmtNum(tot)+' registros ('+pctLabel(d.withDocs, tot)+') tienen documentos enlazados.' });
+  if (tot && pct(tot - d.withTerr, tot) >= 20)   neg.push({ label:'Registros sin territorio', reason:fmtNum(tot - d.withTerr)+' registros ('+pctLabel(tot - d.withTerr, tot)+') no informan territorio.' });
+  if (tot && pct(d.sinPpto, tot) >= 50)          neg.push({ label:'Mayoría sin presupuesto informado', reason:fmtNum(d.sinPpto)+' de '+fmtNum(tot)+' registros ('+pctLabel(d.sinPpto, tot)+') sin presupuesto base.' });
+
+  // Cautions: honest framing that travels with the dataset (always structural).
+  if (d.esCount)  cau.push({ label:'Concentración estatal (ES)', reason:'El ámbito estatal supone el '+pctLabel(d.esCount, tot)+' de la selección y no equivale a un territorio local.' });
+  cau.push({ label:'Cobertura 2024–actual', reason:'El dataset no es un censo completo del mercado.' });
+  if (d.conPpto)  cau.push({ label:'Presupuesto base orientativo', reason:'No es el importe de adjudicación ni equivale al valor de mercado.' });
+  if (d.withDocs) cau.push({ label:'Documentos enlazados', reason:'Enlazados desde el expediente, no leídos ni analizados.' });
+  if (d.withAdj)  cau.push({ label:'Adjudicataria informada', reason:'Campo informado en el expediente; no acredita la adjudicación real ni sus importes.' });
+
+  return { positive: pos, negative: neg, caution: cau };
+}
+
+// Renders the structural semáforo inside the sv2 module shell, reusing the
+// baro2-signal* classes (same visual system in both views, zero new CSS).
+function renderStatsSignals(sig) {
+  const grid = '<div class="baro2-signal-grid">'
+    + baro2SignalBlock('positive', 'Señales positivas', 'bi-arrow-up-circle', sig.positive)
+    + baro2SignalBlock('negative', 'Señales negativas', 'bi-arrow-down-circle', sig.negative)
+    + baro2SignalBlock('caution',  'Cautelas · lectura prudente', 'bi-shield-exclamation', sig.caution)
+    + '</div>';
+  return sv2Module('Semáforo estructural', 'Señales derivadas de métricas visibles · sin puntuación ni previsión', grid,
+    { tag: 'Semáforo', cls: 'sv2-module--feature' });
 }
 
 // ── B · DISCIPLINE DISTRIBUTION (featured, central module) ────────────────────
@@ -658,7 +716,7 @@ function renderBudgetModule(b) {
     + '<div><div class="sv2-sub-lbl">Distribución por rango</div>' + bucketBars + '</div>'
     + '</div>';
   return sv2Module('Presupuesto informado', 'Sobre ' + fmtNum(b.conPpto) + ' registros con presupuesto base', bodyHTML, {
-    note: 'El presupuesto base de licitación es orientativo; no equivale al valor de mercado y excluye ' + fmtNum(b.sinPpto) + ' registros sin presupuesto.'
+    note: 'El presupuesto base de licitación es orientativo: <strong>no es el importe de adjudicación</strong> ni equivale al valor de mercado. Excluye ' + fmtNum(b.sinPpto) + ' registros sin presupuesto.'
   });
 }
 
@@ -711,8 +769,9 @@ function renderTopTerrModule(ccaaArr, esCount, total) {
     return { main: (TERR[e[0]] && TERR[e[0]].name) || e[0], val: fmtNum(e[1]) };
   });
   // p213: same territorial caveat vocabulary as Barómetro, kept near the
-  // territory module (one contextual placement per view).
-  const note = 'Estatal / ES puede introducir ruido territorial: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.'
+  // territory module (one contextual placement per view). p221: ES framed as an
+  // ámbito, never a peer territory rankable against CCAAs.
+  const note = 'Estatal / ES es un <strong>ámbito de contratación</strong>, no un territorio equiparable a las CCAA, y no debe leerse como su par en esta lista: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.'
     + (esCount ? ' Aquí supone el ' + formatPercent(esCount, total) + ' de los registros.' : '');
   return sv2Module('Territorios con más registros', null, sv2List(items), { cls: 'sv2-module--compact', note: note });
 }
@@ -736,7 +795,7 @@ function renderTopAdjudicatariasModule(adj) {
   });
   return sv2Module('Top adjudicatarias', 'Sobre ' + fmtNum(adj.withAdj) + ' registros con adjudicataria informada', sv2List(items), {
     cls: 'sv2-module--compact', tag: 'Adjudicación',
-    note: 'Reparto sobre los <strong>' + fmtNum(adj.withAdj) + '</strong> registros con adjudicataria informada (no sobre el total ni sobre el mercado). Cuenta apariciones del campo adjudicataria; no usa award_results ni infiere nombres. El presupuesto base es orientativo y no equivale al importe de adjudicación.'
+    note: 'Cuenta apariciones del campo adjudicataria <strong>informada</strong> (no usa award_results ni infiere nombres); el reparto es sobre esos registros, no sobre el total ni sobre el mercado. El presupuesto base es orientativo y no equivale al importe de adjudicación.'
   });
 }
 
@@ -759,7 +818,7 @@ function renderAdjByTerritoryModule(rows) {
     return { main: name, sub: lead, val: fmtNum(e.withAdj) };
   });
   const note = 'Adjudicataria principal por territorio, sobre registros con adjudicataria informada; el valor es el nº de adjudicaciones informadas del territorio.'
-    + (hasES ? ' Estatal / ES puede introducir ruido territorial: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.' : '');
+    + (hasES ? ' Estatal / ES es un <strong>ámbito de contratación</strong>, no un territorio equiparable a las CCAA, y no debe compararse como su par: una licitación estatal no se asigna directamente a Catalunya, Madrid u otros territorios.' : '');
   return sv2Module('Adjudicatarias por territorio', 'Adjudicataria principal en los territorios con más adjudicaciones informadas', sv2List(items), {
     cls: 'sv2-module--compact', tag: 'Territorio', note: note });
 }
@@ -1141,7 +1200,7 @@ function renderBaroBudget(cur) {
   var body = facts + '<div class="baro2-sub-lbl" style="margin-top:13px">Reparto</div>' + split;
   return baro2Module('Presupuesto del periodo', 'Sobre ' + fmtNum(cur.conPptoN) + ' registros con presupuesto base', body, {
     note: cur.conPptoN
-      ? 'El presupuesto base de licitación es orientativo; no equivale al valor de mercado y excluye ' + fmtNum(cur.sinPpto) + ' registros sin presupuesto.'
+      ? 'El presupuesto base de licitación es orientativo: <strong>no es el importe de adjudicación</strong> ni equivale al valor de mercado. Excluye ' + fmtNum(cur.sinPpto) + ' registros sin presupuesto.'
       : 'Ningún registro del periodo informa presupuesto, por lo que no se ofrece señal económica.'
   });
 }
