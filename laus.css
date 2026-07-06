@@ -1,4 +1,4 @@
-/* ADG Plataforma Digital -- laus.css | 0.6.79b Jul 2026 | Role: Laus Tracker page styles (laus-* namespaced, shell tokens only) | CHANGELOG: 0.6.79b Jul 2026 -- p228 port from extensions lane; added coverage line + jury filter styles */
+/* ADG Plataforma Digital -- laus.css | 0.6.81 Jul 2026 | Role: Laus Tracker page styles (laus-* namespaced, shell tokens only) | CHANGELOG: 0.6.81 Jul 2026 -- p232 polish, no-stats state spacing; 0.6.79b Jul 2026 -- p228 port from extensions lane; added coverage line + jury filter styles */
 
 /* ─── PAGE LAYOUT ─────────────────────────────────────────────────────────── */
 .laus-page {
@@ -246,6 +246,7 @@
   padding: 8px 0;
 }
 .laus-error { color: var(--s-des, #dc2626); }
+.laus-no-stats { margin-bottom: 24px; }
 
 /* ─── RESPONSIVE ──────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {

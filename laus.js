@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- laus.js
- * 0.6.79b -- Jul 2026
+ * 0.6.81 -- Jul 2026
  * Role: Laus Tracker renderer/adapter. Loads public static JSON
  *       (data/public/laus/) and renders editions, categories and jury
  *       per selected year. No data arrays embedded; no external network
@@ -10,6 +10,9 @@
  * Exports: nothing (IIFE)
  *
  * CHANGELOG (newest first)
+ * 0.6.81  Jul 2026  p232 polish: suppress empty stats grid for editions with
+ *                   no numeric data (2019/2020/2026), show a single honest
+ *                   no-data line instead of four dash cells.
  * 0.6.79b Jul 2026  p228 port from extensions lane (0.1.3.5 laus.js logic)
  *                   rebuilt on current shell conventions: ADG_Utils.loadJSON,
  *                   initShared bootstrap, honest coverage line, jury filter,
@@ -127,18 +130,23 @@ function renderStats(edition) {
     container.innerHTML = '<p class="laus-no-data">Edición no encontrada en el dataset.</p>';
     return;
   }
+  const stats = [
+    ['Participantes', edition.participants],
+    ['Nacionalidades', edition.nationalities],
+    ['Premios otorgados', edition.awards_count],
+    ['Asistentes Nit Laus', edition.attendees_nit_laus]
+  ];
+  const hasAnyStat = stats.some(([, value]) => value !== null && value !== undefined);
   const note = edition.status_note
     ? '<p class="laus-status-note">' + esc(edition.status_note) + '</p>'
     : '';
+  const body = hasAnyStat
+    ? '<div class="laus-stats-grid">' + stats.map(([label, value]) => statCell(label, value)).join('') + '</div>'
+    : '<p class="laus-no-data laus-no-stats">Sin estadísticas numéricas disponibles para esta edición en el dataset.</p>';
   container.innerHTML =
     '<h2 class="laus-edition-title">' + esc(edition.edition_label || ('ADG Laus ' + edition.year)) + '</h2>' +
     note +
-    '<div class="laus-stats-grid">' +
-      statCell('Participantes', edition.participants) +
-      statCell('Nacionalidades', edition.nationalities) +
-      statCell('Premios otorgados', edition.awards_count) +
-      statCell('Asistentes Nit Laus', edition.attendees_nit_laus) +
-    '</div>';
+    body;
 }
 
 function statCell(label, value) {
