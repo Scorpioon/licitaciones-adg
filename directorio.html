@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- laus.html | 0.6.84 Jul 2026 | Role: Laus Tracker (registro de referencia, datos publicos) | Scripts: app.js shared.js laus.js | CHANGELOG: 0.6.84 Jul 2026 -- p234a/p235 shared-shell nav only: Directorio + Oportunidades tabs (no LAUS data/content change). 0.6.79b Jul 2026 -- p228 port from extensions lane against current shell -->
+<!-- ADG Plataforma Digital -- directorio.html | 0.6.84a Jul 2026 | Role: Directorio de socios (names-only, segun datos publicos de adg-fad.org/socios) | Scripts: app.js shared.js directorio.js | CHANGELOG: 0.6.84a Jul 2026 -- p234a initial build: names-only public mirror, name filter, no contact/profile data -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Laus Tracker · ADG Plataforma</title>
-<meta name="description" content="Registro de referencia de los premios ADG Laus — ediciones, categorías y jurados según datos públicos disponibles.">
+<title>Directorio de Socios · ADG Plataforma</title>
+<meta name="description" content="Listado de socios de ADG-FAD según el listado público de adg-fad.org/socios — solo nombres, sin datos de contacto.">
 <link rel="stylesheet" href="./style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-<link rel="stylesheet" href="./laus.css">
+<link rel="stylesheet" href="./directorio.css">
 </head>
 <body>
 <div class="shell-top">
@@ -36,8 +36,8 @@
         <a class="nav-tab" href="./estadisticas.html"><i class="bi bi-bar-chart-fill"></i><span data-i18n="nav_stats">Estadísticas</span></a>
         <a class="nav-tab" href="./recursos.html"><i class="bi bi-calculator"></i><span data-i18n="nav_recursos">Recursos</span></a>
         <a class="nav-tab" href="./mapa.html"><i class="bi bi-geo-alt"></i><span data-i18n="nav_mapa">Mapa</span></a>
-        <a class="nav-tab current" href="./laus.html"><i class="bi bi-trophy"></i><span>Laus</span></a>
-        <a class="nav-tab" href="./directorio.html"><i class="bi bi-people"></i><span>Directorio</span></a>
+        <a class="nav-tab" href="./laus.html"><i class="bi bi-trophy"></i><span>Laus</span></a>
+        <a class="nav-tab current" href="./directorio.html"><i class="bi bi-people"></i><span>Directorio</span></a>
         <a class="nav-tab" href="./oportunidades.html"><i class="bi bi-briefcase"></i><span>Oportunidades</span></a>
         <a class="nav-tab" href="./alertas.html"><i class="bi bi-bell"></i><span data-i18n="nav_alertas">Alertas</span></a>
         <a class="nav-tab" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
@@ -54,27 +54,27 @@
 </div>
 
 <div class="page-body">
-  <div class="laus-page">
+  <div class="dir-page">
 
-    <header class="laus-header">
-      <div class="laus-header-eyebrow">ADG · Premios Laus</div>
-      <h1><i class="bi bi-trophy"></i>Laus Tracker</h1>
-      <p>Registro de referencia de los premios ADG Laus — datos públicos del proyecto.</p>
-      <p id="laus-coverage" class="laus-coverage" aria-live="polite"></p>
+    <header class="dir-header">
+      <div class="dir-header-eyebrow">ADG · Comunidad</div>
+      <h1><i class="bi bi-people"></i>Directorio de Socios</h1>
+      <p>Listado de socios según <a href="https://adg-fad.org/socios/" target="_blank" rel="noopener">adg-fad.org/socios</a> · datos públicos · solo nombres.</p>
+      <p id="dir-coverage" class="dir-coverage" aria-live="polite"></p>
     </header>
 
-    <div id="laus-year-selector" role="group" aria-label="Seleccionar edición"></div>
+    <div class="dir-filter-wrap">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input id="dir-filter" class="dir-filter" type="search" placeholder="Filtrar por nombre…" aria-label="Filtrar por nombre">
+    </div>
 
-    <section id="laus-stats" data-source="adg-public" aria-label="Estadísticas de edición"></section>
+    <section id="dir-list" data-source="adg-public" aria-label="Listado de socios"></section>
 
-    <section id="laus-categories" aria-label="Categorías de la edición"></section>
-
-    <section id="laus-jury" data-source="adg-public" aria-label="Jurado de la edición"></section>
-
-    <p class="laus-source-note">
-      Datos cargados desde archivos públicos estáticos del proyecto (<code>data/public/laus/</code>).
-      Cobertura según dataset disponible; algunas ediciones pueden tener datos parciales.
-      El dataset actual no incluye premiados / medallero.
+    <p class="dir-source-note">
+      Listado de socios según el listado público de adg-fad.org/socios · solo nombres —
+      sin datos de contacto, perfiles ni ubicaciones. Cobertura según el listado disponible
+      en la fuente; puede no reflejar altas o bajas recientes.
+      Datos cargados desde archivos públicos estáticos del proyecto (<code>data/public/directorio/</code>).
     </p>
 
   </div>
@@ -102,7 +102,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.6.84</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.6.84a</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
@@ -113,6 +113,6 @@
 
 <script src="./app.js" defer></script>
 <script src="./shared.js" defer></script>
-<script src="./laus.js" defer></script>
+<script src="./directorio.js" defer></script>
 </body>
 </html>

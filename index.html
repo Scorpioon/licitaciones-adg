@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- index.html | 0.4.3k Apr 2026 | Role: Hub/home | Scripts: app.js shared.js (inline IIFE) | CHANGELOG: 0.4.3k Apr 2026 -- runtime version badge hook (data-adg-version) -->
+<!-- ADG Plataforma Digital -- index.html | 0.6.84 Jul 2026 | Role: Hub/home | Scripts: app.js shared.js (inline IIFE) | CHANGELOG: 0.6.84 Jul 2026 -- p234a Directorio card live (names-only, honest copy) + nav Directorio/Oportunidades tabs; p236b alertas card chip honesty fix (Formspree claim removed); Laus card live/public-safe rewrite (stale overclaiming copy removed, hedged datos-publicos description). 0.4.3k Apr 2026 -- runtime version badge hook (data-adg-version) -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -36,6 +36,8 @@
         <a class="nav-tab" href="./recursos.html"><i class="bi bi-calculator"></i><span data-i18n="nav_recursos">Recursos</span></a>
         <a class="nav-tab" href="./mapa.html"><i class="bi bi-geo-alt"></i><span data-i18n="nav_mapa">Mapa</span></a>
         <a class="nav-tab" href="./laus.html"><i class="bi bi-trophy"></i><span>Laus</span></a>
+        <a class="nav-tab" href="./directorio.html"><i class="bi bi-people"></i><span>Directorio</span></a>
+        <a class="nav-tab" href="./oportunidades.html"><i class="bi bi-briefcase"></i><span>Oportunidades</span></a>
         <a class="nav-tab" href="./alertas.html"><i class="bi bi-bell"></i><span data-i18n="nav_alertas">Alertas</span></a>
         <a class="nav-tab" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
       </nav>
@@ -138,31 +140,35 @@
         <div class="home-card-arrow"><i class="bi bi-arrow-right"></i></div>
       </a>
 
-      <!-- LAUS TRACKER — PRÓXIMAMENTE -->
-      <div class="home-card home-card--soon">
+      <!-- LAUS TRACKER — LIVE (registro de referencia, datos públicos) -->
+      <a class="home-card home-card--live" href="./laus.html">
         <div class="home-card-icon"><i class="bi bi-trophy"></i></div>
         <div class="home-card-body">
           <div class="home-card-title">Laus Tracker</div>
-          <div class="home-card-desc">Historial completo de los premios ADG Laus. Medallero por estudio, análisis por categoría, evolución anual, ranking de escuelas.</div>
+          <div class="home-card-desc">Registro de referencia de los premios ADG Laus: ediciones, categorías y jurados según datos públicos disponibles.</div>
           <div class="home-card-tags">
-            <span class="home-tag tag-soon"><i class="bi bi-clock"></i>Fase 1</span>
-            <span class="home-tag">Esperando datos</span>
+            <span class="home-tag tag-live"><i class="bi bi-circle-fill"></i>Operativo</span>
+            <span class="home-tag">Datos públicos</span>
+            <span class="home-tag">Cobertura disponible</span>
           </div>
         </div>
-      </div>
+        <div class="home-card-arrow"><i class="bi bi-arrow-right"></i></div>
+      </a>
 
-      <!-- DIRECTORIO — PRÓXIMAMENTE -->
-      <div class="home-card home-card--soon">
+      <!-- DIRECTORIO — LIVE (p234a, names-only) -->
+      <a class="home-card home-card--live" href="./directorio.html">
         <div class="home-card-icon"><i class="bi bi-people"></i></div>
         <div class="home-card-body">
           <div class="home-card-title">Directorio de Socios</div>
-          <div class="home-card-desc">Mapa profesional de la comunidad ADG. Estudios, freelancers, agencias y escuelas filtrados por especialidad y ubicación.</div>
+          <div class="home-card-desc">Listado de socios según adg-fad.org/socios · datos públicos · solo nombres, con filtro por nombre. Sin datos de contacto ni perfiles.</div>
           <div class="home-card-tags">
-            <span class="home-tag tag-soon"><i class="bi bi-clock"></i>Fase 2</span>
-            <span class="home-tag">Esperando datos</span>
+            <span class="home-tag tag-live"><i class="bi bi-circle-fill"></i>Operativo</span>
+            <span class="home-tag">Solo nombres</span>
+            <span class="home-tag">Fuente pública</span>
           </div>
         </div>
-      </div>
+        <div class="home-card-arrow"><i class="bi bi-arrow-right"></i></div>
+      </a>
 
       <!-- PRÁCTICAS — PRÓXIMAMENTE -->
       <div class="home-card home-card--soon">
@@ -185,7 +191,7 @@
           <div class="home-card-desc">Recibe notificaciones cuando aparezcan licitaciones que coincidan con tus disciplinas y territorio. Sin spam.</div>
           <div class="home-card-tags">
             <span class="home-tag tag-soon"><i class="bi bi-clock"></i>Fase 7</span>
-            <span class="home-tag">Formspree</span>
+            <span class="home-tag">En estudio · sin captura de datos</span>
           </div>
         </div>
       </div>
@@ -232,7 +238,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.4.3k</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.6.84</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">

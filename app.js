@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.5.0e -- Jun 2026
+ * 0.6.84 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,9 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.84 Jul 2026  p236b alertas neutralize: initModal no longer wires any form
+ *                  submit / Formspree network path (legacy email modal removed
+ *                  from licitaciones.html; alertas is stub-only, zero capture).
  * 0.5.0k Jun 2026  Zone B list/row-key/duplicate hardening: stable row-key for exact
  *                  detail mapping, duplicate-ID collision fix, lifecycle variant badge.
  * 0.5.0j Jun 2026  Zone A data status/recency hardening: fix production dataset meta
@@ -801,25 +804,18 @@ function updateStrip() {
   updateTicker();
 }
 
+// p236b (0.6.84): alertas is stub-only platform-wide. The legacy Formspree
+// subscription modal was removed from licitaciones.html and no email submit /
+// personal-data capture path remains here. Kept as a guarded no-op because
+// licitaciones.js and index.js still call initModal() at boot.
 function initModal() {
   const overlay = el('overlay');
   if (!overlay) return;
-  const open = () => overlay.classList.add('open');
   const close = () => overlay.classList.remove('open');
-  const subBtn = el('btn-subscribe');
   const mc = el('modal-close');
-  const form = el('sub-form');
-  if (subBtn) subBtn.addEventListener('click', open);
   if (mc) mc.addEventListener('click', close);
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-  if (form) form.addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      const res = await fetch(e.target.action, { method:'POST', body:new FormData(e.target), headers:{Accept:'application/json'} });
-      if (res.ok) { el('modal-form-wrap').style.display = 'none'; el('modal-success').style.display = 'block'; }
-    } catch { alert('Configura el FORM_ID de Formspree.'); }
-  });
 }
 
 window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, getDisciplineMeta, discNoneTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON, buildCanonicalRecords };

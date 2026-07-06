@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- licitaciones.html | 0.5.0o Jun 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.5.0o Jun 2026 -- discipline color plumbing + unclassified neutral UI -->
+<!-- ADG Plataforma Digital -- licitaciones.html | 0.6.84 Jul 2026 | Role: Main procurement observatory | Scripts: app.js shared.js licitaciones.js | CHANGELOG: 0.6.84 Jul 2026 -- p236b remove legacy Formspree email modal (alertas stub-only, zero capture); p234a/p235 nav: Directorio + Oportunidades tabs. 0.5.0o Jun 2026 -- discipline color plumbing + unclassified neutral UI -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -38,6 +38,8 @@
         <a class="nav-tab" href="./recursos.html"><i class="bi bi-calculator"></i><span data-i18n="nav_recursos">Recursos</span></a>
         <a class="nav-tab" href="./mapa.html"><i class="bi bi-geo-alt"></i><span data-i18n="nav_mapa">Mapa</span></a>
         <a class="nav-tab" href="./laus.html"><i class="bi bi-trophy"></i><span>Laus</span></a>
+        <a class="nav-tab" href="./directorio.html"><i class="bi bi-people"></i><span>Directorio</span></a>
+        <a class="nav-tab" href="./oportunidades.html"><i class="bi bi-briefcase"></i><span>Oportunidades</span></a>
         <a class="nav-tab" href="./alertas.html"><i class="bi bi-bell"></i><span data-i18n="nav_alertas">Alertas</span></a>
         <a class="nav-tab" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
       </nav>
@@ -177,7 +179,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.5.0n</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.6.84</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
@@ -186,34 +188,9 @@
   </div>
 </footer>
 
-<div class="overlay" id="overlay" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-head"><span class="modal-title"><i class="bi bi-bell" style="margin-right:4px"></i><span data-i18n="modal_title">Alertas</span></span><button class="modal-close" id="modal-close"><i class="bi bi-x"></i></button></div>
-    <div class="modal-body">
-      <div id="modal-form-wrap">
-        <p class="modal-desc" data-i18n="modal_desc">Recibe un email cuando aparezca una nueva licitación. Sin spam.</p>
-        <form id="sub-form" action="https://formspree.io/f/FORM_ID_AQUI" method="POST">
-          <label class="m-label" data-i18n="modal_email">Email</label><input class="m-input" type="email" name="email" placeholder="tu@estudio.com" required>
-          <label class="m-label" data-i18n="modal_disc">Disciplinas</label>
-          <div class="m-cb-grid">
-            <label class="m-cb"><input type="checkbox" name="disc" value="branding"> Branding</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="editorial"> Editorial</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="web"> Web</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="uxui"> UX · UI</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="publicitat"> Publicidad</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="fotografia"> Fotografía</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="audiovisual"> Audiovisual</label>
-            <label class="m-cb"><input type="checkbox" name="disc" value="illustracio"> Ilustración</label>
-          </div>
-          <label class="m-label" data-i18n="modal_terr">Territorio</label>
-          <select class="m-select" name="territorio"><option value="">Todo el territorio</option><option value="CT">Catalunya</option><option value="MD">Madrid</option><option value="AN">Andalucía</option><option value="PV">País Vasco</option></select>
-          <button class="m-submit" type="submit" data-i18n="modal_submit">Suscribirme →</button>
-        </form>
-      </div>
-      <div class="m-success" id="modal-success"><div class="m-success-icon"><i class="bi bi-check-circle-fill"></i></div><div class="m-success-title" data-i18n="modal_ok_t">¡Registrado!</div><div class="m-success-sub" data-i18n="modal_ok_s">Te avisaremos pronto.</div></div>
-    </div>
-  </div>
-</div>
+<!-- p236b (0.6.84): legacy Formspree email-subscription modal removed.
+     Alertas is stub-only platform-wide (see alertas.html / AlertasStub);
+     no live personal-data capture ships in the public runtime. -->
 
 <script src="./app.js?v=0.5.0o"></script>
 <script src="./shared.js?v=0.5.0o"></script>

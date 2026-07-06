@@ -17,7 +17,7 @@ Herramienta que recopila, filtra y clasifica automáticamente los contratos púb
 - 📖 **Guía de licitaciones** — señales de alerta, buenas señales, marco legal LCSP 9/2017 y recursos útiles
 - 🌍 **4 idiomas** — Castellano, Catalán, Euskera y Gallego (con persistencia)
 - 🌙 **Tema claro / oscuro** — con paleta de colores por disciplina en ambos modos
-- 🔔 **Alertas por email** — suscripción por disciplina y territorio (Formspree)
+- 🔔 **Alertas** — página informativa (en estudio) — sin captura de datos; no hay suscripción por email activa
 - 📥 **Exportación CSV** — descarga de resultados filtrados
 - 🔗 **Compartir licitación** — URL con query param para enlace directo
 - 🤖 **Actualización diaria** — GitHub Actions + feeds ATOM de PLACSP

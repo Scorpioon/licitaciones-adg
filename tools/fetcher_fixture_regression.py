@@ -20,8 +20,7 @@ Exercises the two layers that decide scheduled-fetcher behaviour, entirely offli
        and the ADGOPS_SCHEDULED_RUN_REPORT_V1 report shape.
 
 Run:
-  K:\\DEVKIT\\python\\python.exe tools\\fetcher_fixture_regression.py
-  K:\\DEVKIT\\python\\python.exe tools\\fetcher_fixture_regression.py -v
+  python tools/fetcher_fixture_regression.py [-v]
 
 A sha256+mtime snapshot of the real data/licitaciones.json is taken before the
 suite runs and re-checked after, so the run proves the production data file was

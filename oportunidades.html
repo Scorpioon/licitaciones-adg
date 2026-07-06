@@ -1,14 +1,27 @@
 <!DOCTYPE html>
-<!-- ADG Plataforma Digital -- laus.html | 0.6.84 Jul 2026 | Role: Laus Tracker (registro de referencia, datos publicos) | Scripts: app.js shared.js laus.js | CHANGELOG: 0.6.84 Jul 2026 -- p234a/p235 shared-shell nav only: Directorio + Oportunidades tabs (no LAUS data/content change). 0.6.79b Jul 2026 -- p228 port from extensions lane against current shell -->
+<!-- ADG Plataforma Digital -- oportunidades.html | 0.6.85 Jul 2026 | Role: Oportunidades -- static informational shell, proximamente (zero capture: no forms, no inputs, no submissions) | Scripts: app.js shared.js (inline IIFE) | CHANGELOG: 0.6.85 Jul 2026 -- p235 initial static shell -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Laus Tracker · ADG Plataforma</title>
-<meta name="description" content="Registro de referencia de los premios ADG Laus — ediciones, categorías y jurados según datos públicos disponibles.">
+<title>Oportunidades · ADG Plataforma</title>
+<meta name="description" content="Oportunidades para la comunidad del diseño — página informativa en preparación. Sin registro ni captura de datos.">
 <link rel="stylesheet" href="./style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-<link rel="stylesheet" href="./laus.css">
+<style>
+/* Scoped page styles (opp-*), shell tokens only — kept inline: too small for a file. */
+.opp-page { max-width: 860px; margin: 0 auto; padding: 28px 24px 60px; }
+.opp-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border2); }
+.opp-header-eyebrow { font-size: 7.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+.opp-header h1 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; color: var(--text); margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+.opp-header p { font-size: 9px; color: var(--text2); margin: 0; }
+.opp-soon { border: 1px dashed var(--border2); border-radius: var(--radius); background: var(--bg2); padding: 28px 22px; text-align: center; }
+.opp-soon-icon { font-size: 22px; color: var(--text3); margin-bottom: 10px; }
+.opp-soon-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.opp-soon-desc { font-size: 10px; color: var(--text2); max-width: 480px; margin: 0 auto; line-height: 1.7; }
+.opp-note { font-size: 9px; color: var(--text3); margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--border2); line-height: 1.7; }
+@media (max-width: 600px) { .opp-page { padding: 20px 16px 48px; } }
+</style>
 </head>
 <body>
 <div class="shell-top">
@@ -36,9 +49,9 @@
         <a class="nav-tab" href="./estadisticas.html"><i class="bi bi-bar-chart-fill"></i><span data-i18n="nav_stats">Estadísticas</span></a>
         <a class="nav-tab" href="./recursos.html"><i class="bi bi-calculator"></i><span data-i18n="nav_recursos">Recursos</span></a>
         <a class="nav-tab" href="./mapa.html"><i class="bi bi-geo-alt"></i><span data-i18n="nav_mapa">Mapa</span></a>
-        <a class="nav-tab current" href="./laus.html"><i class="bi bi-trophy"></i><span>Laus</span></a>
+        <a class="nav-tab" href="./laus.html"><i class="bi bi-trophy"></i><span>Laus</span></a>
         <a class="nav-tab" href="./directorio.html"><i class="bi bi-people"></i><span>Directorio</span></a>
-        <a class="nav-tab" href="./oportunidades.html"><i class="bi bi-briefcase"></i><span>Oportunidades</span></a>
+        <a class="nav-tab current" href="./oportunidades.html"><i class="bi bi-briefcase"></i><span>Oportunidades</span></a>
         <a class="nav-tab" href="./alertas.html"><i class="bi bi-bell"></i><span data-i18n="nav_alertas">Alertas</span></a>
         <a class="nav-tab" href="./about.html"><i class="bi bi-info-circle"></i><span data-i18n="nav_about">Acerca de</span></a>
       </nav>
@@ -53,28 +66,31 @@
   </header>
 </div>
 
-<div class="page-body">
-  <div class="laus-page">
+<div class="page-body" style="overflow-y:auto">
+  <div class="opp-page">
 
-    <header class="laus-header">
-      <div class="laus-header-eyebrow">ADG · Premios Laus</div>
-      <h1><i class="bi bi-trophy"></i>Laus Tracker</h1>
-      <p>Registro de referencia de los premios ADG Laus — datos públicos del proyecto.</p>
-      <p id="laus-coverage" class="laus-coverage" aria-live="polite"></p>
+    <header class="opp-header">
+      <div class="opp-header-eyebrow">ADG · Comunidad</div>
+      <h1><i class="bi bi-briefcase"></i>Oportunidades</h1>
+      <p>Espacio informativo en preparación · sin registro ni captura de datos.</p>
     </header>
 
-    <div id="laus-year-selector" role="group" aria-label="Seleccionar edición"></div>
+    <div class="opp-soon">
+      <div class="opp-soon-icon"><i class="bi bi-hourglass-split"></i></div>
+      <div class="opp-soon-title">Próximamente</div>
+      <div class="opp-soon-desc">
+        Estamos estudiando cómo señalar, a partir de fuentes públicas, oportunidades
+        relevantes para la comunidad del diseño: convocatorias, becas y premios.
+        Esta página es únicamente informativa — no hay ningún servicio activo,
+        no se publican ofertas y no se recogen datos personales.
+      </div>
+    </div>
 
-    <section id="laus-stats" data-source="adg-public" aria-label="Estadísticas de edición"></section>
-
-    <section id="laus-categories" aria-label="Categorías de la edición"></section>
-
-    <section id="laus-jury" data-source="adg-public" aria-label="Jurado de la edición"></section>
-
-    <p class="laus-source-note">
-      Datos cargados desde archivos públicos estáticos del proyecto (<code>data/public/laus/</code>).
-      Cobertura según dataset disponible; algunas ediciones pueden tener datos parciales.
-      El dataset actual no incluye premiados / medallero.
+    <p class="opp-note">
+      Esta sección no incluye formularios, alertas por email ni envío de candidaturas,
+      y no realiza ninguna intermediación ni selección. Mientras tanto, las licitaciones
+      públicas del sector pueden consultarse en la pestaña
+      <a href="./licitaciones.html" style="color:inherit;border-bottom:1px solid var(--border3)">Licitaciones</a>.
     </p>
 
   </div>
@@ -102,7 +118,7 @@
     </a>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default">
-      <i class="bi bi-code-slash"></i><span data-adg-version>0.6.84</span>
+      <i class="bi bi-code-slash"></i><span data-adg-version>0.6.85</span>
     </span>
     <div class="footer-sep"></div>
     <span class="footer-link" style="cursor:default;letter-spacing:.05em;text-transform:none">
@@ -111,8 +127,20 @@
   </div>
 </footer>
 
-<script src="./app.js" defer></script>
-<script src="./shared.js" defer></script>
-<script src="./laus.js" defer></script>
+<script src="./app.js"></script>
+<script src="./shared.js"></script>
+<script>
+;(function () {
+'use strict';
+var _u = ADG_Utils;
+document.addEventListener('DOMContentLoaded', function() {
+  _u.initShared();
+  _u.loadData().then(function() {
+    _u.updateTicker();
+    document.addEventListener('adg:langchange', function() { _u.applyI18n(); });
+  });
+});
+})();
+</script>
 </body>
 </html>
