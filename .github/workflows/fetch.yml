@@ -171,6 +171,69 @@ jobs:
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         run: |
           git diff --stat
+          if git diff --quiet -- data/licitaciones.json; then
+            echo "MONOLITH_CHANGED=false" >> "$GITHUB_ENV"
+          else
+            echo "MONOLITH_CHANGED=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build data shards (freshness sync)
+        id: shards
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
+        run: |
+          python tools/build_data_shards.py \
+            --input data/licitaciones.json \
+            --out-dir data \
+            --years 2026,2025,2024 \
+            --archive-name archive \
+            --manifest data/licitaciones_manifest.json
+
+      - name: Validate shard freshness
+        id: shardvalidate
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
+        run: |
+          python - <<'PYEOF'
+          import json, sys
+
+          with open("data/licitaciones.json", encoding="utf-8") as f:
+              monolith = json.load(f)
+          monolith_records = monolith.get("data") or []
+          monolith_count = len(monolith_records)
+          monolith_ts = (monolith.get("meta") or {}).get("scheduled_merge_applied_at")
+
+          with open("data/licitaciones_manifest.json", encoding="utf-8") as f:
+              manifest = json.load(f)
+
+          errors = []
+          counts = manifest.get("counts", {})
+          if counts.get("source_records") != monolith_count:
+              errors.append(f"manifest.counts.source_records {counts.get('source_records')} != monolith count {monolith_count}")
+          if counts.get("sharded_records") != monolith_count:
+              errors.append(f"manifest.counts.sharded_records {counts.get('sharded_records')} != monolith count {monolith_count}")
+
+          shard_total = 0
+          for shard in manifest.get("shards", []):
+              with open(shard["path"], encoding="utf-8") as sf:
+                  shard_total += len((json.load(sf) or {}).get("data") or [])
+          if shard_total != monolith_count:
+              errors.append(f"sum of shard record counts {shard_total} != monolith count {monolith_count}")
+
+          source_meta = manifest.get("source_meta", {})
+          manifest_ts = source_meta.get("scheduled_merge_applied_at")
+          if monolith_ts and manifest_ts != monolith_ts:
+              errors.append(f"manifest source_meta.scheduled_merge_applied_at {manifest_ts!r} != monolith meta.scheduled_merge_applied_at {monolith_ts!r}")
+
+          if source_meta.get("production_write_performed") is not True:
+              errors.append("manifest source_meta.production_write_performed is not true — source_meta reflects an unpromoted dry-run candidate, not live production data")
+
+          if errors:
+              print("SHARD VALIDATION FAILED:")
+              for e in errors:
+                  print(" -", e)
+              sys.exit(1)
+
+          print(f"Shard validation OK: monolith={monolith_count} shard_total={shard_total} ts={manifest_ts}")
+          PYEOF
 
       - name: Commit data if changed
         id: commit
@@ -179,7 +242,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/licitaciones.json
+          git add data/licitaciones.json data/licitaciones_manifest.json data/licitaciones_2026.json data/licitaciones_2025.json data/licitaciones_2024.json data/licitaciones_archive.json
           if git diff --cached --quiet; then
             echo "no data changes to commit"
             echo "DATA_CHANGED=false" >> "$GITHUB_ENV"
