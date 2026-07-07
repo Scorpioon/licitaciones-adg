@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.6.84 -- Jul 2026
+ * 0.6.86 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,10 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.86 Jul 2026  p238 version/copy hygiene after p237 data freshness repair:
+ *                  ADG.version source-of-truth bump, no-JS footer fallback sync,
+ *                  public changelog/README/roadmap copy alignment. No runtime
+ *                  behavior change besides version display.
  * 0.6.84 Jul 2026  p236b alertas neutralize: initModal no longer wires any form
  *                  submit / Formspree network path (legacy email modal removed
  *                  from licitaciones.html; alertas is stub-only, zero capture).
@@ -383,7 +387,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.5.0o';
+ADG.version = '0.6.86';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);

@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- about.js
- * 0.6.58-about -- Jun 2026
+ * 0.6.86-about -- Jul 2026
  * Role: Public changelog rendering, credit line, guide title I18N update.
  * Page: about.html
  * Depends on: app.js (ADG_Utils, ADG), shared.js (ADG_Shared)
@@ -18,6 +18,11 @@
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
 const CHANGELOG = [
+  { ver:"v0.6.86", date:"Jul 2026", text:"Higiene de plataforma: versión pública, changelog y copy de portada/README alineados con el estado real de cada superficie." },
+  { ver:"v0.6.85", date:"Jul 2026", text:"Frescura de datos: los shards públicos se regeneran y validan tras cada actualización programada, incluida la resincronización posterior a cambios en main." },
+  { ver:"v0.6.84", date:"Jul 2026", text:"Extensiones: Directorio de socios (solo nombres) y Oportunidades (shell estático, sin captura) pasan a ser superficies públicas; Alertas queda como stub neutral sin ningún flujo de captura." },
+  { ver:"v0.6.79 – v0.6.81", date:"Jul 2026", text:"Laus Tracker: se integra el registro de referencia de los premios ADG Laus en la navegación pública y se pulen legibilidad y comportamiento responsive." },
+  { ver:"v0.6.59 – v0.6.78", date:"Jun-Jul 2026", text:"Observatorio / Estadísticas: rediseño progresivo del panel analítico (shell, rail de control, gramática visual, barómetro por cuatrimestres, rankings de adjudicatarias) sobre el dataset canónico." },
   { ver:"v0.6.58", date:"Jun 2026", text:"Taxonomía de datos: se aplica una reclasificación controlada de disciplinas y se regeneran los shards públicos del dataset." },
   { ver:"v0.6.57", date:"Jun 2026", text:"Clasificador de disciplinas: se añade un banco de pruebas dry-run para medir cobertura antes de tocar datos de producción." },
   { ver:"v0.6.56", date:"Jun 2026", text:"UI de disciplinas: se añade sistema de color por disciplina y fallback visible para licitaciones sin clasificación." },
