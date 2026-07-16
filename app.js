@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.6.87 -- Jul 2026
+ * 0.6.88 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,11 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.88 Jul 2026  p241 public truth sync: README/changelog aligned with live
+ *                  runtime; Directorio (652 records) schema/privacy verified;
+ *                  LAUS public datasets verified strict UTF-8 clean, no encoding
+ *                  corruption found. No runtime behavior change besides version
+ *                  display.
  * 0.6.87 Jul 2026  p239 dead-code + residual hygiene: removed unreferenced root
  *                  index.js and orphaned modal_ and dp_notify_ I18N keys (legacy
  *                  email-subscription modal, zero consumers repo-wide). No runtime
@@ -363,7 +368,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.6.87';
+ADG.version = '0.6.88';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);

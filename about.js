@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- about.js
- * 0.6.86-about -- Jul 2026
+ * 0.6.88-about -- Jul 2026
  * Role: Public changelog rendering, credit line, guide title I18N update.
  * Page: about.html
  * Depends on: app.js (ADG_Utils, ADG), shared.js (ADG_Shared)
@@ -18,6 +18,8 @@
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
 const CHANGELOG = [
+  { ver:"v0.6.88", date:"Jul 2026", text:"Sincronización de verdad pública: README y changelog alineados con el runtime en vivo; esquema y privacidad del Directorio de socios verificados (652 registros); datos públicos de Laus verificados como UTF-8 estricto, sin corrupción de codificación." },
+  { ver:"v0.6.87", date:"Jul 2026", text:"Higiene de código muerto: se retira el index.js residual de raíz (sin uso) y las claves de un antiguo modal de suscripción por email (cero consumidores); se sustituye una acción de descarga de PDF inexistente por un aviso honesto de documento no disponible." },
   { ver:"v0.6.86", date:"Jul 2026", text:"Higiene de plataforma: versión pública, changelog y copy de portada/README alineados con el estado real de cada superficie." },
   { ver:"v0.6.85", date:"Jul 2026", text:"Frescura de datos: los shards públicos se regeneran y validan tras cada actualización programada, incluida la resincronización posterior a cambios en main." },
   { ver:"v0.6.84", date:"Jul 2026", text:"Extensiones: Directorio de socios (solo nombres) y Oportunidades (shell estático, sin captura) pasan a ser superficies públicas; Alertas queda como stub neutral sin ningún flujo de captura." },
