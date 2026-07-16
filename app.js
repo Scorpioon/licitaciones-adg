@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.6.86 -- Jul 2026
+ * 0.6.87 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,10 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.87 Jul 2026  p239 dead-code + residual hygiene: removed unreferenced root
+ *                  index.js and orphaned modal_ and dp_notify_ I18N keys (legacy
+ *                  email-subscription modal, zero consumers repo-wide). No runtime
+ *                  behavior change besides version display.
  * 0.6.86 Jul 2026  p238 version/copy hygiene after p237 data freshness repair:
  *                  ADG.version source-of-truth bump, no-JS footer fallback sync,
  *                  public changelog/README/roadmap copy alignment. No runtime
@@ -108,14 +112,6 @@ const I18N = {
     empty_t:'Sin resultados', empty_s:'Prueba con otros filtros o términos de búsqueda.',
     dp_eyebrow:'Detalle de licitación', dp_disc:'Disciplinas', dp_kw:'Palabras clave',
     dp_hist:'Historial', dp_cta:'Ver en contrataciondelestado.es ↗',
-    dp_notify_btn:'Notificarme sobre cambios', dp_notify_submit:'Activar alerta →',
-    dp_notify_ok:'Alerta activada',
-    modal_title:'Alertas por email',
-    modal_desc:'Recibe un email cuando aparezca una nueva licitación que coincida con tus disciplinas y territorio. Sin spam.',
-    modal_email:'Email profesional', modal_disc:'Disciplinas de interés',
-    modal_terr:'Territorio', modal_submit:'Suscribirme →',
-    modal_ok_t:'¡Suscripción registrada!',
-    modal_ok_s:'Te avisaremos cuando aparezcan licitaciones que coincidan con tus preferencias.',
     about_title:'Acerca del observatorio',
     nueva:'NUEVA', adjudicado_a:'Adjudicado a', pg_show:'Mostrar',
     guide_title:'Guía de licitaciones para diseñadores',
@@ -183,14 +179,6 @@ const I18N = {
     empty_t:'Sense resultats', empty_s:'Prova amb altres filtres o termes de cerca.',
     dp_eyebrow:'Detall de licitació', dp_disc:'Disciplines', dp_kw:'Paraules clau',
     dp_hist:'Historial', dp_cta:'Veure a contrataciondelestado.es ↗',
-    dp_notify_btn:'Notificar-me sobre canvis', dp_notify_submit:'Activar alerta →',
-    dp_notify_ok:'Alerta activada',
-    modal_title:'Alertes per email',
-    modal_desc:"Rep un email quan aparegui una nova licitació. Sense spam.",
-    modal_email:'Email professional', modal_disc:"Disciplines d'interès",
-    modal_terr:'Territori', modal_submit:'Subscriure-me →',
-    modal_ok_t:'Subscripció registrada!',
-    modal_ok_s:"T'avisarem quan apareguin licitacions.",
     about_title:"Sobre l'observatori",
     nueva:'NOVA', adjudicado_a:'Adjudicat a', pg_show:'Mostrar',
     guide_title:'Guia de licitacions per a dissenyadors',
@@ -258,12 +246,6 @@ const I18N = {
     empty_t:'Emaitzarik ez', empty_s:'Saiatu beste iragazki edo bilaketa-termino batzuekin.',
     dp_eyebrow:'Xehetasunak', dp_disc:'Diziplinak', dp_kw:'Gako-hitzak',
     dp_hist:'Historia', dp_cta:'Ikusi contrataciondelestado.es-en ↗',
-    dp_notify_btn:'Jakinarazi aldaketei buruz', dp_notify_submit:'Alerta aktibatu →',
-    dp_notify_ok:'Alerta aktibatuta',
-    modal_title:'Email alertak', modal_desc:'Jaso email bat lizitazio berri bat agertzen denean.',
-    modal_email:'Email profesionala', modal_disc:'Intereseko diziplinak',
-    modal_terr:'Lurraldea', modal_submit:'Harpidetu →',
-    modal_ok_t:'Harpidetza erregistratuta!', modal_ok_s:'Jakinaraziko dizugu.',
     about_title:'Behatokiari buruz',
     nueva:'BERRIA', adjudicado_a:'Esleituta', pg_show:'Erakutsi',
     guide_title:'Lizitazioen gida diseinatzaileentzat',
@@ -309,12 +291,6 @@ const I18N = {
     empty_t:'Sen resultados', empty_s:'Proba con outros filtros ou termos de busca.',
     dp_eyebrow:'Detalle da licitación', dp_disc:'Disciplinas', dp_kw:'Palabras clave',
     dp_hist:'Historial', dp_cta:'Ver en contrataciondelestado.es ↗',
-    dp_notify_btn:'Notificarme sobre cambios', dp_notify_submit:'Activar alerta →',
-    dp_notify_ok:'Alerta activada',
-    modal_title:'Alertas por email', modal_desc:'Recibe un email cando aparezan novas licitacións. Sen spam.',
-    modal_email:'Email profesional', modal_disc:'Disciplinas de interese',
-    modal_terr:'Territorio', modal_submit:'Subscribirme →',
-    modal_ok_t:'Subscrición rexistrada!', modal_ok_s:'Avisarémoste cando aparezan licitacións.',
     about_title:'Sobre o observatorio',
     nueva:'NOVA', adjudicado_a:'Adxudicado a', pg_show:'Mostrar',
     guide_title:'Guía de licitacións para deseñadores',
@@ -387,7 +363,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.6.86';
+ADG.version = '0.6.87';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -811,7 +787,7 @@ function updateStrip() {
 // p236b (0.6.84): alertas is stub-only platform-wide. The legacy Formspree
 // subscription modal was removed from licitaciones.html and no email submit /
 // personal-data capture path remains here. Kept as a guarded no-op because
-// licitaciones.js and index.js still call initModal() at boot.
+// licitaciones.js still calls initModal() at boot.
 function initModal() {
   const overlay = el('overlay');
   if (!overlay) return;
