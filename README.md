@@ -1,4 +1,4 @@
-# 📡 ADG Licitaciones v0.6.88
+# 📡 ADG Licitaciones v0.6.89
 
 **Observatorio de licitaciones públicas de diseño gráfico y comunicación visual en España** — más un conjunto de herramientas digitales para la comunidad de la ADG-FAD.
 

@@ -33,7 +33,7 @@
 
 const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge,
         getDisplayStatus, isOpenOpportunity, stateBadgeRow,
-        applyI18n, updateStrip, updateTicker, initShared, initModal, loadData } = ADG_Utils;
+        applyI18n, updateStrip, updateTicker, initShared, loadData } = ADG_Utils;
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 const S = {
@@ -644,8 +644,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     S.page = 1;
     render();
   });
-
-  initModal();
 
   // Refresh on lang/theme change
   document.addEventListener('adg:langchange', () => {

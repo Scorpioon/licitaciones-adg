@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.6.88 -- Jul 2026
+ * 0.6.89 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,10 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.89 Jul 2026  p242 runtime hygiene completion: removed the final no-op
+ *                  initModal runtime dependency (definition, export, and the
+ *                  licitaciones.js boot call/destructuring). No runtime
+ *                  behavior change besides version display.
  * 0.6.88 Jul 2026  p241 public truth sync: README/changelog aligned with live
  *                  runtime; Directorio (652 records) schema/privacy verified;
  *                  LAUS public datasets verified strict UTF-8 clean, no encoding
@@ -368,7 +372,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.6.88';
+ADG.version = '0.6.89';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -789,21 +793,7 @@ function updateStrip() {
   updateTicker();
 }
 
-// p236b (0.6.84): alertas is stub-only platform-wide. The legacy Formspree
-// subscription modal was removed from licitaciones.html and no email submit /
-// personal-data capture path remains here. Kept as a guarded no-op because
-// licitaciones.js still calls initModal() at boot.
-function initModal() {
-  const overlay = el('overlay');
-  if (!overlay) return;
-  const close = () => overlay.classList.remove('open');
-  const mc = el('modal-close');
-  if (mc) mc.addEventListener('click', close);
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-}
-
-window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, getDisciplineMeta, discNoneTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, initModal, loadData, loadJSON, buildCanonicalRecords };
+window.ADG_Utils = { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, getDisciplineMeta, discNoneTag, stateBadge, getDisplayStatus, isOpenOpportunity, stateBadgeRow, applyI18n, updateStrip, updateTicker, initShared, loadData, loadJSON, buildCanonicalRecords };
 
 async function loadJSON(path, timeoutMs) {
   try {
