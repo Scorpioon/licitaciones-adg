@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- about.js
- * 0.6.90-about -- Jul 2026
+ * 0.6.91-about -- Jul 2026
  * Role: Public changelog rendering, credit line, guide title I18N update.
  * Page: about.html
  * Depends on: app.js (ADG_Utils, ADG), shared.js (ADG_Shared)
@@ -18,6 +18,7 @@
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
 const CHANGELOG = [
+  { ver:"v0.6.91", date:"Jul 2026", text:"Codificación UTF-8 estricta verificada en toda la plataforma; los diccionarios ES/CA/EU/GL alcanzan ahora paridad completa de claves mediante un mecanismo explícito de reserva sobre el español, sin inventar contenido de traducción." },
   { ver:"v0.6.90", date:"Jul 2026", text:"Política de finales de línea del repositorio: se añade .gitattributes con normalización LF determinista para archivos públicos de texto/fuente/datos y tratamiento binario explícito para fuentes tipográficas e imágenes, sin cambio de comportamiento visible." },
   { ver:"v0.6.89", date:"Jul 2026", text:"Higiene de runtime: se retira la última dependencia inerte del antiguo modal (función, exportación y llamada de arranque en licitaciones.js), sin cambio de comportamiento visible." },
   { ver:"v0.6.88", date:"Jul 2026", text:"Sincronización de verdad pública: README y changelog alineados con el runtime en vivo; esquema y privacidad del Directorio de socios verificados (652 registros); datos públicos de Laus verificados como UTF-8 estricto, sin corrupción de codificación." },

@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.6.90 -- Jul 2026
+ * 0.6.91 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,14 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.91 Jul 2026  p244 encoding/I18N hardening: verified strict UTF-8 across
+ *                  public text/source/data. CA/EU/GL dictionaries now hydrate
+ *                  over the full ES key set right after declaration, so
+ *                  runtime and direct dictionary lookups have guaranteed
+ *                  ES/CA/EU/GL key parity through explicit fallback rather
+ *                  than fabricated translation. No user-visible translation
+ *                  change; locale fallback is now explicit and
+ *                  dictionary-complete at runtime.
  * 0.6.90 Jul 2026  p243 repository line-ending policy: added .gitattributes
  *                  establishing deterministic LF normalization for public
  *                  text/source/data files, explicit binary treatment for
@@ -352,6 +360,15 @@ const I18N = {
   },
 };
 
+// p244: fallback hydration, not translation completion. CA/EU/GL above are
+// authored as partial dictionaries over the ES key set; this merges each one
+// over a full copy of ES so every t() call and direct I18N[lang][key] lookup
+// resolves to a real string without ever inventing translation text -- any
+// key CA/EU/GL didn't author falls back to its ES value in place.
+I18N.ca = { ...I18N.es, ...I18N.ca };
+I18N.eu = { ...I18N.es, ...I18N.eu };
+I18N.gl = { ...I18N.es, ...I18N.gl };
+
 // ── SAMPLE DATA (fallback when data.json not found) ───────────────────────
 const TODAY_ISO = new Date().toISOString().slice(0,10);
 const SAMPLE = [
@@ -377,7 +394,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.6.90';
+ADG.version = '0.6.91';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
