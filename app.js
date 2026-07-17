@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.6.89 -- Jul 2026
+ * 0.6.90 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,11 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.90 Jul 2026  p243 repository line-ending policy: added .gitattributes
+ *                  establishing deterministic LF normalization for public
+ *                  text/source/data files, explicit binary treatment for
+ *                  fonts/images, and CRLF reserved for Windows-native scripts.
+ *                  No runtime behavior change besides version display.
  * 0.6.89 Jul 2026  p242 runtime hygiene completion: removed the final no-op
  *                  initModal runtime dependency (definition, export, and the
  *                  licitaciones.js boot call/destructuring). No runtime
@@ -372,7 +377,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.6.89';
+ADG.version = '0.6.90';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);

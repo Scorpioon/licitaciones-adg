@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- about.js
- * 0.6.89-about -- Jul 2026
+ * 0.6.90-about -- Jul 2026
  * Role: Public changelog rendering, credit line, guide title I18N update.
  * Page: about.html
  * Depends on: app.js (ADG_Utils, ADG), shared.js (ADG_Shared)
@@ -18,6 +18,7 @@
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
 const CHANGELOG = [
+  { ver:"v0.6.90", date:"Jul 2026", text:"Política de finales de línea del repositorio: se añade .gitattributes con normalización LF determinista para archivos públicos de texto/fuente/datos y tratamiento binario explícito para fuentes tipográficas e imágenes, sin cambio de comportamiento visible." },
   { ver:"v0.6.89", date:"Jul 2026", text:"Higiene de runtime: se retira la última dependencia inerte del antiguo modal (función, exportación y llamada de arranque en licitaciones.js), sin cambio de comportamiento visible." },
   { ver:"v0.6.88", date:"Jul 2026", text:"Sincronización de verdad pública: README y changelog alineados con el runtime en vivo; esquema y privacidad del Directorio de socios verificados (652 registros); datos públicos de Laus verificados como UTF-8 estricto, sin corrupción de codificación." },
   { ver:"v0.6.87", date:"Jul 2026", text:"Higiene de código muerto: se retira el index.js residual de raíz (sin uso) y las claves de un antiguo modal de suscripción por email (cero consumidores); se sustituye una acción de descarga de PDF inexistente por un aviso honesto de documento no disponible." },
