@@ -71,6 +71,10 @@ a { color:inherit; text-decoration:none; }
 button,select,input { font-family:var(--f); }
 i.bi { font-style:normal; line-height:1; display:inline-flex; align-items:center; }
 
+/* p245: reusable visually-hidden utility -- keeps a node in the accessibility
+   tree (real heading/label text) without any visual footprint. */
+.visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
 /* ─── LAYOUT ──────────────────────────────────────────────────────────────── */
 .shell-top { flex-shrink:0; }
 .main { flex:1; min-height:0; display:flex; overflow:hidden; position:relative; }
@@ -123,6 +127,15 @@ i.bi { font-style:normal; line-height:1; display:inline-flex; align-items:center
 .sstat:last-child { border-right:none; margin-left:auto; padding-right:18px; flex-direction:row; align-items:center; gap:0; }
 .sstat-val { font-size:16px; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
 .sstat-lbl { font-size:7px; letter-spacing:.16em; text-transform:uppercase; color:var(--text3); margin-top:1px; }
+/* p245-correction: explicit, deterministic focus ring for the custom
+   keyboard-operable controls added in p245 (table rows, the map sidebar list
+   item, and this clickable stat). Nothing removes the UA default outline on
+   these, but an inward offset keeps the ring from being clipped by the
+   scrollable ancestors (.list-col, .map-sidebar) at the top/bottom edge, and
+   matches the :focus-visible convention already used by the donut legend. */
+#sstat-new:focus-visible,
+.map-list-item:focus-visible,
+tbody tr:focus-visible { outline:2px solid var(--text); outline-offset:-2px; border-radius:2px; }
 .live-dot { display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--s-ok); margin-right:5px; animation:pulse 2.5s ease infinite; }
 @keyframes pulse { 50%{ opacity:.25; } }
 .update-info { font-size:8px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); white-space:nowrap; }
@@ -188,8 +201,18 @@ thead th { position:sticky; top:0; z-index:3; font-size:7.5px; letter-spacing:.1
 thead th:first-child { padding-left:20px; }
 thead th:last-child { padding-right:20px; }
 th.sortable { cursor:pointer; }
+thead th.sortable:first-child { padding:0; } /* first column is sortable -- its padding moves to the inner button below */
+th.sortable:not(:first-child) { padding:0; }
 th.sortable:hover { color:var(--text); }
 th.sorted { color:var(--text); }
+/* p245-correction: sort activation moved to a real <button> inside the <th> so
+   Enter/Space work natively; the button fills the th's original hit area and
+   inherits its type/color so nothing looks different. The last sortable
+   column (data_pub) is not the table's :last-child -- the hidden bell-column
+   th is -- so no edge-padding case is needed at the end. */
+.th-sort-btn { all:unset; box-sizing:border-box; display:flex; align-items:center; width:100%; height:100%; padding:7px 10px; cursor:pointer; font:inherit; color:inherit; letter-spacing:inherit; text-transform:inherit; }
+thead th.sortable:first-child .th-sort-btn { padding-left:20px; }
+.th-sort-btn:focus-visible { outline:2px solid var(--text); outline-offset:-2px; border-radius:2px; }
 .sort-arrow { margin-left:3px; opacity:.4; font-style:normal; }
 th.sorted .sort-arrow { opacity:1; }
 tbody tr { border-bottom:1px solid var(--border3); cursor:pointer; transition:background .07s; }

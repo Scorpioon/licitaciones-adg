@@ -35,6 +35,10 @@ const { el, t, fmt, fmtFull, daysTo, isNew, discColor, discTag, stateBadge,
         getDisplayStatus, isOpenOpportunity, stateBadgeRow,
         applyI18n, updateStrip, updateTicker, initShared, loadData } = ADG_Utils;
 
+// p245: element that had focus when the detail panel was opened, so keyboard
+// users land back where they were instead of losing focus to <body> on close.
+let _detailTrigger = null;
+
 // ── STATE ─────────────────────────────────────────────────────────────────
 const S = {
   discs:   new Set(),   // selected disciplines (empty = all)
@@ -167,7 +171,18 @@ function render() {
   tbody.querySelectorAll('tr[data-row-key]').forEach(tr => {
     tr.addEventListener('click', e => {
       if (e.target.closest('.bell-btn')) return;
+      _detailTrigger = tr;
       openDetailByKey(tr.dataset.rowKey);
+    });
+    // p245: rows are focusable (tabindex=0) but a native <tr> click handler has
+    // no keyboard equivalent -- Enter/Space must open the same detail panel.
+    tr.addEventListener('keydown', e => {
+      if (e.target.closest('.bell-btn')) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        _detailTrigger = tr;
+        openDetailByKey(tr.dataset.rowKey);
+      }
     });
     const bb = tr.querySelector('.bell-btn');
     if (bb) bb.addEventListener('click', e => { e.stopPropagation(); toggleBell(tr.dataset.id, bb); });
@@ -178,9 +193,11 @@ function render() {
 
   // Sort arrows
   document.querySelectorAll('th[data-col]').forEach(th => {
-    th.classList.toggle('sorted', th.dataset.col === S.sortCol);
+    const sorted = th.dataset.col === S.sortCol;
+    th.classList.toggle('sorted', sorted);
     const arrow = th.querySelector('.sort-arrow');
-    if (arrow) arrow.textContent = th.dataset.col === S.sortCol ? (S.sortDir === 'asc' ? '↑' : '↓') : '↕';
+    if (arrow) arrow.textContent = sorted ? (S.sortDir === 'asc' ? '↑' : '↓') : '↕';
+    th.setAttribute('aria-sort', sorted ? (S.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
   });
 
   // Active filter chips
@@ -221,7 +238,7 @@ function rowHTML(r, key, dupCount) {
     <td>${stateBadgeRow(r)}</td>
     <td><div class="tc-date ${dateClass}">${dateStr}</div></td>
     <td><div class="tc-date">${pubStr}</div></td>
-    <td class="tc-bell"><button class="bell-btn ${bellClass}" aria-label="Notificación"><i class="bi bi-bell${bellClass?'-fill':''}"></i></button></td>
+    <td class="tc-bell"><button class="bell-btn ${bellClass}" aria-label="Notificación" aria-pressed="${bellClass?'true':'false'}"><i class="bi bi-bell${bellClass?'-fill':''}"></i></button></td>
   </tr>`;
 }
 
@@ -267,12 +284,21 @@ function closeDetail() {
     closeMobileSheet();
     ADG_Shared.FichaClose(d);
   }
+  // p245: return focus to the row/control that opened the panel so keyboard
+  // users aren't dropped back to <body>.
+  if (_detailTrigger && document.body.contains(_detailTrigger)) _detailTrigger.focus();
+  _detailTrigger = null;
 }
 
 // ── MOBILE BOTTOM SHEET (p179) ─────────────────────────────────────────────
 // At mobile widths the detail panel behaves as a bottom drawer: slide-up open,
 // backdrop + body lock, drag-down-to-close on the grip/header. Desktop is a no-op.
 var _sheetBackdrop = null;
+// p245-final: presentation mode of the currently-open detail panel, so a live
+// resize across the breakpoint can be reconciled exactly once in either
+// direction instead of leaving stale modal/inert/trap/backdrop state.
+// null = nothing open; 'mobile' | 'desktop' = open in that presentation.
+var _panelMode = null;
 
 function isMobileSheet() {
   return window.matchMedia('(max-width:860px)').matches;
@@ -287,19 +313,111 @@ function getBackdrop() {
   return _sheetBackdrop;
 }
 
+// p245-correction: at mobile widths the sheet is an ACTIVE MODAL DIALOG (it
+// sits over a backdrop and the rest of the page is meant to be unreachable
+// until it closes) -- give it the full contract. Extracted so both the normal
+// open path and the live-resize synchronizer below can apply/remove it
+// without duplicating backdrop/drag/trap/inert wiring.
+function enterMobileModal(panel) {
+  getBackdrop().classList.add('show');
+  document.body.classList.add('sheet-open');
+  bindSheetDrag(panel); // already self-guards against rebinding the same grip/head nodes
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'ficha-title');
+  if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1');
+  setBackgroundInert(true);
+  trapFocus(panel); // already releases any prior handler before binding
+}
+
+function leaveMobileModal(panel) {
+  if (_sheetBackdrop) _sheetBackdrop.classList.remove('show');
+  document.body.classList.remove('sheet-open');
+  if (panel) {
+    panel.removeAttribute('role');
+    panel.removeAttribute('aria-modal');
+    panel.removeAttribute('aria-labelledby');
+    releaseFocusTrap(panel);
+  }
+  setBackgroundInert(false);
+}
+
 function openMobileSheet(panel) {
-  if (!panel || !isMobileSheet()) return;
+  if (!panel) return;
+  _panelMode = isMobileSheet() ? 'mobile' : 'desktop';
+  if (_panelMode !== 'mobile') return; // desktop stays a plain non-modal complementary panel
   // Clear any leftover inline transform/transition so the CSS open state animates from 100%.
   panel.style.transform = '';
   panel.style.transition = '';
-  getBackdrop().classList.add('show');
-  document.body.classList.add('sheet-open');
-  bindSheetDrag(panel);
+  enterMobileModal(panel);
+  var closeBtn = panel.querySelector('.sh-ficha__close');
+  (closeBtn || panel).focus();
 }
 
 function closeMobileSheet() {
-  if (_sheetBackdrop) _sheetBackdrop.classList.remove('show');
-  document.body.classList.remove('sheet-open');
+  leaveMobileModal(el('detail'));
+  _panelMode = null;
+}
+
+// p245-final: reconcile an already-open detail panel when the viewport
+// crosses the mobile breakpoint. Idempotent -- only acts when the wanted
+// mode actually differs from the currently-applied one, so repeated
+// mobile<->desktop resizes never re-apply or accumulate handlers.
+function syncPanelPresentationMode() {
+  var d = el('detail');
+  if (!d || !d.classList.contains('open')) { _panelMode = null; return; }
+  var wantMobile = isMobileSheet();
+  if (wantMobile && _panelMode !== 'mobile') {
+    d.style.transform = '';
+    d.style.transition = '';
+    enterMobileModal(d);
+    var closeBtn = d.querySelector('.sh-ficha__close');
+    (closeBtn || d).focus();
+    _panelMode = 'mobile';
+  } else if (!wantMobile && _panelMode === 'mobile') {
+    // Leaving mobile while open: strip the modal contract but keep the panel
+    // open as the desktop non-modal panel. Do not run the full close path and
+    // do not restore focus to the trigger -- the user did not close anything.
+    leaveMobileModal(d);
+    _panelMode = 'desktop';
+  }
+}
+
+// p245-correction: background inertness while the mobile sheet is an active
+// modal. These three elements together cover 100% of the page's interactive
+// content outside the panel (ticker/header/filters, the table, the footer).
+function setBackgroundInert(on) {
+  [document.querySelector('.shell-top'), el('list-col'), document.querySelector('footer.shell-foot')]
+    .filter(Boolean)
+    .forEach(function(node) {
+      if (on) node.setAttribute('inert', ''); else node.removeAttribute('inert');
+    });
+}
+
+function focusablesIn(panel) {
+  return Array.prototype.slice.call(panel.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(function(n) { return n.offsetParent !== null; });
+}
+
+function trapFocus(panel) {
+  releaseFocusTrap(panel);
+  panel._p245TrapHandler = function(e) {
+    if (e.key !== 'Tab') return;
+    var f = focusablesIn(panel);
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  panel.addEventListener('keydown', panel._p245TrapHandler);
+}
+
+function releaseFocusTrap(panel) {
+  if (panel && panel._p245TrapHandler) {
+    panel.removeEventListener('keydown', panel._p245TrapHandler);
+    panel._p245TrapHandler = null;
+  }
 }
 
 function finalizeMobileClose(d) {
@@ -441,6 +559,7 @@ function clearAll() {
   el('search').value=''; el('adj-search').value='';
   el('pill-solo-activas')?.classList.remove('active');
   el('sstat-new')?.classList.remove('active');
+  el('sstat-new')?.setAttribute('aria-pressed', 'false');
   syncPills('[data-estat]'); syncDiscPills();
   render();
 }
@@ -507,8 +626,10 @@ function isSubscribed(id) {
 function toggleBell(id, btn) {
   try {
     let subs = JSON.parse(localStorage.getItem('adg-subs')||'[]');
-    if (subs.includes(id)) { subs = subs.filter(s=>s!==id); btn.classList.remove('subscribed'); btn.innerHTML='<i class="bi bi-bell"></i>'; }
-    else { subs.push(id); btn.classList.add('subscribed'); btn.innerHTML='<i class="bi bi-bell-fill"></i>'; }
+    let nowSubscribed;
+    if (subs.includes(id)) { subs = subs.filter(s=>s!==id); btn.classList.remove('subscribed'); btn.innerHTML='<i class="bi bi-bell"></i>'; nowSubscribed = false; }
+    else { subs.push(id); btn.classList.add('subscribed'); btn.innerHTML='<i class="bi bi-bell-fill"></i>'; nowSubscribed = true; }
+    btn.setAttribute('aria-pressed', String(nowSubscribed));
     localStorage.setItem('adg-subs', JSON.stringify(subs));
   } catch {}
 }
@@ -617,10 +738,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     S.perPage=+e.target.value; S.page=1; render();
   });
 
-  // Sortable column headers
-  document.querySelectorAll('th[data-col]').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = th.dataset.col;
+  // Sortable column headers -- p245-correction: activation lives on the native
+  // <button> inside the <th> (Enter/Space work natively), not the th itself.
+  // aria-sort stays on the th (set in render()); scope/columnheader role is untouched.
+  document.querySelectorAll('.th-sort-btn[data-col-btn]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const col = btn.dataset.colBtn;
       if (S.sortCol === col) S.sortDir = S.sortDir==='asc'?'desc':'asc';
       else { S.sortCol=col; S.sortDir='desc'; }
       S.page=1; render();
@@ -637,13 +760,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     render();
   });
 
-  // Nuevas Hoy clickable stat
-  el('sstat-new')?.addEventListener('click', () => {
+  // Nuevas Hoy clickable stat (role="button" in markup -- Enter/Space must match click)
+  const toggleNuevasHoy = () => {
     S.nuevasHoy = !S.nuevasHoy;
-    el('sstat-new')?.classList.toggle('active', S.nuevasHoy);
+    const statEl = el('sstat-new');
+    statEl?.classList.toggle('active', S.nuevasHoy);
+    statEl?.setAttribute('aria-pressed', String(S.nuevasHoy));
     S.page = 1;
     render();
+  };
+  el('sstat-new')?.addEventListener('click', toggleNuevasHoy);
+  el('sstat-new')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNuevasHoy(); }
   });
+
+  // p245-final: single resize listener for the whole page lifetime -- reconciles
+  // an already-open detail panel if the viewport crosses the mobile breakpoint.
+  window.addEventListener('resize', syncPanelPresentationMode);
 
   // Refresh on lang/theme change
   document.addEventListener('adg:langchange', () => {

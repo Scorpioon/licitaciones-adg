@@ -48,12 +48,13 @@
         <button class="lang-btn" data-lang="eu">EU</button>
         <button class="lang-btn" data-lang="gl">GL</button>
       </div>
-      <button class="hbtn" id="btn-theme"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
+      <button class="hbtn" id="btn-theme" aria-pressed="false" aria-label="Activar modo oscuro"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
     </div>
   </header>
 </div>
 
-<div class="map-shell">
+<main class="map-shell">
+  <h1 class="visually-hidden" data-i18n="a11y_page_mapa">Mapa del Diseño · ADG Plataforma</h1>
   <!-- Sidebar -->
   <div class="map-sidebar" id="map-sidebar">
     <div class="map-sb-head">
@@ -63,9 +64,9 @@
     <div class="map-sb-filters">
       <div class="rc-label">Estado</div>
       <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="pill active" data-map-estat="">Todas</button>
-        <button class="pill" data-map-estat="Vigente"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-ok)"></i>Vigente</button>
-        <button class="pill" data-map-estat="Adjudicado"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-adj)"></i>Adjudicado</button>
+        <button class="pill active" data-map-estat="" aria-pressed="true">Todas</button>
+        <button class="pill" data-map-estat="Vigente" aria-pressed="false"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-ok)"></i>Vigente</button>
+        <button class="pill" data-map-estat="Adjudicado" aria-pressed="false"><i class="bi bi-circle-fill" style="font-size:7px;color:var(--s-adj)"></i>Adjudicado</button>
       </div>
       <div class="rc-label">Disciplina</div>
       <div style="display:flex;gap:2px;flex-wrap:wrap" id="map-disc-pills"></div>
@@ -74,7 +75,7 @@
   </div>
   <!-- Map -->
   <div class="map-container" id="map"></div>
-</div>
+</main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./app.js"></script>

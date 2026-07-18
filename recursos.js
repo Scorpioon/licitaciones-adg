@@ -217,14 +217,18 @@ function renderTabs() {
   const bar = el('rc-tabs');
   if (!bar) return;
   bar.innerHTML = `
-    <button class="pill active" data-rc-tab="calculadora"><i class="bi bi-calculator"></i>${rc('tab_calc')}</button>
-    <button class="pill" data-rc-tab="recursos"><i class="bi bi-book"></i>${rc('tab_rec')}</button>
+    <button class="pill active" data-rc-tab="calculadora" aria-pressed="true"><i class="bi bi-calculator"></i>${rc('tab_calc')}</button>
+    <button class="pill" data-rc-tab="recursos" aria-pressed="false"><i class="bi bi-book"></i>${rc('tab_rec')}</button>
   `;
 }
 
 function showTab(tab) {
   currentTab = tab;
-  $$('[data-rc-tab]').forEach(b => b.classList.toggle('active', b.dataset.rcTab === tab));
+  $$('[data-rc-tab]').forEach(b => {
+    const active = b.dataset.rcTab === tab;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', String(active));
+  });
   const panelCalc = el('rc-panel-calc');
   const panelRec  = el('rc-panel-rec');
   if (panelCalc) panelCalc.style.display = tab === 'calculadora' ? '' : 'none';
@@ -246,7 +250,7 @@ function renderCalculadora() {
           <div class="rc-chips rc-chips--proyecto">
             ${C.proyectos.map(p => {
               const d = DISC[p.disc];
-              return `<button class="rc-chip" data-rc-proy="${p.id}">
+              return `<button class="rc-chip" data-rc-proy="${p.id}" aria-pressed="false">
                 <i class="bi ${d ? d.icon : 'bi-tag'}"></i>${d ? d.label : p.id}
               </button>`;
             }).join('')}
@@ -258,7 +262,7 @@ function renderCalculadora() {
           <div class="rc-label">${rc('experiencia')}</div>
           <div class="rc-chips">
             ${C.experiencia.map(e => `
-              <button class="rc-chip" data-rc-exp="${e.id}">
+              <button class="rc-chip" data-rc-exp="${e.id}" aria-pressed="false">
                 <span>${rc(e.id)}</span>
                 <span class="rc-chip-sub">${e.tarifaHora[0]}–${e.tarifaHora[1]}€/h</span>
               </button>
@@ -281,7 +285,7 @@ function renderCalculadora() {
           <div class="rc-label">${rc('complejidad')}</div>
           <div class="rc-chips">
             ${C.complejidad.map(c => `
-              <button class="rc-chip" data-rc-comp="${c.id}">
+              <button class="rc-chip" data-rc-comp="${c.id}" aria-pressed="false">
                 <span>${rc(c.id)}</span>
                 <span class="rc-chip-sub">×${c.mult}</span>
               </button>
@@ -295,7 +299,7 @@ function renderCalculadora() {
           <div class="rc-label">${rc('urgencia')}</div>
           <div class="rc-chips">
             ${C.urgencia.map(u => `
-              <button class="rc-chip" data-rc-urg="${u.id}">
+              <button class="rc-chip" data-rc-urg="${u.id}" aria-pressed="false">
                 <span>${rc(u.id)}</span>
                 <span class="rc-chip-sub">×${u.mult}</span>
               </button>
@@ -385,8 +389,9 @@ function bindEvents() {
 
   // Proyecto
   $$('[data-rc-proy]').forEach(b => b.addEventListener('click', () => {
-    $$('[data-rc-proy]').forEach(x => x.classList.remove('active'));
+    $$('[data-rc-proy]').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-pressed', 'false'); });
     b.classList.add('active');
+    b.setAttribute('aria-pressed', 'true');
     CS.proyecto = b.dataset.rcProy;
     // Color the active chip by discipline
     const proj = DATA.calculadora.proyectos.find(p => p.id === CS.proyecto);
@@ -400,8 +405,9 @@ function bindEvents() {
 
   // Experiencia
   $$('[data-rc-exp]').forEach(b => b.addEventListener('click', () => {
-    $$('[data-rc-exp]').forEach(x => { x.classList.remove('active'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
+    $$('[data-rc-exp]').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-pressed', 'false'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
     b.classList.add('active');
+    b.setAttribute('aria-pressed', 'true');
     CS.experiencia = b.dataset.rcExp;
     recalc();
   }));
@@ -421,8 +427,9 @@ function bindEvents() {
 
   // Complejidad
   $$('[data-rc-comp]').forEach(b => b.addEventListener('click', () => {
-    $$('[data-rc-comp]').forEach(x => { x.classList.remove('active'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
+    $$('[data-rc-comp]').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-pressed', 'false'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
     b.classList.add('active');
+    b.setAttribute('aria-pressed', 'true');
     CS.complejidad = b.dataset.rcComp;
     const desc = el('rc-comp-desc');
     if (desc) desc.textContent = rc(CS.complejidad + '_d');
@@ -431,8 +438,9 @@ function bindEvents() {
 
   // Urgencia
   $$('[data-rc-urg]').forEach(b => b.addEventListener('click', () => {
-    $$('[data-rc-urg]').forEach(x => { x.classList.remove('active'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
+    $$('[data-rc-urg]').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-pressed', 'false'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
     b.classList.add('active');
+    b.setAttribute('aria-pressed', 'true');
     CS.urgencia = b.dataset.rcUrg;
     const desc = el('rc-urg-desc');
     if (desc) desc.textContent = rc(CS.urgencia + '_d');
@@ -525,7 +533,7 @@ function recalc() {
 // ── RESET ────────────────────────────────────────────────────────────────
 function resetCalc() {
   CS = { proyecto: null, experiencia: null, horas: 40, complejidad: null, urgencia: null };
-  $$('.rc-chip').forEach(b => { b.classList.remove('active'); b.style.background=''; b.style.color=''; b.style.borderColor=''; });
+  $$('.rc-chip').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); b.style.background=''; b.style.color=''; b.style.borderColor=''; });
   const slider = el('rc-slider');
   if (slider) { slider.value = 40; updateSliderTrack(slider); }
   el('rc-horas-num').textContent = '40';

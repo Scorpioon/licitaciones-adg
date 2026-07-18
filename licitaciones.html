@@ -49,7 +49,7 @@
         <button class="lang-btn" data-lang="eu">EU</button>
         <button class="lang-btn" data-lang="gl">GL</button>
       </div>
-      <button class="hbtn" id="btn-theme"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
+      <button class="hbtn" id="btn-theme" aria-pressed="false" aria-label="Activar modo oscuro"><i class="bi bi-moon-stars" id="theme-icon"></i></button>
     </div>
   </header>
   <div class="stats-strip">
@@ -57,7 +57,7 @@
     <div class="sstat"><span class="sstat-val" id="s-vigent" style="color:var(--s-ok)">—</span><span class="sstat-lbl">activas</span></div>
     <div class="sstat"><span class="sstat-val" id="s-vol">—</span><span class="sstat-lbl" data-i18n="st_vol">volumen €</span></div>
     <div class="sstat"><span class="sstat-val" id="s-warn" style="color:var(--s-warn)">—</span><span class="sstat-lbl" data-i18n="st_week">vencen esta semana</span></div>
-    <div class="sstat sstat-clickable" id="sstat-new" title="Filtrar por publicadas en los últimos 3 días"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">recientes</span></div>
+    <div class="sstat sstat-clickable" id="sstat-new" tabindex="0" role="button" aria-pressed="false" data-i18n-title="a11y_filter_recientes" title="Filtrar por publicadas en los últimos 3 días" data-i18n-aria-label="a11y_filter_recientes" aria-label="Filtrar por publicadas en los últimos 3 días"><span class="sstat-val" id="s-new" style="color:var(--s-ok)">—</span><span class="sstat-lbl" data-i18n="st_new">recientes</span></div>
     <div class="sstat"><span class="live-dot"></span><span class="update-info" id="s-update"><strong data-i18n="st_loading">Cargando…</strong></span></div>
   </div>
   <div class="filters">
@@ -117,8 +117,8 @@
   </div>
   <div class="active-filters-bar" id="active-filters-bar"></div>
   <div class="toolbar">
-    <div class="search-wrap"><i class="bi bi-search"></i><input class="search-input" id="search" type="search" placeholder="Buscar…"></div>
-    <div class="adj-wrap"><i class="bi bi-buildings"></i><input class="adj-input" id="adj-search" type="search" placeholder="Adjudicatario…"></div>
+    <div class="search-wrap"><i class="bi bi-search" aria-hidden="true"></i><input class="search-input" id="search" type="search" placeholder="Buscar…" data-i18n-aria-label="a11y_search" aria-label="Buscar licitaciones"></div>
+    <div class="adj-wrap"><i class="bi bi-buildings" aria-hidden="true"></i><input class="adj-input" id="adj-search" type="search" placeholder="Adjudicatario…" data-i18n-aria-label="a11y_search_adj" aria-label="Buscar por adjudicatario"></div>
     <select class="sort-sel" id="sort-sel">
       <option value="rellevancia,desc" data-i18n="sort_rel">↓ Relevancia</option>
       <option value="pressupost,desc" data-i18n="sort_ppto">↓ Presupuesto</option>
@@ -134,17 +134,19 @@
 </div>
 
 <main class="main lic-main">
+  <h1 class="visually-hidden" data-i18n="a11y_page_licit">Licitaciones · Diseño y Comunicación Visual</h1>
   <div class="list-col" id="list-col">
     <table id="main-table">
+      <caption class="visually-hidden" data-i18n="a11y_table_caption">Listado de licitaciones</caption>
       <thead><tr>
-        <th class="sortable" data-col="titol"><span data-i18n="col_licit">Licitación</span><i class="sort-arrow">↕</i></th>
-        <th class="sortable" data-col="organisme"><span data-i18n="col_org">Organismo</span><i class="sort-arrow">↕</i></th>
-        <th class="sortable" data-col="pressupost"><span data-i18n="col_ppto">Presupuesto</span><i class="sort-arrow">↕</i></th>
-        <th class="sortable" data-col="rellevancia"><span data-i18n="col_rel">Relevancia</span><i class="sort-arrow">↕</i></th>
-        <th class="sortable" data-col="estat"><span data-i18n="col_estat">Estado</span><i class="sort-arrow">↕</i></th>
-        <th class="sortable" data-col="data_limit"><span data-i18n="col_term">Termina</span><i class="sort-arrow">↕</i></th>
-        <th class="sortable" data-col="data_pub"><span>Publicación</span><i class="sort-arrow">↕</i></th>
-        <th></th>
+        <th class="sortable" scope="col" data-col="titol"><button type="button" class="th-sort-btn" data-col-btn="titol" data-i18n-aria-label="a11y_sort_titol" aria-label="Ordenar por licitación"><span data-i18n="col_licit">Licitación</span><i class="sort-arrow" aria-hidden="true">↕</i></button></th>
+        <th class="sortable" scope="col" data-col="organisme"><button type="button" class="th-sort-btn" data-col-btn="organisme" data-i18n-aria-label="a11y_sort_organisme" aria-label="Ordenar por organismo"><span data-i18n="col_org">Organismo</span><i class="sort-arrow" aria-hidden="true">↕</i></button></th>
+        <th class="sortable" scope="col" data-col="pressupost"><button type="button" class="th-sort-btn" data-col-btn="pressupost" data-i18n-aria-label="a11y_sort_pressupost" aria-label="Ordenar por presupuesto"><span data-i18n="col_ppto">Presupuesto</span><i class="sort-arrow" aria-hidden="true">↕</i></button></th>
+        <th class="sortable" scope="col" data-col="rellevancia"><button type="button" class="th-sort-btn" data-col-btn="rellevancia" data-i18n-aria-label="a11y_sort_rellevancia" aria-label="Ordenar por relevancia"><span data-i18n="col_rel">Relevancia</span><i class="sort-arrow" aria-hidden="true">↕</i></button></th>
+        <th class="sortable" scope="col" data-col="estat"><button type="button" class="th-sort-btn" data-col-btn="estat" data-i18n-aria-label="a11y_sort_estat" aria-label="Ordenar por estado"><span data-i18n="col_estat">Estado</span><i class="sort-arrow" aria-hidden="true">↕</i></button></th>
+        <th class="sortable" scope="col" data-col="data_limit"><button type="button" class="th-sort-btn" data-col-btn="data_limit" data-i18n-aria-label="a11y_sort_data_limit" aria-label="Ordenar por fecha límite"><span data-i18n="col_term">Termina</span><i class="sort-arrow" aria-hidden="true">↕</i></button></th>
+        <th class="sortable" scope="col" data-col="data_pub"><button type="button" class="th-sort-btn" data-col-btn="data_pub" data-i18n-aria-label="a11y_sort_data_pub" aria-label="Ordenar por fecha de publicación"><span data-i18n="col_pub">Publicación</span><i class="sort-arrow" aria-hidden="true">↕</i></button></th>
+        <th scope="col"><span class="visually-hidden" data-i18n="a11y_col_bell">Notificación</span></th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>

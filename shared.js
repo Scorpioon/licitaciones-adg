@@ -366,7 +366,7 @@ function fichaHTML(r) {
       '<button class="sh-ficha__close" aria-label="' + esc(t('fp_close')) + '"><i class="bi bi-x"></i></button>' +
     '</div>' +
     '<div class="sh-ficha__top">' +
-      '<div class="sh-ficha__title">' + esc(r.titol || '—') + (isNew(r) ? ' <span class="badge-new">' + esc(t('nueva')) + '</span>' : '') + '</div>' +
+      '<div class="sh-ficha__title" id="ficha-title">' + esc(r.titol || '—') + (isNew(r) ? ' <span class="badge-new">' + esc(t('nueva')) + '</span>' : '') + '</div>' +
       '<div class="sh-ficha__resumen">' + esc(computeMiniResumen(r)) + '</div>' +
       factsHTML +
       assessmentBlock(r) +

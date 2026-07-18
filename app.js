@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- app.js
- * 0.6.91 -- Jul 2026
+ * 0.6.92 -- Jul 2026
  * Role: Shared state, I18N (ES/CA/EU/GL), utilities, data loading.
  *       Exposes window.ADG (state) and window.ADG_Utils (functions).
  * Page: All pages (loaded first)
@@ -8,6 +8,14 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.6.92 Jul 2026  p245 semantic HTML + accessibility hardening: real landmark
+ *                  and heading structure on the active public sections
+ *                  (barometro.html redirect excluded by design); table, map
+ *                  and filter controls are keyboard-operable, with accessible
+ *                  table sorting and visible focus; new accessibility labels
+ *                  route through the I18N system with safe fallback; the
+ *                  mobile detail panel follows a full modal contract. No
+ *                  visual redesign, no data change, no WCAG certification.
  * 0.6.91 Jul 2026  p244 encoding/I18N hardening: verified strict UTF-8 across
  *                  public text/source/data. CA/EU/GL dictionaries now hydrate
  *                  over the full ES key set right after declaration, so
@@ -179,6 +187,27 @@ const I18N = {
     alr_coming_soon_d:'Las alertas estaran disponibles proximamente.',
     alr_notify_btn:'Activar alertas',
     disc_none:'Sin disciplina',
+    a11y_page_licit:'Licitaciones · Diseño y Comunicación Visual',
+    a11y_page_stats:'Estadísticas y Barómetro · ADG Licitaciones',
+    a11y_page_recursos:'Recursos y Calculadora · ADG Plataforma',
+    a11y_page_about:'Acerca de · ADG Licitaciones',
+    a11y_page_alertas:'Alertas · ADG Plataforma Digital',
+    a11y_page_mapa:'Mapa del Diseño · ADG Plataforma',
+    a11y_table_caption:'Listado de licitaciones',
+    a11y_col_bell:'Notificación',
+    col_pub:'Publicación',
+    a11y_search:'Buscar licitaciones',
+    a11y_search_adj:'Buscar por adjudicatario',
+    a11y_filter_recientes:'Filtrar por publicadas en los últimos 3 días',
+    a11y_theme_to_dark:'Activar modo oscuro',
+    a11y_theme_to_light:'Activar modo claro',
+    a11y_sort_titol:'Ordenar por licitación',
+    a11y_sort_organisme:'Ordenar por organismo',
+    a11y_sort_pressupost:'Ordenar por presupuesto',
+    a11y_sort_rellevancia:'Ordenar por relevancia',
+    a11y_sort_estat:'Ordenar por estado',
+    a11y_sort_data_limit:'Ordenar por fecha límite',
+    a11y_sort_data_pub:'Ordenar por fecha de publicación',
   },
   ca:{
     lang:'ca',dir:'ltr',
@@ -394,7 +423,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.6.91';
+ADG.version = '0.6.92';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -503,6 +532,16 @@ function applyI18n() {
     const val = t(opt.dataset.i18n);
     if (val) opt.textContent = val;
   });
+  // p245-correction: generic attribute-i18n so aria-label/title (accessible
+  // names, not visible text) also switch with the language, not just textContent.
+  document.querySelectorAll("[data-i18n-aria-label]").forEach(node => {
+    const val = t(node.dataset.i18nAriaLabel);
+    if (val) node.setAttribute('aria-label', val);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach(node => {
+    const val = t(node.dataset.i18nTitle);
+    if (val) node.setAttribute('title', val);
+  });
   document.querySelectorAll("[data-estat]").forEach(btn => {
     const map = {"":"fl_all","open":"s_open","adjudicado":"s_adjudicado","desierta":"s_desierta"};
     const key = map[btn.dataset.estat];
@@ -511,9 +550,26 @@ function applyI18n() {
     const span = btn.querySelector("span[data-i18n]");
     if (span) span.textContent = val;
   });
+  // p245-correction: language buttons choose one value from a set (they are
+  // <button> elements, not navigation links) -- aria-pressed is the correct
+  // toggle-button state model. (Do not also carry aria-current here -- that
+  // model stays reserved for the actual nav-tab page link below/elsewhere.)
   document.querySelectorAll(".lang-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.lang === ADG.lang);
+    const current = b.dataset.lang === ADG.lang;
+    b.classList.toggle("active", current);
+    b.setAttribute("aria-pressed", current ? "true" : "false");
   });
+  // Theme button's accessible name/state must also refresh on language switch,
+  // not only when the theme itself is toggled.
+  refreshThemeA11y();
+}
+
+function refreshThemeA11y() {
+  const btn = el('btn-theme');
+  if (!btn) return;
+  const dark = ADG.theme === 'dark';
+  btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  btn.setAttribute('aria-label', dark ? t('a11y_theme_to_light') : t('a11y_theme_to_dark'));
 }
 
 function applyTheme(theme) {
@@ -521,6 +577,7 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   const icon = el('theme-icon');
   if (icon) icon.className = 'bi bi-' + (theme === 'dark' ? 'sun' : 'moon-stars');
+  refreshThemeA11y();
   localStorage.setItem('adg-theme', theme);
 }
 
@@ -736,6 +793,8 @@ function initShared() {
   });
   applyI18n();
   document.querySelectorAll('[data-adg-version]').forEach(function(vEl){ vEl.textContent = ADG.version; });
+  const currentTab = document.querySelector('.nav-tab.current');
+  if (currentTab) currentTab.setAttribute('aria-current', 'page');
   initMobileNav();
   updateTicker();
 }

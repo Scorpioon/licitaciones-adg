@@ -77,13 +77,14 @@ function syncEstat() {
 function syncDiscs() {
   const none = SV.discs.size === 0;
   const allBtn = el('sv-all-disc');
-  if (allBtn) { allBtn.classList.toggle('active', none); }
+  if (allBtn) { allBtn.classList.toggle('active', none); allBtn.setAttribute('aria-pressed', String(none)); }
   const countEl = el('sv-disc-count');
   if (countEl) countEl.textContent = none ? '' : String(SV.discs.size);
   document.querySelectorAll('[data-sv-disc]').forEach(p => {
     const d = p.dataset.svDisc;
     const active = SV.discs.has(d);
     p.classList.toggle('active', active);
+    p.setAttribute('aria-pressed', String(active));
     if (active) {
       const c = discColor(d);
       p.style.background = c.bg; p.style.color = c.text; p.style.borderColor = c.text;

@@ -87,7 +87,9 @@ function renderList() {
   if (q) html += '<p class="dir-filter-count">' + list.length + ' coincidencias</p>';
   Object.keys(grouped).sort().forEach(letter => {
     html += '<div class="dir-group">' +
-            '<h3 class="dir-group-title">' + esc(letter) + '</h3>' +
+            /* p245-correction: was <h3>, skipping h2 (page h1 -> group heading
+               with nothing between) -- parser-based heading audit caught this. */
+            '<h2 class="dir-group-title">' + esc(letter) + '</h2>' +
             '<ul class="dir-group-list">';
     grouped[letter].forEach(s => {
       const badge = s.type === 'institution'

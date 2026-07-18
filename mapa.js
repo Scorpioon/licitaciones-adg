@@ -143,7 +143,7 @@ function renderList() {
   list.innerHTML = rows.slice(0, 50).map(r => {
     const disc = (r.disciplines || [])[0];
     const dc = disc ? discColor(disc) : { text: 'var(--text3)', bg: 'var(--bg2)' };
-    return `<div class="map-list-item" data-ccaa="${r.ccaa || 'ES'}">
+    return `<div class="map-list-item" data-ccaa="${r.ccaa || 'ES'}" tabindex="0" role="button">
       <div class="map-list-dot" style="background:${dc.text}"></div>
       <div class="map-list-body">
         <div class="map-list-title">${esc(r.titol.length > 60 ? r.titol.slice(0, 60) + '…' : r.titol)}</div>
@@ -152,12 +152,16 @@ function renderList() {
     </div>`;
   }).join('');
 
-  // Click to fly to CCAA
+  // Click (or Enter/Space) to fly to CCAA
   list.querySelectorAll('.map-list-item').forEach(item => {
-    item.addEventListener('click', () => {
+    const fly = () => {
       const cc = item.dataset.ccaa;
       const coords = COORDS[cc];
       if (coords && map) map.flyTo(coords, 8, { duration: 0.8 });
+    };
+    item.addEventListener('click', fly);
+    item.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fly(); }
     });
   });
 }
@@ -166,9 +170,9 @@ function renderList() {
 function renderDiscPills() {
   const wrap = el('map-disc-pills');
   if (!wrap) return;
-  wrap.innerHTML = `<button class="pill ${MS.discs.size === 0 ? 'active' : ''}" data-map-disc-all>Todas</button>` +
+  wrap.innerHTML = `<button class="pill ${MS.discs.size === 0 ? 'active' : ''}" data-map-disc-all aria-pressed="${MS.discs.size === 0}">Todas</button>` +
     Object.entries(DISC).map(([key, d]) =>
-      `<button class="pill ${MS.discs.has(key) ? 'active' : ''}" data-map-disc="${key}"><i class="bi ${d.icon}"></i>${d.label}</button>`
+      `<button class="pill ${MS.discs.has(key) ? 'active' : ''}" data-map-disc="${key}" aria-pressed="${MS.discs.has(key)}"><i class="bi ${d.icon}"></i>${d.label}</button>`
     ).join('');
 }
 
@@ -178,7 +182,11 @@ function bindFilters() {
   document.querySelectorAll('[data-map-estat]').forEach(p => {
     p.addEventListener('click', () => {
       MS.estat = p.dataset.mapEstat || '';
-      document.querySelectorAll('[data-map-estat]').forEach(b => b.classList.toggle('active', (b.dataset.mapEstat || '') === MS.estat));
+      document.querySelectorAll('[data-map-estat]').forEach(b => {
+        const active = (b.dataset.mapEstat || '') === MS.estat;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', String(active));
+      });
       refresh();
     });
   });
