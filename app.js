@@ -8,6 +8,21 @@
  * Exports: window.ADG, window.ADG_Utils
  *
  * CHANGELOG (newest first)
+ * 0.7.1b Jul 2026  p248 consumer forward compatibility: applyDatasetMeta is now
+ *                  the single normalization boundary for manifest/monolith
+ *                  metadata. Tolerates both the current legacy shape and the
+ *                  future canonical public contract (schema, schema_version,
+ *                  publication_state, generation_id, dataset_sha256, counts,
+ *                  provenance, sources/pipeline/transformations) without
+ *                  requiring any field to exist; unknown keys ignored; no
+ *                  enforcement, no gate. Source freshness (source_retrieved_at)
+ *                  is now normalized separately from dataset generation time
+ *                  (dataset_generated_at); malformed/missing timestamps degrade
+ *                  to the existing neutral behavior instead of risking an
+ *                  invalid display. Visible freshness label, shard routing/
+ *                  priority/order and record loading are unchanged against
+ *                  current legacy public data. No producer, workflow or data
+ *                  file changed.
  * 0.6.92 Jul 2026  p245 semantic HTML + accessibility hardening: real landmark
  *                  and heading structure on the active public sections
  *                  (barometro.html redirect excluded by design); table, map
@@ -423,7 +438,7 @@ ADG.datasetMeta = {};
 ADG.isSample = false;
 ADG.lang = localStorage.getItem('adg-lang') || 'es';
 ADG.theme = localStorage.getItem('adg-theme') || 'light';
-ADG.version = '0.6.92';
+ADG.version = '0.7.1b';
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -591,11 +606,78 @@ function applyTheme(theme) {
 //      canonical monolith data/licitaciones.json (legacy behavior, unchanged).
 // Canonical source remains data/licitaciones.json; shards are derived artifacts.
 
+// p248: guards a timestamp field against absence, non-string values and
+// unparseable strings so a malformed optional field degrades to "no value"
+// instead of surfacing as an Invalid Date / undefined display.
+function safeTimestamp(v) {
+  if (typeof v !== 'string' || !v) return null;
+  return isNaN(new Date(v).getTime()) ? null : v;
+}
+
+// p248: single centralized normalization boundary for manifest/monolith
+// metadata. Accepts both the current legacy shape and the future canonical
+// public contract (A1 report, §6-§9) without requiring any field to exist,
+// and ignores unknown keys. No enforcement: publication_state, schema and
+// generation_id/dataset_sha256 are carried through for future use only --
+// nothing here blocks loading or rejects a mismatch.
 function applyDatasetMeta(meta) {
   meta = meta || {};
-  ADG.datasetMeta = meta;
-  ADG.generatedAt = meta.generated_at || null;
-  ADG.dataRefreshedAt = meta.scheduled_merge_applied_at || meta.generated_at || null;
+  // p248: the raw incoming envelope is deliberately NOT retained. Only the
+  // explicitly normalized public fields below are copied into ADG, so unknown
+  // or internal operational keys (paths, merge plans, gate history, retry or
+  // dry-run bookkeeping, ...) never reach global application state.
+  // ADG.datasetMeta stays at its neutral {} initializer -- it has no read
+  // sites in this repository.
+
+  // 9.1 public schema identity -- informational only, not enforced in p248
+  ADG.schema = typeof meta.schema === 'string' ? meta.schema : null;
+  ADG.schemaVersion = (meta.schema_version === undefined || meta.schema_version === null)
+    ? null : meta.schema_version;
+
+  // 9.2 publication state -- recognized, never gated or warned on in p248
+  ADG.publicationState = typeof meta.publication_state === 'string' ? meta.publication_state : null;
+
+  // 9.3 generation identity and integrity -- carried through, never recomputed
+  ADG.generationId = typeof meta.generation_id === 'string' ? meta.generation_id : null;
+  ADG.datasetSha256 = typeof meta.dataset_sha256 === 'string' ? meta.dataset_sha256 : null;
+
+  // 9.4 counts -- informational; the loaded record set stays authoritative for
+  // filters, sorting and any visible count
+  var counts = (meta.counts && typeof meta.counts === 'object') ? meta.counts : {};
+  ADG.datasetCounts = {
+    records: typeof counts.records === 'number' ? counts.records : null,
+    canonicalRecords: typeof counts.canonical_records === 'number' ? counts.canonical_records : null,
+  };
+
+  // 9.5 provenance -- carried through for future use, never rendered in p248
+  ADG.provenance = {
+    sources: Array.isArray(meta.sources) ? meta.sources : null,
+    pipeline: (meta.pipeline && typeof meta.pipeline === 'object') ? meta.pipeline : null,
+    transformations: Array.isArray(meta.transformations) ? meta.transformations : null,
+    provenance: (meta.provenance && typeof meta.provenance === 'object') ? meta.provenance : null,
+  };
+
+  // 11.1/11.2 -- source freshness and dataset generation are different
+  // concepts and stay separate in normalized state.
+  var sourceRetrievedAt  = safeTimestamp(meta.source_retrieved_at);
+  var legacyMergeAt      = safeTimestamp(meta.scheduled_merge_applied_at);
+  var legacyGeneratedAt  = safeTimestamp(meta.generated_at);
+  var datasetGeneratedAt = safeTimestamp(meta.dataset_generated_at);
+
+  // Visible freshness label: canonical source_retrieved_at first, then the
+  // exact legacy chain already in production, then dataset_generated_at as a
+  // last safe fallback, then neutral (null == "Datos cargados").
+  ADG.dataRefreshedAt = sourceRetrievedAt || legacyMergeAt || legacyGeneratedAt || datasetGeneratedAt || null;
+
+  // Dataset generation time, normalized separately -- never overwrites the
+  // freshness label above. scheduled_merge_applied_at is merge/publication
+  // freshness, not a generation timestamp, so it is not a fallback here.
+  ADG.datasetGeneratedAt = datasetGeneratedAt || legacyGeneratedAt || null;
+
+  // Legacy assignments kept: assigned-but-unused elsewhere in this codebase,
+  // preserved rather than removed (p248 scope is additive tolerance, not
+  // dead-code cleanup).
+  ADG.generatedAt = legacyGeneratedAt || null;
   ADG.fetcher_version = meta.version || meta.fetcher_version || '?';
 }
 
@@ -643,7 +725,7 @@ async function loadMonolith() {
 // is in place (caller paints), then continues filling later tiers in the
 // background. Returns false to request monolith fallback.
 async function loadShards(manifest) {
-  applyDatasetMeta(manifest.source_meta);
+  applyDatasetMeta(manifest.meta || manifest.source_meta);
 
   const tiers = [];
   manifest.shards.forEach(s => {
