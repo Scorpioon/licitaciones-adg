@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f10",
+  "titol": "Registre amb esquema d'URL perillos",
+  "documents": [
+    { "document_type": "enllac", "title": "Document", "url": "javascript:alert(document.cookie)" }
+  ]
+}

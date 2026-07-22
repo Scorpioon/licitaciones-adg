@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f12",
+  "titol": "Registre amb ruta local al titol del document",
+  "documents": [
+    { "document_type": "plec", "title": "C:\\Users\\operador\\Desktop\\plec_confidencial.pdf", "url": "https://exemple-gov.test/doc/f12" }
+  ]
+}

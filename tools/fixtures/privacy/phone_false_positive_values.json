@@ -1,0 +1,12 @@
+{
+  "id": "lic-synthetic-w05",
+  "titol": "Codis, dates i imports que NO son telefons (F3 false positives)",
+  "expedient_dotted": "02.07.01.01 2099/11-SS_SYNTH",
+  "expedient_slash": "2099/SYNTH0902/00000850E",
+  "data_pub": "2026-01-05",
+  "generated_at_utc": "2026-01-05T06:00:00Z",
+  "pressupost_text": "1.234.567,89 EUR",
+  "cpv": "79822500",
+  "national_number_no_plus": "612 345 678",
+  "decreto_ref": "DECRETO 2099 0318 241031 SYNTH"
+}

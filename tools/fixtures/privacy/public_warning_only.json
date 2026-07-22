@@ -1,0 +1,13 @@
+{
+  "id": "lic-synthetic-0005",
+  "titol": "Manteniment de zones verdes",
+  "organisme": "Ajuntament d'Exemple",
+  "pressupost": 30000,
+  "estat": "Obert",
+  "font": "LOCAL",
+  "status_provenance": "https://exemple-gov.test/atom/entry/0005",
+  "source_merge_class": "MERGED_OVERLAP",
+  "notice_history": [
+    { "notice_id": "n-0005", "source": "LOCAL-ZIP", "issue_date": "2026-03-01" }
+  ]
+}

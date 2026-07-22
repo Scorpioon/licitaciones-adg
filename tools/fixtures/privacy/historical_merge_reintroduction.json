@@ -1,0 +1,10 @@
+{
+  "id": "lic-synthetic-f13",
+  "titol": "Registre on una fusio historica reintrodueix un camp prohibit",
+  "historial": [
+    { "data": "2026-01-01", "estat": "Obert", "nota": "Publicacio" }
+  ],
+  "notice_history": [
+    { "notice_id": "n-f13", "status_key": "PUB", "email": "reintroduit@synthetic.test" }
+  ]
+}

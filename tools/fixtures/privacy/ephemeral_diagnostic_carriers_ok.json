@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "run_status": "PARTIAL_SUCCESS",
+    "is_partial": true,
+    "failed_sources": ["SOURCE-SYNTH-1"],
+    "source_errors": {
+      "SOURCE-SYNTH-1": "connection refused during synthetic fetch"
+    },
+    "note": "gitignored ephemeral candidate; diagnostic carriers are legitimate here"
+  },
+  "data": [
+    {
+      "id": "lic-synthetic-eph-3",
+      "titol": "Registre efimer amb portadors de diagnostic",
+      "content": "truncated non-atom upstream body kept locally for triage",
+      "response": "HTTP/1.1 502 Bad Gateway raw upstream response kept locally"
+    }
+  ]
+}

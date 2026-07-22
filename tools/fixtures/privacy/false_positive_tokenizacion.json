@@ -1,0 +1,8 @@
+{
+  "id": "lic-synthetic-0004",
+  "titol": "Servei de tokenizacion de pagaments i gestio de credencials d'acces ciutada",
+  "organisme": "Consorci d'Exemple",
+  "pressupost": 150000,
+  "estat": "Obert",
+  "kw": ["tokenizacion", "pagaments", "password recovery flow"]
+}

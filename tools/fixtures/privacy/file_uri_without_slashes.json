@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f22",
+  "titol": "Registre amb file URI sense barres (F6)",
+  "documents": [
+    { "document_type": "enllac", "title": "Document", "url": "file:C:/synthetic.txt" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f15",
+  "titol": "Registre amb winning_party_nif populat",
+  "award_results": [
+    { "notice_id": "n-f15", "winning_party_name": "Empresa Sintetica SL", "winning_party_nif": "X1234567Z" }
+  ]
+}

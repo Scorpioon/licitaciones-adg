@@ -1,0 +1,9 @@
+{
+  "id": "lic-synthetic-f17",
+  "titol": "Registre amb claus compostes sensibles (F1)",
+  "contact_phone": "+34 600 000 000",
+  "database_password": "PLACEHOLDER-PW-0000",
+  "github_token": "PLACEHOLDER-TOKEN-0000",
+  "operator_dni": "00000000T",
+  "config_private_key": "PLACEHOLDER-KEY-0000"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "lic-synthetic-f19",
+  "titol": "Registre public amb portadors content i response (F5)",
+  "content": "<html><body>raw fetched body retained in a public record</body></html>",
+  "response": "HTTP/1.1 200 OK raw upstream response retained in a public record"
+}

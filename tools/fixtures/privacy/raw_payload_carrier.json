@@ -1,0 +1,5 @@
+{
+  "id": "lic-synthetic-f09",
+  "titol": "Registre amb portador de payload cru",
+  "body": "<html><head></head><body>raw fetched non-atom response retained in a public record</body></html>"
+}

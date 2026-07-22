@@ -1,0 +1,7 @@
+{
+  "prompt": "113",
+  "version": "v0.4.5-synthetic",
+  "candidate_109_input": "_tmp/candidate_109_synthetic_baseline.json",
+  "policy_110_input": "_tmp/policy_110_synthetic.json",
+  "backup_path": "data/_backup/licitaciones_synthetic_pre_scheduled.json"
+}

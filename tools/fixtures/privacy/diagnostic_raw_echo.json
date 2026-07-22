@@ -1,0 +1,6 @@
+{
+  "schema": "synthetic_diagnostic_output",
+  "status": "REJECTED",
+  "rejected_value_echo": "filtracio@synthetic.test",
+  "detail": "capçalera observada Authorization: Bearer aB3dEf6hIj9kLmN0pQrS"
+}

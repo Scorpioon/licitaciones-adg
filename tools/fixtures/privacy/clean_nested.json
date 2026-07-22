@@ -1,0 +1,21 @@
+{
+  "id": "lic-synthetic-0002",
+  "titol": "Disseny editorial i maquetacio de publicacions",
+  "organisme": "Diputacio d'Exemple",
+  "adjudicatari": "Estudi Sintetic SL",
+  "pressupost": 45000,
+  "estat": "Adjudicat",
+  "documents": [
+    { "document_type": "plec", "title": "Plec de prescripcions tecniques", "url": "https://exemple-gov.test/doc/PPT-2026-002.pdf" },
+    { "document_type": "anunci", "title": "Anunci de licitacio", "url": "https://exemple-gov.test/doc/anunci-002.html" }
+  ],
+  "award_results": [
+    { "notice_id": "n-002", "winning_party_name": "Estudi Sintetic SL", "winning_party_nif": "", "award_amount_tax_excl": 45000 }
+  ],
+  "notice_history": [
+    { "notice_id": "n-002", "status_key": "PUB", "issue_date": "2026-01-10", "url": "https://exemple-gov.test/atom/002" }
+  ],
+  "historial": [
+    { "data": "2026-01-10", "estat": "Obert", "nota": "Publicacio inicial" }
+  ]
+}

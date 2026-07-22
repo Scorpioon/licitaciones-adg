@@ -1,0 +1,10 @@
+{
+  "id": "lic-synthetic-w06",
+  "titol": "Referencies sintetiques que NO son DNI/NIE (F4 false positives)",
+  "expedient_slash": "2099/00000777A",
+  "expedient_nested": "2099/SYNTH0902/00000850E",
+  "cif_shape": "B12345678",
+  "cpv": "79822500",
+  "invalid_checksum_ref": "codi X1234567Z de referencia",
+  "coded_ref": "REF-12345678A"
+}

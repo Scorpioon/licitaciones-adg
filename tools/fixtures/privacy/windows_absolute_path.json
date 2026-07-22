@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f05",
+  "titol": "Registre amb ruta absoluta Windows",
+  "documents": [
+    { "document_type": "plec", "title": "Plec local", "url": "K:\\DEVKIT\\internal\\plec_privat.pdf" }
+  ]
+}

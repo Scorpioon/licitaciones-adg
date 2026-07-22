@@ -1,0 +1,8 @@
+{
+  "id": "lic-synthetic-w02",
+  "titol": "Registre amb marcadors de font interns",
+  "font": "LOCAL",
+  "notice_history": [
+    { "notice_id": "n-w02", "source": "LOCAL-ZIP", "issue_date": "2026-04-01" }
+  ]
+}

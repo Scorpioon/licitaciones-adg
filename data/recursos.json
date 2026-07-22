@@ -34,17 +34,17 @@
   },
   "recursos": {
     "plantillas": [
-      { "id": "contrato",     "url": "#" },
-      { "id": "presupuesto",  "url": "#" },
-      { "id": "cesion",       "url": "#" },
-      { "id": "nda",          "url": "#" },
-      { "id": "brief",        "url": "#" }
+      { "id": "contrato",     "url": null },
+      { "id": "presupuesto",  "url": null },
+      { "id": "cesion",       "url": null },
+      { "id": "nda",          "url": null },
+      { "id": "brief",        "url": null }
     ],
     "referencias": [
       { "id": "tarifas_adg",  "url": "https://adg-fad.org" },
       { "id": "lpi",          "url": "https://www.boe.es/buscar/act.php?id=BOE-A-1996-8930" },
-      { "id": "irpf",         "url": "#" },
-      { "id": "guia_ppto",    "url": "#" }
+      { "id": "irpf",         "url": null },
+      { "id": "guia_ppto",    "url": null }
     ]
   }
 }

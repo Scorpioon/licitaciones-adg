@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f24",
+  "titol": "Registre amb host localhost amb punt final (F6)",
+  "documents": [
+    { "document_type": "enllac", "title": "Document", "url": "http://localhost./x" }
+  ]
+}

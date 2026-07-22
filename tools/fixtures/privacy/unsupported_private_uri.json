@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f23",
+  "titol": "Registre amb URI ftp amb credencials i host de loopback (F6)",
+  "documents": [
+    { "document_type": "enllac", "title": "Document", "url": "ftp://user:pass@127.0.0.1/x" }
+  ]
+}

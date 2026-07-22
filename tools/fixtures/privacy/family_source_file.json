@@ -1,0 +1,9 @@
+{
+  "id": "laus-jury-synthetic-w04",
+  "year": 2099,
+  "name": "Membre Sintetic del Jurat",
+  "role": "Dissenyador",
+  "import_batch": "phaseX-synthetic-seed",
+  "source": "adg-public",
+  "source_file": "laus_2099_synthetic.txt"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f11",
+  "titol": "Registre amb URL cap a host privat",
+  "documents": [
+    { "document_type": "enllac", "title": "Document intern", "url": "http://192.168.10.20/intern/expedient.pdf" }
+  ]
+}

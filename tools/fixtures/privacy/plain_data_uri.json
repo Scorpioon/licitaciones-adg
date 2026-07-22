@@ -1,0 +1,7 @@
+{
+  "id": "lic-synthetic-f21",
+  "titol": "Registre amb data URI sense tipus de mitja (F6)",
+  "documents": [
+    { "document_type": "enllac", "title": "Document", "url": "data:,synthetic" }
+  ]
+}

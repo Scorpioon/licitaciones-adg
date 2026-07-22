@@ -1,0 +1,9 @@
+{
+  "id": "lic-synthetic-w03",
+  "titol": "Registre amb camps de bookkeeping interns",
+  "status_provenance": "https://exemple-gov.test/atom/entry/w03",
+  "winner_provenance": "https://exemple-gov.test/atom/entry/w03",
+  "source_merge_class": "MERGED_OVERLAP",
+  "lifecycle_category": "OPEN_NO_AWARD",
+  "enrichment_version": "v0.4.5-synthetic"
+}

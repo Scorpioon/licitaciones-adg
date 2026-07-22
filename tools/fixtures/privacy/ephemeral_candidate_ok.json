@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "run_status": "FULL_SUCCESS",
+    "is_partial": false,
+    "failed_sources": [],
+    "source_errors": {},
+    "note": "local candidate produced by scheduled helper dry run",
+    "backup_path": "data/_backup/licitaciones_synthetic_pre.json",
+    "candidate_109_input": "_tmp/candidate_109_synthetic.json"
+  },
+  "data": [
+    {
+      "id": "lic-synthetic-eph-1",
+      "titol": "Registre local de proves",
+      "font": "LOCAL",
+      "notice_history": [
+        { "notice_id": "n-eph-1", "source": "LOCAL-ZIP", "snippet": "truncated non-atom diagnostic body kept locally for triage" }
+      ]
+    }
+  ]
+}

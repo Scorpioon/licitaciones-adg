@@ -1,0 +1,8 @@
+{
+  "id": "lic-synthetic-f20",
+  "titol": "Registre public amb source_errors populat (F5)",
+  "source_errors": {
+    "SOURCE-SYNTH-1": "connection refused during synthetic fetch",
+    "SOURCE-SYNTH-2": "timeout waiting for synthetic upstream"
+  }
+}
