@@ -398,7 +398,7 @@ jobs:
 
           print("Canonical public contract gate OK: generation_id=%s records=%d "
                 "canonical=%d shards=%d shard_total=%d"
-                % (gen, len(records), canon, len(shards), shard_total))
+                % (gen, len(records), expected_canonical, len(shards), shard_total))
           PYEOF
 
       - name: Commit data if changed
