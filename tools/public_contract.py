@@ -556,6 +556,163 @@ def path_family_hits(value):
     return fams
 
 
+# ---------------------------------------------------------------------------
+# Canonical consumer record count (A1 §8.1, p254, corrected p254 corrections
+# 01 and 02)
+#
+# app.js buildCanonicalRecords() is the published consumer-facing grouping: it
+# answers "how many distinct records does the public UI actually render",
+# which is a different question from build_index()'s merge-operation key
+# (contract_folder_id > canonical_key > id > url — used only to decide what
+# the merger overwrites or appends). compute_canonical_record_count()
+# reproduces buildCanonicalRecords()'s exact grouping key so that
+# counts.canonical_records is a truthful statement of the consumer view. It
+# answers only the grouping question a count needs; it never selects a "best"
+# record per group (that is app.js pickCanonicalEntry(), irrelevant to a
+# count).
+#
+# Supported container + identity domain (exact JS semantics reproduced):
+#   - the records container itself must be a JSON array / Python list — an
+#     EMPTY list is the true zero-record case and returns 0; app.js calls
+#     `.forEach()` directly on `records`, which has no defined behavior for a
+#     non-array container, so a dict/tuple/string/int/None container is
+#     malformed input, not an empty dataset, and must never silently count
+#     as 0;
+#   - every element of that list must be a dict/object;
+#   - id/url, if JS-truthy, is a JSON scalar: str, bool, int, or float
+#     (int/float share one numeric namespace, matching JS's single Number
+#     type — 1 and 1.0 are the same key; bool is its own namespace, so
+#     true != 1; str is its own namespace, so "1" != 1);
+#   - the '__idx__N' fallback string shares the SAME string namespace as a
+#     real string id/url, because app.js builds it by string concatenation
+#     ('__idx__' + idx) — a real id/url equal to that literal string collides
+#     with the fallback in app.js, and must collide here too.
+# Outside that domain — a non-list container, a non-dict element, or a
+# JS-truthy id/url that is a list/dict (JS Map keys objects by reference
+# identity, unrecoverable from JSON structure) — compute_canonical_record_count()
+# / canonical_record_identity() fail closed by raising
+# UnsupportedCanonicalIdentityError rather than approximating.
+# ---------------------------------------------------------------------------
+
+def _is_js_truthy(value) -> bool:
+    """Mimic JS truthiness for the scalar values app.js keys grouping on.
+
+    Falsy in JS: undefined, null, false, NaN, 0 (incl. -0.0), "". Every other
+    value — including any non-empty string, non-zero number, list or dict —
+    is truthy (JS objects/arrays are truthy even when empty).
+    """
+    if value is None or value is False:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float) and value != value:  # NaN
+        return False
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value != ""
+    return True
+
+
+class UnsupportedCanonicalIdentityError(ValueError):
+    """Raised when a record's app.js grouping key falls outside the exact
+    JS-semantics domain this module can faithfully reproduce (p254 correction
+    01) — a non-object record, or a JS-truthy `id`/`url` that is a list/dict.
+
+    JS Map keys a list/dict value by object reference identity, which cannot
+    be recovered from JSON structure: two structurally identical objects are
+    distinct Map keys in JS, but indistinguishable once serialized. Raising
+    here — instead of falling back to a structural JSON key — is a deliberate
+    fail-closed choice: it is safer to reject the count than to silently
+    assert a JavaScript identity relationship this module cannot verify.
+    """
+
+
+def _js_scalar_key_repr(value, index: int, field: str):
+    """Hashable representation of a JS **scalar** Map key, or raise.
+
+    JS has a single Number type, so 1 and 1.0 are the same Map key; int and
+    float both normalize to a tagged float here to reproduce that. Booleans
+    and strings keep their own tagged namespace so they never collide with a
+    numeric value or each other (JS Map treats true and 1 as distinct keys).
+    Raises UnsupportedCanonicalIdentityError for any non-scalar value — see
+    that class's docstring for why this is fail-closed, not a fallback.
+    """
+    if isinstance(value, bool):
+        return ("bool", value)
+    if isinstance(value, (int, float)):
+        return ("num", float(value))
+    if isinstance(value, str):
+        return ("str", value)
+    raise UnsupportedCanonicalIdentityError(
+        "record at index %d: %s value of type %s is outside the supported "
+        "public identity domain (JSON scalar id/url only)"
+        % (index, field, type(value).__name__))
+
+
+def canonical_record_identity(record, index: int):
+    """Reproduce app.js buildCanonicalRecords()'s exact grouping key.
+
+    `var key = r.id || r.url || ('__idx__' + idx);` — id wins if JS-truthy,
+    else url if JS-truthy, else the string `'__idx__' + idx`. The fallback
+    key MUST inhabit the same string-key namespace as a real string id/url:
+    JS builds it via string concatenation, so a record with no id/url at
+    index 0 and a record whose real id/url happens to equal the literal
+    string "__idx__0" are the SAME Map key in app.js and collapse into one
+    canonical group. Tagging the fallback ("idx", index) instead — a
+    separate Python namespace with no JS analogue — would report that
+    collision as two groups, silently understating the true collapse.
+
+    A non-dict entry has no `.id`/`.url` to read; app.js's own behavior for
+    such an entry (bracket access on a non-object) is not something this
+    module can safely assert without running V8, so it fails closed rather
+    than guessing (p254 correction 01, REQUIRED CORRECTION §4).
+    """
+    if not isinstance(record, dict):
+        raise UnsupportedCanonicalIdentityError(
+            "record at index %d is not an object" % index)
+    id_val = record.get("id")
+    if _is_js_truthy(id_val):
+        return _js_scalar_key_repr(id_val, index, "id")
+    url_val = record.get("url")
+    if _is_js_truthy(url_val):
+        return _js_scalar_key_repr(url_val, index, "url")
+    return ("str", "__idx__%d" % index)
+
+
+def compute_canonical_record_count(records) -> int:
+    """The exact canonical consumer-view record count (A1 §8.1).
+
+    Counts the number of distinct groups app.js buildCanonicalRecords() would
+    produce over `records` — the number of rows the public UI actually
+    renders, not build_index()'s merge-operation key. build_index() and this
+    function intentionally answer different questions: build_index() decides
+    what the merger overwrites or appends; this counts what the consumer
+    displays. Pure, stdlib-only, deterministic, no I/O, no mutation.
+
+    Raises UnsupportedCanonicalIdentityError (fail-closed, not caught here) if
+    `records` itself is not a list, if any record is a non-object, or if any
+    record has a JS-truthy id/url that is a list/dict — outside the
+    exact-semantics domain this module can reproduce. A non-list `records`
+    (dict, tuple, string, int, None, ...) is not app.js's empty-array case:
+    app.js calls `.forEach()` directly on `records`, which throws for any
+    non-array value rather than behaving as zero rows, so returning 0 here
+    would misrepresent malformed input as a legitimate empty dataset. Only an
+    actual empty list (`[]`) is the true zero-record case and returns 0.
+    Callers that must publish a count rather than crash the process are
+    expected to catch this explicitly; this module does not soften it.
+    """
+    if not isinstance(records, list):
+        raise UnsupportedCanonicalIdentityError(
+            "records container is not a list (got %s); app.js "
+            "buildCanonicalRecords() calls .forEach() on an array and has no "
+            "defined behavior for a non-array container" % type(records).__name__)
+    seen = set()
+    for index, record in enumerate(records):
+        seen.add(canonical_record_identity(record, index))
+    return len(seen)
+
+
 def find_forbidden_paths(node):
     """Recursively walk a structure (dict keys + values, lists) collecting the
     set of internal path/host family names present in any string.

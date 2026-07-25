@@ -232,7 +232,10 @@ jobs:
           with open(MANIFEST_PATH, encoding="utf-8") as f:
               manifest = json.load(f)
 
-          records   = monolith.get("data") or []
+          records = monolith.get("data")
+          if not isinstance(records, list):
+              fail("monolith.data is not an array")
+              records = []
           mono_meta = monolith.get("meta") or {}
           man_meta  = manifest.get("meta") or {}
 
@@ -283,9 +286,9 @@ jobs:
           mono_counts = mono_meta.get("counts") or {}
           if mono_counts.get("records") != len(records):
               fail("meta.counts.records != monolith record count")
-          canon = mono_counts.get("canonical_records")
-          if not isinstance(canon, int) or canon > len(records):
-              fail("meta.counts.canonical_records missing or greater than records")
+          expected_canonical = pc.compute_canonical_record_count(records)
+          if mono_counts.get("canonical_records") != expected_canonical:
+              fail("meta.counts.canonical_records does not match the canonical consumer view")
           mono_block = manifest.get("monolith") or {}
           if mono_block.get("record_count") != len(records):
               fail("manifest.monolith.record_count != monolith record count")
@@ -300,8 +303,11 @@ jobs:
               fail("manifest.monolith.bytes does not match the monolith file size")
 
           # 7. Shard inventory and integrity.
-          shards = manifest.get("shards") or []
-          if not shards:
+          shards = manifest.get("shards")
+          if not isinstance(shards, list):
+              fail("manifest.shards is not an array")
+              shards = []
+          elif not shards:
               fail("manifest.shards[] is empty")
           shard_total = 0
           for shard in shards:
@@ -318,7 +324,10 @@ jobs:
               if shard.get("priority") is None:
                   fail("shard entry missing priority: %s" % path)
               sj = json.loads(raw.decode("utf-8"))
-              sdata = sj.get("data") or []
+              sdata = sj.get("data")
+              if not isinstance(sdata, list):
+                  fail("shard data is not an array: %s" % path)
+                  sdata = []
               smeta = sj.get("meta") or {}
               if shard.get("record_count") != len(sdata):
                   fail("manifest record_count != actual records in %s" % path)

@@ -286,7 +286,7 @@ def build_public_meta(records: list, cand_meta: dict) -> dict:
         },
         "counts": {
             "records": len(records),
-            "canonical_records": len(build_index(records)),
+            "canonical_records": pc.compute_canonical_record_count(records),
         },
         "sources": sources,
         "transformations": list(pc.TRANSFORMATIONS),
