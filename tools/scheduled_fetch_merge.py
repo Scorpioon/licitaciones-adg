@@ -4,6 +4,12 @@ tools/scheduled_fetch_merge.py
 ADG OPS v0.5.0a — Lifecycle-safe scheduled append/merge helper for Fetcher 1.
 Prompt 135. Hotfix: accept Fetcher 1 candidate envelopes with top-level metadata.
 (v0.4.5aq / Prompt 119: corrected 118 overlap lifecycle precedence bug.)
+(v0.7.1d / p251: canonical public provenance contract. --run-live no longer
+ carries the production meta block forward; it emits the A1 public contract via
+ the shared tools/public_contract.py module and mints the generation identity.
+ Source retrieval truth (A1 §7) and the flat sources/transformations shape read
+ by the p248 consumer are corrected here. Retrieval/merge/backup semantics
+ unchanged.)
 
 Usage:
   --check
@@ -31,6 +37,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Shared canonical public contract (A1 LOCK-19). Import works both when run
+# directly (`python tools/scheduled_fetch_merge.py` → tools/ on sys.path) and
+# when imported as `tools.scheduled_fetch_merge` (offline regression harness).
+try:
+    from tools import public_contract as pc
+except ImportError:  # pragma: no cover - direct-run fallback
+    import public_contract as pc
+
 PRODUCTION_PATH = Path("data/licitaciones.json")
 FETCHER_SCRIPT  = Path("fetch_licitaciones.py")
 TMP_DIR         = Path("_tmp")
@@ -42,6 +56,17 @@ REPORT_CHECK     = TMP_DIR / f"scheduled_merge_check_{PROMPT_NUM}_{VERSION}.json
 REPORT_VALIDATE  = TMP_DIR / f"scheduled_merge_validation_{PROMPT_NUM}_{VERSION}.json"
 REPORT_DRY_RUN   = TMP_DIR / f"scheduled_merge_dry_run_{PROMPT_NUM}_{VERSION}.json"
 REPORT_CONFLICTS = TMP_DIR / f"scheduled_merge_conflicts_{PROMPT_NUM}_{VERSION}.json"
+
+# ---------------------------------------------------------------------------
+# Canonical public metadata contract  (A1 — adgops.public.licitaciones/1)
+#
+# All public contract constants and pure derivations live in
+# tools/public_contract.py (imported as `pc`, A1 LOCK-19). This merger mints
+# the generation identity and builds the public meta block; it defines no
+# contract constant of its own. VERSION / PROMPT_NUM above remain internal
+# labels for the _tmp run reports and are never serialized into a public
+# artifact.
+# ---------------------------------------------------------------------------
 
 # Enrichment/UI fields set by the ADG pipeline — always preserved from production.
 ENRICHMENT_FIELDS = [
@@ -158,6 +183,114 @@ def build_index(records: list) -> dict:
 
 def is_provenance_field(key: str) -> bool:
     return any(key.startswith(p) for p in PROVENANCE_PREFIXES)
+
+
+# ---------------------------------------------------------------------------
+# Canonical public metadata derivations (A1 §7, §8, §10, §12)
+#
+# Pure contract logic (serialization, hashing, generation-id minting, RFC3339
+# normalization, constants, source registry) lives in tools/public_contract.py
+# (`pc`). This merger owns only the run-specific assembly: which sources
+# actually succeeded, and the fail-closed source-freshness rule (A1 §7).
+# ---------------------------------------------------------------------------
+
+def _str_list(value) -> list:
+    """Type guard for candidate source lists (A1 §7.6): keep only strings."""
+    if not isinstance(value, list):
+        return []
+    return [x for x in value if isinstance(x, str)]
+
+
+def build_public_sources(cand_meta: dict, retrieved_at: str | None) -> list:
+    """Public source coverage derived from the candidate envelope (A1 §8.1).
+
+    Publishes feed identity and a coarse status. Source retrieval truth (A1 §7):
+    ONLY successfully-completed sources may carry `retrieved_at`; failed and
+    degraded/unconfirmed sources expose id/name/url/status but never a
+    successful retrieval timestamp.
+    """
+    requested = _str_list(cand_meta.get("requested_sources")) \
+        or _str_list(cand_meta.get("completed_sources"))
+    completed = set(_str_list(cand_meta.get("completed_sources")))
+    failed    = set(_str_list(cand_meta.get("failed_sources")))
+
+    sources: list = []
+    for name in requested:
+        known = pc.PUBLIC_SOURCES.get(name) or {}
+        entry = {"id": known.get("id") or name}
+        if known.get("name"):
+            entry["name"] = known["name"]
+        if known.get("url"):
+            entry["url"] = known["url"]
+        if name in failed:
+            entry["status"] = pc.SOURCE_STATUS_FAILED
+        elif name in completed:
+            entry["status"] = pc.SOURCE_STATUS_OK
+            # Successful sources alone carry a retrieval timestamp (A1 §7.1-7.3).
+            if retrieved_at:
+                entry["retrieved_at"] = retrieved_at
+        else:
+            entry["status"] = pc.SOURCE_STATUS_DEGRADED
+        sources.append(entry)
+    return sources
+
+
+def build_public_meta(records: list, cand_meta: dict) -> dict:
+    """Build the canonical public monolith meta block (A1 §10, §12).
+
+    Emits only A1-approved public fields, built explicitly from allowed values.
+    The production meta block is NOT carried forward and no raw internal
+    envelope is stripped after the fact: candidate/backup/_tmp paths, gate
+    history, retry and source-error telemetry, prompt/patch labels, product
+    version and dry-run/production bookkeeping are excluded by construction.
+
+    A1 provenance content is emitted as the top-level `sources` and
+    `transformations` fields (the shape the published p248 consumer reads);
+    no `provenance` container is written.
+    """
+    dataset_generated_at = ts_now()
+    dataset_sha256       = pc.compute_dataset_sha256(records)
+    generation_id        = pc.mint_generation_id(dataset_generated_at, dataset_sha256)
+
+    retrieved_at = pc.to_rfc3339_z(cand_meta.get("generated_at"))
+    sources      = build_public_sources(cand_meta, retrieved_at)
+
+    # Global source freshness is derived from SUCCESSFUL sources only (A1 §7.4).
+    # Fail closed when no successful source carries a retrieval timestamp
+    # (A1 §7.5); never back-fill from dataset generation time (A1 §7.7).
+    ok_times = [
+        s["retrieved_at"] for s in sources
+        if s.get("status") == pc.SOURCE_STATUS_OK and s.get("retrieved_at")
+    ]
+    if not ok_times:
+        sys.exit(
+            "[ERROR] No successfully-retrieved source carries a retrieval "
+            "timestamp — refusing to publish a dataset without source freshness. "
+            "source_retrieved_at must never be back-filled from generation time."
+        )
+    source_retrieved_at = max(ok_times)
+
+    return {
+        "schema": pc.PUBLIC_SCHEMA,
+        "schema_version": pc.PUBLIC_SCHEMA_VERSION,
+        "artifact": pc.ARTIFACT_MONOLITH,
+        "publication_state": pc.PUBLICATION_STATE,
+        "generation_id": generation_id,
+        "dataset_sha256": dataset_sha256,
+        "source_retrieved_at": source_retrieved_at,
+        "dataset_generated_at": dataset_generated_at,
+        "pipeline": {
+            "name": pc.PIPELINE_NAME,
+            "version": pc.PIPELINE_VERSION,
+            "stages": list(pc.PIPELINE_STAGES),
+        },
+        "counts": {
+            "records": len(records),
+            "canonical_records": pc.compute_canonical_record_count(records),
+        },
+        "sources": sources,
+        "transformations": list(pc.TRANSFORMATIONS),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -486,8 +619,24 @@ def run_validate_production(args) -> None:
 
     validation_errors: list[str] = []
 
-    if not gate:
-        validation_errors.append("meta.production_write_gate_prompt missing")
+    # Envelope contract check. Canonical artifacts (A1) are validated against the
+    # public contract; artifacts predating the A2.2 regeneration are still
+    # accepted via the legacy gate marker, so this mode keeps passing on the
+    # currently tracked data. The legacy arm is removed in A2.3.
+    if meta.get("schema") == pc.PUBLIC_SCHEMA:
+        if meta.get("publication_state") != pc.PUBLICATION_STATE:
+            validation_errors.append(
+                f"meta.publication_state is {meta.get('publication_state')!r}, expected {pc.PUBLICATION_STATE!r}"
+            )
+        if not meta.get("generation_id"):
+            validation_errors.append("meta.generation_id missing")
+        if not meta.get("dataset_sha256"):
+            validation_errors.append("meta.dataset_sha256 missing")
+    elif not gate:
+        validation_errors.append(
+            "meta carries neither the canonical public contract "
+            f"(schema {pc.PUBLIC_SCHEMA}) nor the legacy production_write_gate_prompt marker"
+        )
 
     missing_lc = sum(1 for r in rows if not r.get("lifecycle_category"))
     if missing_lc:
@@ -504,6 +653,8 @@ def run_validate_production(args) -> None:
         print(f"  [ISSUE] {msg}")
 
     print(f"  records      : {counts['total']}")
+    print(f"  schema       : {meta.get('schema', 'legacy')}")
+    print(f"  generation   : {meta.get('generation_id', 'N/A (pre-A2.2)')}")
     print(f"  gate         : {gate}")
     print(f"  active_true  : {counts['active_true']}")
     print(f"  review_true  : {counts['review_true']}")
@@ -803,17 +954,26 @@ def run_live(args) -> None:
     print(f"[run-live] Backup: {backup_path}")
 
     # Write production.
-    prod_meta = dict(prod_data.get("meta", {}))
-    prod_meta.update({
-        "scheduled_merge_mode": "run-live",
-        "scheduled_merge_prompt": PROMPT_NUM,
-        "scheduled_merge_version": VERSION,
-        "scheduled_merge_applied_at": ts_now(),
-        "production_write_performed": True,
-        "backup_path": str(backup_path),
-    })
-    write_json(PRODUCTION_PATH, {"meta": prod_meta, "data": merged_rows})
+    # The previous meta block is deliberately NOT carried forward: that
+    # append-only carry-forward is what kept the p113 dry-run vocabulary alive
+    # on live public data. The canonical contract is built from the merged
+    # records and the candidate envelope only.
+    public_meta = build_public_meta(merged_rows, cand_meta)
+    write_json(PRODUCTION_PATH, {"meta": public_meta, "data": merged_rows})
     print(f"[run-live] Written: {PRODUCTION_PATH} ({len(merged_rows)} records)")
+    print(
+        f"[run-live] generation_id={public_meta['generation_id']} "
+        f"dataset_sha256={public_meta['dataset_sha256'][:12]}... "
+        f"source_retrieved_at={public_meta['source_retrieved_at']} "
+        f"canonical_records={public_meta['counts']['canonical_records']}"
+    )
+    # Operational telemetry removed from the public contract stays here and in
+    # the _tmp run record / workflow log: backup location, merge plan, run mode.
+    print(
+        f"[run-live] internal: backup={backup_path} mode=run-live "
+        f"helper={VERSION}/p{PROMPT_NUM} overlap={len(overlap_keys)} "
+        f"added={len(candidate_only_keys)}"
+    )
 
     if all_conflicts:
         conflict_path = TMP_DIR / f"scheduled_merge_conflicts_live_{ts}.json"

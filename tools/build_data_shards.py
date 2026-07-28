@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-build_data_shards.py  (ADG OPS / p200 / v0.6.54)
+build_data_shards.py  (ADG OPS / p251 / v0.7.1d)
 
 Generate derived, per-year JSON shards from the canonical monolith
 data/licitaciones.json so the static web can load recent data first and
@@ -13,9 +13,15 @@ KEY DESIGN LAW
 - The partition is loss-less: every source record lands in exactly one
   shard; total sharded records == source records. Records are copied
   byte-for-byte in content (no field mutation, no dedupe).
+- This script is NOT a metadata authority (A1 §7.2, §12). It propagates the
+  canonical meta minted by tools/scheduled_fetch_merge.py verbatim. It never
+  mints a generation_id, never recomputes dataset_sha256, never reinterprets a
+  timestamp or a publication state, and defines no public contract constant.
+  It adds only what it alone can know: the build time, the shard inventory and
+  the file-level integrity hashes.
 
-Shard shape (mirrors the {meta, data} monolith, minus the heavy meta):
-    {"data": [ ...records... ], "shard_meta": {...}}
+Shard shape (identity stub + records; A1 §13):
+    {"meta": {...9 keys...}, "data": [ ...records... ]}
 
 Stdlib only. No third-party dependencies.
 
@@ -36,9 +42,18 @@ import json
 import os
 import sys
 
-SCHEMA = "licitaciones_shards/1"
-GENERATED_BY_PROMPT = "p200"
-TARGET_VERSION = "v0.6.54"
+# Shared canonical public contract (A1 LOCK-19). Import works both when run
+# directly (`python tools/build_data_shards.py` → tools/ on sys.path) and when
+# imported as `tools.build_data_shards`.
+try:
+    from tools import public_contract as pc
+except ImportError:  # pragma: no cover - direct-run fallback
+    import public_contract as pc
+
+# Canonical meta keys propagated verbatim from the monolith (A1 §12) come from
+# the shared contract module — this builder defines no contract constant of its
+# own and must never substitute a value the merger minted.
+PROPAGATED_META_KEYS = pc.SHARED_META_KEYS
 
 # Priority tiers for the progressive web loader. Lower number = load sooner.
 # 2026 + 2025 are priority 1 (recent / most relevant), 2024 priority 2, the
@@ -173,6 +188,27 @@ def build(args):
             errors.append("archive contains in-range year record: %s" % yr)
             break
 
+    # Canonical contract preconditions (A1 §12): the monolith must already carry
+    # the meta minted by the merger. If it does not, this build refuses rather
+    # than inventing an identity — that is the merger's job, never this script's.
+    missing_meta = [k for k in PROPAGATED_META_KEYS if source_meta.get(k) is None]
+    if missing_meta:
+        errors.append(
+            "monolith meta is not canonical: missing %s "
+            "(regenerate via tools/scheduled_fetch_merge.py --run-live)"
+            % ", ".join(missing_meta)
+        )
+
+    declared_records = (source_meta.get("counts") or {}).get("records")
+    if declared_records is not None and declared_records != source_count:
+        errors.append(
+            "monolith meta.counts.records %s != actual record count %d"
+            % (declared_records, source_count)
+        )
+
+    dataset_sha256 = source_meta.get("dataset_sha256")
+    generation_id = source_meta.get("generation_id")
+
     if errors:
         for e in errors:
             log("VALIDATION ERROR: %s" % e)
@@ -194,19 +230,23 @@ def build(args):
         fname = "licitaciones_%s.json" % key
         rel_path = "data/%s" % fname
         out_path = os.path.join(out_dir, fname)
+        # 9-key identity stub (A1 §13). A shard is authoritative for nothing;
+        # the stub exists so a stale shard left by an interrupted build is
+        # detectable instead of being silently ingested. No self-hash: a file
+        # cannot contain the hash of its own bytes — shard integrity lives in
+        # the manifest's shards[].sha256.
         shard_meta = {
-            "schema": SCHEMA,
+            "schema": source_meta.get("schema"),
+            "schema_version": source_meta.get("schema_version"),
+            "artifact": pc.ARTIFACT_SHARD,
+            "publication_state": source_meta.get("publication_state"),
+            "generation_id": generation_id,
+            "dataset_sha256": dataset_sha256,
             "year": key,
             "priority": priority,
-            "count": len(records),
-            "generated_by_prompt": GENERATED_BY_PROMPT,
-            "target_version": TARGET_VERSION,
-            "source": args.input.replace("\\", "/"),
-            "source_sha256": source_sha,
-            "generated_at_utc": generated_at,
-            "canonical_source_preserved": True,
+            "record_count": len(records),
         }
-        shard_obj = {"data": records, "shard_meta": shard_meta}
+        shard_obj = {"meta": shard_meta, "data": records}
         body = json.dumps(shard_obj, ensure_ascii=False, indent=indent, separators=separators)
         body_bytes = body.encode("utf-8")
         payloads[out_path] = (body_bytes, len(records))
@@ -214,46 +254,73 @@ def build(args):
             {
                 "year": key,
                 "path": rel_path,
-                "count": len(records),
-                "bytes": len(body_bytes),
                 "priority": priority,
+                "record_count": len(records),
+                "bytes": len(body_bytes),
+                "sha256": hashlib.sha256(body_bytes).hexdigest(),
             }
         )
 
+    # Canonical manifest (A1 §11). `meta` mirrors the monolith's canonical block
+    # verbatim (every shared field from pc.SHARED_META_KEYS) and adds only the
+    # one manifest-scope timestamp it alone can know. The legacy raw
+    # `source_meta` envelope — which republished the monolith's internal paths
+    # on the smallest, most-fetched public artifact — is gone, not renamed.
+    #
+    # No public `validation` block and no `validated_at`: the workflow gate is
+    # the actual cross-artifact validator and runs only AFTER this script exits
+    # (A1 §8 / p251 §8). Emitting builder-local reconciliation booleans here
+    # would overclaim proof the builder never produced and would imply the gate
+    # already ran. The builder therefore publishes no validation claim at all.
+    manifest_meta = {"schema": source_meta.get("schema")}
+    manifest_meta["schema_version"]      = source_meta.get("schema_version")
+    manifest_meta["artifact"]            = pc.ARTIFACT_MANIFEST
+    manifest_meta["publication_state"]   = source_meta.get("publication_state")
+    manifest_meta["generation_id"]       = generation_id
+    manifest_meta["dataset_sha256"]      = dataset_sha256
+    manifest_meta["source_retrieved_at"] = source_meta.get("source_retrieved_at")
+    manifest_meta["dataset_generated_at"] = source_meta.get("dataset_generated_at")
+    manifest_meta["artifacts_built_at"]  = generated_at
+    manifest_meta["pipeline"]            = source_meta.get("pipeline")
+    manifest_meta["counts"]              = source_meta.get("counts")
+    manifest_meta["sources"]             = source_meta.get("sources")
+    manifest_meta["transformations"]     = source_meta.get("transformations")
+
     manifest = {
-        "schema": SCHEMA,
-        "generated_by_prompt": GENERATED_BY_PROMPT,
-        "target_version": TARGET_VERSION,
-        "source": args.input.replace("\\", "/"),
-        "source_sha256": source_sha,
-        "generated_at_utc": generated_at,
-        "canonical_source_preserved": True,
-        "top_shape": top_shape,
-        "source_meta": source_meta,
-        "shards": shard_entries,
-        "counts": {
-            "source_records": source_count,
-            "sharded_records": sharded_records,
-            "duplicate_ids": duplicate_ids,
-            "missing_year_records": missing_year_records,
+        "meta": manifest_meta,
+        "monolith": {
+            # Public artifact path only — never the caller's --input path, which
+            # may be an absolute or temporary local location.
+            "path": "data/%s" % os.path.basename(input_path),
+            "record_count": source_count,
+            "bytes": os.path.getsize(input_path),
+            # Byte hash of the finished monolith FILE (distinct from the logical
+            # dataset_sha256 over the records array). Verified by the workflow
+            # gate against a fresh recomputation (A1 §15 / p251 §15).
+            "file_sha256": source_sha,
         },
+        "shards": shard_entries,
     }
     manifest_body = json.dumps(manifest, ensure_ascii=False, indent=indent, separators=separators)
     manifest_bytes = manifest_body.encode("utf-8")
 
     # Report -----------------------------------------------------------------
     log("source            : %s" % input_path)
-    log("source_sha256     : %s" % source_sha)
+    log("generation_id     : %s" % generation_id)
+    log("dataset_sha256    : %s" % dataset_sha256)
+    log("monolith_sha256   : %s" % source_sha)
     log("source_records    : %d" % source_count)
     log("sharded_records   : %d" % sharded_records)
+    # Build diagnostics — internal only, never published (A1 §11).
+    log("top_shape(int)    : %s" % top_shape)
     log("duplicate_ids(src): %d" % duplicate_ids)
     log("missing_year      : %d" % missing_year_records)
-    log("generated_at_utc  : %s" % generated_at)
+    log("artifacts_built_at: %s" % generated_at)
     log("-" * 56)
     for e in shard_entries:
         log(
             "shard %-8s p%d  %5d recs  %9d bytes  %s"
-            % (e["year"], e["priority"], e["count"], e["bytes"], e["path"])
+            % (e["year"], e["priority"], e["record_count"], e["bytes"], e["path"])
         )
     log("manifest                       %9d bytes  %s" % (len(manifest_bytes), args.manifest))
 

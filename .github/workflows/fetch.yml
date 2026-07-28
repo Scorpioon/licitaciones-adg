@@ -188,51 +188,217 @@ jobs:
             --archive-name archive \
             --manifest data/licitaciones_manifest.json
 
-      - name: Validate shard freshness
+      - name: Validate canonical public contract (publication gate)
         id: shardvalidate
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
         run: |
           python - <<'PYEOF'
-          import json, sys
+          # Canonical public contract gate (A1 — adgops.public.licitaciones/1).
+          # Replaces the legacy freshness gate, which required the contradictory
+          # source_meta.production_write_performed / scheduled_merge_applied_at
+          # pair. Runs after the merger and the shard builder, before commit and
+          # push: any failure exits non-zero and no data is published.
+          #
+          # All canonical contract logic — schema constants, publication state,
+          # shared keys, hash serialization, generation-id + timestamp
+          # validation, forbidden key/path families — comes from the shared
+          # module tools/public_contract.py (A1 LOCK-19). Only workflow-local
+          # orchestration (file reads, shard walk) lives here. Failure messages
+          # name the violated invariant / family only — never dataset contents.
+          import hashlib, json, os, sys
 
-          with open("data/licitaciones.json", encoding="utf-8") as f:
-              monolith = json.load(f)
-          monolith_records = monolith.get("data") or []
-          monolith_count = len(monolith_records)
-          monolith_ts = (monolith.get("meta") or {}).get("scheduled_merge_applied_at")
+          # Import the shared contract from the checked-out tree. This adjusts
+          # only this script's import path; it changes no checkout, fetch,
+          # merge, shard-build, commit, no-change or push behaviour.
+          sys.path.insert(0, os.getcwd())
+          try:
+              from tools import public_contract as pc
+          except ImportError:
+              sys.path.insert(0, os.path.join(os.getcwd(), "tools"))
+              import public_contract as pc
 
-          with open("data/licitaciones_manifest.json", encoding="utf-8") as f:
-              manifest = json.load(f)
+          MONOLITH_PATH = "data/licitaciones.json"
+          MANIFEST_PATH = "data/licitaciones_manifest.json"
 
           errors = []
-          counts = manifest.get("counts", {})
-          if counts.get("source_records") != monolith_count:
-              errors.append(f"manifest.counts.source_records {counts.get('source_records')} != monolith count {monolith_count}")
-          if counts.get("sharded_records") != monolith_count:
-              errors.append(f"manifest.counts.sharded_records {counts.get('sharded_records')} != monolith count {monolith_count}")
+          def fail(msg):
+              errors.append(msg)
 
+          # Read the monolith bytes once — needed both for the file-integrity
+          # hash (A1 §15) and for the records array.
+          with open(MONOLITH_PATH, "rb") as f:
+              monolith_bytes = f.read()
+          monolith = json.loads(monolith_bytes.decode("utf-8"))
+          with open(MANIFEST_PATH, encoding="utf-8") as f:
+              manifest = json.load(f)
+
+          records = monolith.get("data")
+          if not isinstance(records, list):
+              fail("monolith.data is not an array")
+              records = []
+          mono_meta = monolith.get("meta") or {}
+          man_meta  = manifest.get("meta") or {}
+
+          # 1. Canonical envelopes present.
+          if not isinstance(mono_meta, dict) or not mono_meta:
+              fail("monolith: canonical public meta envelope missing")
+          if not isinstance(man_meta, dict) or not man_meta:
+              fail("manifest: canonical meta envelope missing (expected manifest.meta)")
+
+          # 2. Schema identity, publication state, artifact discriminator.
+          for label, meta, artifact in (
+                  ("monolith", mono_meta, pc.ARTIFACT_MONOLITH),
+                  ("manifest", man_meta, pc.ARTIFACT_MANIFEST)):
+              if meta.get("schema") != pc.PUBLIC_SCHEMA:
+                  fail("%s.meta.schema is not the canonical public schema" % label)
+              if meta.get("schema_version") != pc.PUBLIC_SCHEMA_VERSION:
+                  fail("%s.meta.schema_version is not %d" % (label, pc.PUBLIC_SCHEMA_VERSION))
+              if meta.get("publication_state") != pc.PUBLICATION_STATE:
+                  fail("%s.meta.publication_state is not %r" % (label, pc.PUBLICATION_STATE))
+              if meta.get("artifact") != artifact:
+                  fail("%s.meta.artifact is not %r" % (label, artifact))
+
+          # 3. Generation identity.
+          gen = mono_meta.get("generation_id")
+          if not pc.is_valid_generation_id(gen):
+              fail("monolith.meta.generation_id missing or malformed "
+                   "(expected gen-<YYYYMMDDTHHMMSSZ>-<12 hex>)")
+              gen = None
+
+          # 4. Logical dataset hash — independent recomputation over the records
+          #    array with the serialization locked in A1 §7.2.
+          declared = mono_meta.get("dataset_sha256")
+          actual = pc.compute_dataset_sha256(records)
+          if declared != actual:
+              fail("monolith.meta.dataset_sha256 does not match a fresh recomputation "
+                   "over the records array")
+          if gen and not pc.generation_id_matches(
+                  gen, mono_meta.get("dataset_generated_at"), actual):
+              fail("generation_id does not match dataset_generated_at prefix / "
+                   "dataset_sha256[:12] suffix")
+
+          # 5. Shared fields byte-identical in monolith and manifest (A1 §12).
+          for key in pc.SHARED_META_KEYS:
+              if mono_meta.get(key) != man_meta.get(key):
+                  fail("shared meta field '%s' differs between monolith and manifest" % key)
+
+          # 6. Counts reconcile.
+          mono_counts = mono_meta.get("counts") or {}
+          if mono_counts.get("records") != len(records):
+              fail("meta.counts.records != monolith record count")
+          expected_canonical = pc.compute_canonical_record_count(records)
+          if mono_counts.get("canonical_records") != expected_canonical:
+              fail("meta.counts.canonical_records does not match the canonical consumer view")
+          mono_block = manifest.get("monolith") or {}
+          if mono_block.get("record_count") != len(records):
+              fail("manifest.monolith.record_count != monolith record count")
+
+          # 6b. Monolith FILE integrity (A1 §15): the manifest's byte hash of the
+          #     finished monolith file must match a fresh recomputation. Distinct
+          #     from the logical dataset_sha256 over the records array above.
+          file_sha = hashlib.sha256(monolith_bytes).hexdigest()
+          if mono_block.get("file_sha256") != file_sha:
+              fail("manifest.monolith.file_sha256 does not match the monolith file bytes")
+          if mono_block.get("bytes") != len(monolith_bytes):
+              fail("manifest.monolith.bytes does not match the monolith file size")
+
+          # 7. Shard inventory and integrity.
+          shards = manifest.get("shards")
+          if not isinstance(shards, list):
+              fail("manifest.shards is not an array")
+              shards = []
+          elif not shards:
+              fail("manifest.shards[] is empty")
           shard_total = 0
-          for shard in manifest.get("shards", []):
-              with open(shard["path"], encoding="utf-8") as sf:
-                  shard_total += len((json.load(sf) or {}).get("data") or [])
-          if shard_total != monolith_count:
-              errors.append(f"sum of shard record counts {shard_total} != monolith count {monolith_count}")
+          for shard in shards:
+              path = shard.get("path")
+              if not path or not os.path.isfile(path):
+                  fail("shard file missing or not listed")
+                  continue
+              with open(path, "rb") as sf:
+                  raw = sf.read()
+              if shard.get("sha256") != hashlib.sha256(raw).hexdigest():
+                  fail("shard sha256 mismatch: %s" % path)
+              if shard.get("bytes") != len(raw):
+                  fail("shard byte count mismatch: %s" % path)
+              if shard.get("priority") is None:
+                  fail("shard entry missing priority: %s" % path)
+              sj = json.loads(raw.decode("utf-8"))
+              sdata = sj.get("data")
+              if not isinstance(sdata, list):
+                  fail("shard data is not an array: %s" % path)
+                  sdata = []
+              smeta = sj.get("meta") or {}
+              if shard.get("record_count") != len(sdata):
+                  fail("manifest record_count != actual records in %s" % path)
+              if gen and smeta.get("generation_id") != gen:
+                  fail("shard generation_id does not match the monolith generation: %s" % path)
+              if smeta.get("dataset_sha256") != declared:
+                  fail("shard dataset_sha256 does not match the monolith: %s" % path)
+              if smeta.get("publication_state") != pc.PUBLICATION_STATE:
+                  fail("shard publication_state is not published: %s" % path)
+              if smeta.get("artifact") != pc.ARTIFACT_SHARD:
+                  fail("shard meta.artifact is not 'shard': %s" % path)
+              for k in pc.find_forbidden_keys(smeta):
+                  fail("shard %s: forbidden metadata key family '%s'" % (path, k))
+              # A shard meta is NOT a canonical meta block: pipeline.version is
+              # forbidden here too, so the exception is explicitly withheld.
+              for vp in pc.find_forbidden_version_paths(smeta, allow_pipeline_version=False):
+                  fail("shard %s: forbidden public version path '%s' (pipeline.version allowed only in monolith.meta / manifest.meta)" % (path, vp))
+              for fam in pc.find_forbidden_paths(smeta):
+                  fail("shard %s: forbidden internal path/host family '%s'" % (path, fam))
+              shard_total += len(sdata)
+          if shard_total != len(records):
+              fail("sum of shard record counts != monolith count")
 
-          source_meta = manifest.get("source_meta", {})
-          manifest_ts = source_meta.get("scheduled_merge_applied_at")
-          if monolith_ts and manifest_ts != monolith_ts:
-              errors.append(f"manifest source_meta.scheduled_merge_applied_at {manifest_ts!r} != monolith meta.scheduled_merge_applied_at {monolith_ts!r}")
+          # 8. Timestamps: format and the A1 §7.3 ordering relationship.
+          sra = mono_meta.get("source_retrieved_at")
+          dga = mono_meta.get("dataset_generated_at")
+          aba = man_meta.get("artifacts_built_at")
+          for label, value in (("monolith.meta.source_retrieved_at", sra),
+                               ("monolith.meta.dataset_generated_at", dga),
+                               ("manifest.meta.artifacts_built_at", aba)):
+              if not pc.is_rfc3339_z(value):
+                  fail("%s missing or not RFC3339 UTC second precision" % label)
+          if pc.is_rfc3339_z(sra) and pc.is_rfc3339_z(dga) and pc.is_rfc3339_z(aba):
+              if not pc.timestamps_non_decreasing(sra, dga, aba):
+                  fail("timestamp ordering violated: source_retrieved_at <= "
+                       "dataset_generated_at <= artifacts_built_at")
 
-          if source_meta.get("production_write_performed") is not True:
-              errors.append("manifest source_meta.production_write_performed is not true — source_meta reflects an unpromoted dry-run candidate, not live production data")
+          # 9. Recursive forbidden key / path-family absence across every public
+          #    metadata structure (A1 §13, §14). Scoped to METADATA only —
+          #    record-level bookkeeping is a separate, deferred lane (LOCK-17/A3).
+          if "source_meta" in manifest:
+              fail("manifest: legacy source_meta envelope still present")
+          for k in pc.FORBIDDEN_MANIFEST_TOP_KEYS:
+              if k in manifest:
+                  fail("manifest: legacy/forbidden top-level key '%s' still present" % k)
+          # Context-aware version policy (A1 §7.1, p252 §6-§8): the
+          # pipeline.version exception is granted ONLY to the two canonical meta
+          # blocks (monolith.meta / manifest.meta). manifest.monolith and
+          # manifest.shards are not meta blocks, so any pipeline.version there is
+          # rejected. The policy is passed explicitly at every site so the
+          # contract is auditable straight from this workflow diff.
+          for label, block, allow_pv in (("monolith.meta", mono_meta, True),
+                                          ("manifest.meta", man_meta, True),
+                                          ("manifest.monolith", mono_block, False),
+                                          ("manifest.shards", shards, False)):
+              for k in pc.find_forbidden_keys(block):
+                  fail("%s: forbidden metadata key family '%s'" % (label, k))
+              for vp in pc.find_forbidden_version_paths(block, allow_pipeline_version=allow_pv):
+                  fail("%s: forbidden public version path '%s' (pipeline.version allowed only in monolith.meta / manifest.meta)" % (label, vp))
+              for fam in pc.find_forbidden_paths(block):
+                  fail("%s: forbidden internal path/host family '%s'" % (label, fam))
 
           if errors:
-              print("SHARD VALIDATION FAILED:")
+              print("CANONICAL PUBLIC CONTRACT GATE: FAILED")
               for e in errors:
                   print(" -", e)
               sys.exit(1)
 
-          print(f"Shard validation OK: monolith={monolith_count} shard_total={shard_total} ts={manifest_ts}")
+          print("Canonical public contract gate OK: generation_id=%s records=%d "
+                "canonical=%d shards=%d shard_total=%d"
+                % (gen, len(records), expected_canonical, len(shards), shard_total))
           PYEOF
 
       - name: Commit data if changed
