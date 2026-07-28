@@ -56,3 +56,4 @@ data/fetcher2/
 # p237-prep: internal pipeline docs, local only (operator: git rm --cached)
 tools/FETCHER_ARCHITECTURE.md
 tools/fetcher_architecture_registry.json
+/_report/
