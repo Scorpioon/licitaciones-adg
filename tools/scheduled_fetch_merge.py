@@ -562,13 +562,10 @@ def run_check(args) -> None:
         sys.exit(1)
 
     rows   = prod_data["data"]
-    meta   = prod_data.get("meta", {})
     counts = count_lifecycle(rows)
     lc_ok, lc_issues = validate_lifecycle_integrity(rows)
-    gate   = meta.get("production_write_gate_prompt", "N/A")
 
     print(f"  records      : {counts['total']}")
-    print(f"  gate         : {gate}")
     print(f"  active_true  : {counts['active_true']}")
     print(f"  review_true  : {counts['review_true']}")
     print(f"  rs_count     : {counts['rs_count']}")
@@ -583,7 +580,6 @@ def run_check(args) -> None:
     verdict = "PASS" if lc_ok else "FAIL: lifecycle integrity issues"
     report = base_report("check", len(rows))
     report.update({
-        "gate_prompt": gate,
         "active_true": counts["active_true"],
         "review_true": counts["review_true"],
         "rs_count": counts["rs_count"],
@@ -615,15 +611,17 @@ def run_validate_production(args) -> None:
     meta   = prod_data.get("meta", {})
     counts = count_lifecycle(rows)
     lc_ok, lc_issues = validate_lifecycle_integrity(rows)
-    gate   = meta.get("production_write_gate_prompt")
 
     validation_errors: list[str] = []
 
-    # Envelope contract check. Canonical artifacts (A1) are validated against the
-    # public contract; artifacts predating the A2.2 regeneration are still
-    # accepted via the legacy gate marker, so this mode keeps passing on the
-    # currently tracked data. The legacy arm is removed in A2.3.
-    if meta.get("schema") == pc.PUBLIC_SCHEMA:
+    # Envelope contract check (A2.3): the canonical public schema is required.
+    # A missing or different schema fails closed.
+    if meta.get("schema") != pc.PUBLIC_SCHEMA:
+        validation_errors.append(
+            f"meta.schema is {meta.get('schema')!r}; the canonical public schema "
+            f"{pc.PUBLIC_SCHEMA!r} is required"
+        )
+    else:
         if meta.get("publication_state") != pc.PUBLICATION_STATE:
             validation_errors.append(
                 f"meta.publication_state is {meta.get('publication_state')!r}, expected {pc.PUBLICATION_STATE!r}"
@@ -632,11 +630,6 @@ def run_validate_production(args) -> None:
             validation_errors.append("meta.generation_id missing")
         if not meta.get("dataset_sha256"):
             validation_errors.append("meta.dataset_sha256 missing")
-    elif not gate:
-        validation_errors.append(
-            "meta carries neither the canonical public contract "
-            f"(schema {pc.PUBLIC_SCHEMA}) nor the legacy production_write_gate_prompt marker"
-        )
 
     missing_lc = sum(1 for r in rows if not r.get("lifecycle_category"))
     if missing_lc:
@@ -653,9 +646,8 @@ def run_validate_production(args) -> None:
         print(f"  [ISSUE] {msg}")
 
     print(f"  records      : {counts['total']}")
-    print(f"  schema       : {meta.get('schema', 'legacy')}")
-    print(f"  generation   : {meta.get('generation_id', 'N/A (pre-A2.2)')}")
-    print(f"  gate         : {gate}")
+    print(f"  schema       : {meta.get('schema')}")
+    print(f"  generation   : {meta.get('generation_id')}")
     print(f"  active_true  : {counts['active_true']}")
     print(f"  review_true  : {counts['review_true']}")
     print(f"  rs_count     : {counts['rs_count']}")
@@ -667,9 +659,6 @@ def run_validate_production(args) -> None:
 
     report = base_report("validate-production", len(rows))
     report.update({
-        "gate_prompt": gate,
-        "gate_version": meta.get("production_write_gate_version"),
-        "gate_applied_at": meta.get("production_write_gate_applied_at"),
         "active_true": counts["active_true"],
         "review_true": counts["review_true"],
         "rs_count": counts["rs_count"],

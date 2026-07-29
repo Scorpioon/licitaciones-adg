@@ -213,6 +213,40 @@ class L1MergeHelperTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(issues, [])
 
+    # --- run_validate_production canonical-only behaviour (A2.3) -----------
+
+    def test_validate_production_canonical_fixture_accepted(self):
+        shutil.copyfile(FIXTURES_DIR / "production_canonical_min.json", self.prod_path)
+        sfm.run_validate_production(types.SimpleNamespace())
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        self.assertEqual(report["final_verdict"], "PASS")
+        self.assertEqual(report["validation_errors"], [])
+        for legacy_key in ("gate_prompt", "gate_version", "gate_applied_at"):
+            self.assertNotIn(legacy_key, report)
+
+    def test_validate_production_legacy_fixture_rejected(self):
+        # setUp already placed production_min.json (legacy gate marker, no
+        # canonical schema) at self.prod_path.
+        with self.assertRaises(SystemExit) as cm:
+            sfm.run_validate_production(types.SimpleNamespace())
+        self.assertEqual(cm.exception.code, 1)
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        self.assertEqual(report["final_verdict"], "FAIL")
+        self.assertTrue(any("canonical public schema" in e for e in report["validation_errors"]))
+        for legacy_key in ("gate_prompt", "gate_version", "gate_applied_at"):
+            self.assertNotIn(legacy_key, report)
+
+    def test_validate_production_canonical_missing_generation_id_rejected(self):
+        canonical = load_fixture("production_canonical_min.json")
+        del canonical["meta"]["generation_id"]
+        self.prod_path.write_text(json.dumps(canonical, ensure_ascii=False), encoding="utf-8")
+        with self.assertRaises(SystemExit) as cm:
+            sfm.run_validate_production(types.SimpleNamespace())
+        self.assertEqual(cm.exception.code, 1)
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        self.assertEqual(report["final_verdict"], "FAIL")
+        self.assertTrue(any("generation_id" in e for e in report["validation_errors"]))
+
 
 # ---------------------------------------------------------------------------
 # L2 — scheduled_run_classify operational-status classifier / report

@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "schema": "adgops.public.licitaciones/1",
+    "schema_version": 1,
+    "artifact": "monolith",
+    "publication_state": "published",
+    "generation_id": "gen-20260101T000000Z-aaaaaaaaaaaa",
+    "dataset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_retrieved_at": "2026-01-01T00:00:00Z",
+    "dataset_generated_at": "2026-01-01T00:00:05Z",
+    "pipeline": {
+      "name": "adgops-licitaciones-pipeline",
+      "version": "1.0.0",
+      "stages": ["harvest", "merge", "shard"]
+    },
+    "counts": {
+      "records": 2,
+      "canonical_records": 2
+    },
+    "sources": [
+      {
+        "id": "PLACSP-643",
+        "name": "PLACSP Sindicación 643",
+        "url": "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
+        "status": "ok",
+        "retrieved_at": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "transformations": [
+      "relevance_scoring",
+      "discipline_classification",
+      "lifecycle_classification",
+      "canonical_dedup_view"
+    ]
+  },
+  "data": [
+    {
+      "id": "FIX-CANON-OPEN-001",
+      "contract_folder_id": "CFID-CANON-OPEN-001",
+      "titol": "Synthetic canonical open tender alpha",
+      "organisme": "Ajuntament Fixticia Canonical",
+      "estat": "vigent",
+      "adjudicatari": "",
+      "pressupost": 120000,
+      "data_pub": "2026-01-01",
+      "data_limit": "2026-12-31",
+      "url": "https://example.invalid/fixture/canon-open-001",
+      "historial": [],
+      "award_results": [],
+      "rellevancia": 55,
+      "enrichment_version": "fixture",
+      "lifecycle_category": "CLEAR_OPEN",
+      "active_opportunity_eligible": true,
+      "lifecycle_review_required": false,
+      "source_merge_class": "FIXTURE_PRODUCTION"
+    },
+    {
+      "id": "FIX-CANON-AWARD-001",
+      "contract_folder_id": "CFID-CANON-AWARD-001",
+      "titol": "Synthetic canonical awarded tender beta",
+      "organisme": "Generalitat Fixticia Canonical",
+      "estat": "adjudicada",
+      "adjudicatari": "Empresa Sintetica Canonical SL",
+      "pressupost": 300000,
+      "data_pub": "2026-01-02",
+      "data_limit": "2026-02-01",
+      "url": "https://example.invalid/fixture/canon-award-001",
+      "historial": [],
+      "award_results": [{"adjudicatari": "Empresa Sintetica Canonical SL", "import": 290000}],
+      "rellevancia": 35,
+      "enrichment_version": "fixture",
+      "lifecycle_category": "CLEAR_AWARDED",
+      "active_opportunity_eligible": false,
+      "lifecycle_review_required": false,
+      "source_merge_class": "FIXTURE_PRODUCTION"
+    }
+  ]
+}
