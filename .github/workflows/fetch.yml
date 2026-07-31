@@ -444,6 +444,8 @@ jobs:
           DRYRUN_OUTCOME:      ${{ steps.dryrun.outcome }}
           VALIDATE_OUTCOME:    ${{ steps.validate.outcome }}
           DIFFSUMMARY_OUTCOME: ${{ steps.diffsummary.outcome }}
+          SHARDS_OUTCOME:      ${{ steps.shards.outcome }}
+          SHARDVALIDATE_OUTCOME: ${{ steps.shardvalidate.outcome }}
           COMMIT_OUTCOME:      ${{ steps.commit.outcome }}
           PUSH_OUTCOME:        ${{ steps.push.outcome }}
           GH_EVENT_NAME:       ${{ github.event_name }}

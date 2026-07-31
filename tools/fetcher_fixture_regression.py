@@ -364,6 +364,117 @@ class L2ClassifierTests(unittest.TestCase):
         self.assertEqual(self.classify(env, helper_log="some unrelated traceback")["status"],
                          "FAIL_CLOSED")
 
+    # --- Prompt 265 / v0.7.1r — D-02 operational classifier gate-awareness ---
+
+    def test_fail_closed_shard_build_failure(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="failure")
+        self.assertEqual(self.classify(env)["status"], "FAIL_CLOSED_SHARD_BUILD")
+
+    def test_fail_closed_shard_build_cancelled(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="cancelled")
+        self.assertEqual(self.classify(env)["status"], "FAIL_CLOSED_SHARD_BUILD")
+
+    def test_fail_closed_public_contract_failure(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="failure")
+        self.assertEqual(self.classify(env)["status"], "FAIL_CLOSED_PUBLIC_CONTRACT")
+
+    def test_fail_closed_public_contract_cancelled(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="cancelled")
+        self.assertEqual(self.classify(env)["status"], "FAIL_CLOSED_PUBLIC_CONTRACT")
+
+    def test_shard_and_contract_skipped_preserves_no_changes(self):
+        # Legitimate no-change path: monolith unchanged, so shards/shardvalidate
+        # never ran (default "skipped"). Must NOT be classified as a failure.
+        self.write_candidate("cand_empty_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="false", PUSH_OUTCOME="skipped")
+        self.assertEqual(self.classify(env)["status"], "SUCCESS_REAL_FETCH_NO_CHANGES")
+
+    def test_shard_build_precedes_public_contract_when_both_fail(self):
+        # Precedence rule 5: shard-build failure classified before contract-gate
+        # failure when both step outcomes are failures.
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="failure",
+                       SHARDVALIDATE_OUTCOME="failure")
+        self.assertEqual(self.classify(env)["status"], "FAIL_CLOSED_SHARD_BUILD")
+
+    def test_public_contract_precedes_git_commit_when_both_fail(self):
+        # Precedence rule 6: contract-gate failure classified before commit failure.
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="failure", COMMIT_OUTCOME="failure")
+        self.assertEqual(self.classify(env)["status"], "FAIL_CLOSED_PUBLIC_CONTRACT")
+
+    def test_dry_run_unaffected_by_gate_awareness(self):
+        env = base_env(DRY_RUN_MODE="true", DRYRUN_OUTCOME="success")
+        self.assertEqual(self.classify(env)["status"], "MANUAL_DRY_RUN_SUCCESS")
+
+    def test_guard_skip_unaffected_by_gate_awareness(self):
+        env = base_env(RUN_FETCH="skip")
+        self.assertEqual(self.classify(env)["status"], "SKIPPED_BY_GUARD")
+
+    def test_source_parser_precedence_not_masked_by_gate_outcomes(self):
+        # Existing helper-failure source/parser precedence remains authoritative
+        # even when shard/contract outcomes are present in the env (they should
+        # never be consulted before the helper-failure branch).
+        self.write_candidate("cand_non_atom.json")
+        env = base_env(HELPER_OUTCOME="success", SHARDS_OUTCOME="failure",
+                       SHARDVALIDATE_OUTCOME="failure")
+        self.assertEqual(self.classify(env)["status"], "FAIL_CLOSED_PARSER_NON_ATOM")
+
+    def test_git_commit_and_push_fail_closed_unchanged(self):
+        self.write_candidate("cand_full_success.json")
+        env_commit = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                              DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                              SHARDVALIDATE_OUTCOME="success", COMMIT_OUTCOME="failure")
+        self.assertEqual(self.classify(env_commit)["status"], "FAIL_CLOSED_GIT_COMMIT")
+        env_push = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                            DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                            SHARDVALIDATE_OUTCOME="success", COMMIT_OUTCOME="success",
+                            DATA_CHANGED="true", PUSH_OUTCOME="failure")
+        self.assertEqual(self.classify(env_push)["status"], "FAIL_CLOSED_GIT_PUSH")
+
+    def test_success_real_fetch_write_unchanged_with_gate_outcomes(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="success")
+        self.assertEqual(self.classify(env)["status"], "SUCCESS_REAL_FETCH_WRITE")
+
+    def test_report_contains_new_gate_outcome_fields(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="success")
+        report = self.classify(env)["report"]
+        self.assertIn("shard_build", report["outcomes"])
+        self.assertIn("public_contract", report["outcomes"])
+        self.assertEqual(report["outcomes"]["shard_build"], "success")
+        self.assertEqual(report["outcomes"]["public_contract"], "success")
+
+    def test_summary_rows_contain_new_gate_outcome_labels(self):
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="failure")
+        result = self.classify(env)
+        labels = {k for k, _v in result["summary_rows"]}
+        self.assertIn("shard build outcome", labels)
+        self.assertIn("public contract outcome", labels)
+
     def test_known_cases_never_unknown(self):
         # All explicit scenarios above resolve to a named status, never UNKNOWN.
         scenarios = [

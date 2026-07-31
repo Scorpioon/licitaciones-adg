@@ -20,6 +20,12 @@ Preserved semantics:
     masked-exit protection (e.g. run #138 EMPTY_FAILURE).
   - p187 automation identity fields (AUTOMATION_ID/KIND/DATA_FILE/SOURCES).
   - p188 machine-readable report (ADGOPS_SCHEDULED_RUN_REPORT_V1 / schema_version 1.0).
+  - p265 gate-awareness: the shard-build step (id: shards) and canonical
+    public-contract-gate step (id: shardvalidate) outcomes are now classified.
+    A failure or cancellation of either produces a named fail-closed status
+    (FAIL_CLOSED_SHARD_BUILD / FAIL_CLOSED_PUBLIC_CONTRACT) instead of the
+    prior terminal UNKNOWN. "skipped" is not a failure: unchanged/no-data,
+    dry-run and guard-skipped runs legitimately skip both steps.
   - The classifier never exits non-zero: the workflow relies on the individual
     step outcomes (this step is `if: always()`), not on this script's exit code.
 
@@ -157,6 +163,8 @@ def classify(env: dict, tmp_dir="_tmp", helper_log: str | None = None) -> dict:
     dryrun_out = env_get(env, "DRYRUN_OUTCOME", "skipped")
     validate_out = env_get(env, "VALIDATE_OUTCOME", "skipped")
     diff_out = env_get(env, "DIFFSUMMARY_OUTCOME", "skipped")
+    shards_out = env_get(env, "SHARDS_OUTCOME", "skipped")
+    shardvalidate_out = env_get(env, "SHARDVALIDATE_OUTCOME", "skipped")
     commit_out = env_get(env, "COMMIT_OUTCOME", "skipped")
     push_out = env_get(env, "PUSH_OUTCOME", "skipped")
     data_changed = env_get(env, "DATA_CHANGED", "")  # 'true' / 'false' / ''
@@ -202,6 +210,13 @@ def classify(env: dict, tmp_dir="_tmp", helper_log: str | None = None) -> dict:
             status = "FAIL_CLOSED_VALIDATION"
         elif diff_out in failed:
             status = "FAIL_CLOSED_VALIDATION"
+        elif shards_out in failed:
+            # Shard-build failure/cancellation (id: shards) classified before the
+            # contract gate and before commit/push (p265 precedence rules 5-6).
+            status = "FAIL_CLOSED_SHARD_BUILD"
+        elif shardvalidate_out in failed:
+            # Canonical public-contract-gate failure/cancellation (id: shardvalidate).
+            status = "FAIL_CLOSED_PUBLIC_CONTRACT"
         elif commit_out in failed:
             status = "FAIL_CLOSED_GIT_COMMIT"
         elif data_changed == "true" and push_out != "success":
@@ -273,6 +288,8 @@ def classify(env: dict, tmp_dir="_tmp", helper_log: str | None = None) -> dict:
         ("source failures",  ", ".join(failed_sources) if failed_sources else "none"),
         ("validate outcome", validate_out),
         ("diff summary outcome", diff_out),
+        ("shard build outcome", shards_out),
+        ("public contract outcome", shardvalidate_out),
         ("commit outcome",   commit_out),
         ("push outcome",     push_out),
         ("data write",       data_write),
@@ -329,6 +346,8 @@ def classify(env: dict, tmp_dir="_tmp", helper_log: str | None = None) -> dict:
             "dryrun": dryrun_out,
             "validate": validate_out,
             "diff_summary": diff_out,
+            "shard_build": shards_out,
+            "public_contract": shardvalidate_out,
             "commit": commit_out,
             "push": push_out,
         },
