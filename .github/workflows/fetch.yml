@@ -401,6 +401,177 @@ jobs:
                 % (gen, len(records), expected_canonical, len(shards), shard_total))
           PYEOF
 
+      - name: Privacy report (record-level, report-only)
+        id: privacyreport
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
+        shell: bash
+        run: |
+          # p267 / v0.7.1t (D-03): record-level privacy validator, wired as a
+          # report-only step. Invokes the UNMODIFIED tools/privacy_validator.py
+          # over all 11 tracked public surfaces. This step always exits 0 — a
+          # privacy finding or a validator execution failure is surfaced via
+          # $GITHUB_STEP_SUMMARY and a workflow annotation, never by failing
+          # the step or altering MONOLITH_CHANGED / DATA_CHANGED / any other
+          # step outcome. No blocking gate is introduced here.
+          set +e
+          mkdir -p _tmp
+          SUMMARY_FILE="_tmp/privacy_summary_${GITHUB_RUN_NUMBER}.json"
+          STDERR_FILE="_tmp/privacy_stderr_${GITHUB_RUN_NUMBER}.log"
+
+          python tools/privacy_validator.py --validate-public --summary-only --json \
+            > "$SUMMARY_FILE" 2> "$STDERR_FILE"
+          PRIVACY_EXIT=$?
+
+          RESULT="EXECUTION_FAILURE"
+          ERROR_COUNT="n/a"
+          WARN_COUNT="n/a"
+          DISTINCT_COUNT="n/a"
+          GROUP_COUNT="n/a"
+          FAILURE_DIAGNOSTIC="[privacyreport] validator execution did not produce trustworthy summary evidence"
+
+          if [ "$PRIVACY_EXIT" = "0" ] || [ "$PRIVACY_EXIT" = "2" ]; then
+            # Exit code alone is not sufficient evidence: parse and validate
+            # the generated summary JSON before trusting NO_ERRORS/ERROR_FINDINGS.
+            # This inline parser prints only scalar counters (never group
+            # detail, pointers, paths or scanned data) on a single stdout line.
+            # The entire parser body runs inside one broad try/except so an
+            # unexpected exception can never emit a traceback into the public
+            # Actions log; parser stderr is also redirected to /dev/null as
+            # defense in depth.
+            PARSER_OUTPUT_FILE="_tmp/privacy_parser_${GITHUB_RUN_NUMBER}.txt"
+            python - "$SUMMARY_FILE" "$PRIVACY_EXIT" > "$PARSER_OUTPUT_FILE" 2>/dev/null <<'PYEOF'
+          import json
+          import sys
+
+          REQUIRED_GROUP_KEYS = {"severity", "rule_id", "source", "count"}
+
+
+          def fail():
+              print("INVALID")
+              raise SystemExit(0)
+
+
+          try:
+              path, expected_exit = sys.argv[1], int(sys.argv[2])
+
+              try:
+                  with open(path, "rb") as fh:
+                      raw = fh.read()
+              except OSError:
+                  fail()
+              if not raw:
+                  fail()
+              try:
+                  payload = json.loads(raw.decode("utf-8"))
+              except (UnicodeDecodeError, ValueError):
+                  fail()
+              if not isinstance(payload, dict):
+                  fail()
+              if payload.get("schema") != "ADGOPS_PRIVACY_VALIDATOR_SUMMARY_V1":
+                  fail()
+
+              for key in ("error_count", "warn_count", "distinct_count", "group_count"):
+                  val = payload.get(key)
+                  if not isinstance(val, int) or isinstance(val, bool) or val < 0:
+                      fail()
+
+              groups = payload.get("groups")
+              if not isinstance(groups, list) or payload["group_count"] != len(groups):
+                  fail()
+
+              for g in groups:
+                  if not isinstance(g, dict) or set(g.keys()) != REQUIRED_GROUP_KEYS:
+                      fail()
+                  if g["severity"] not in ("ERROR", "WARN"):
+                      fail()
+                  if not isinstance(g["rule_id"], str) or not g["rule_id"]:
+                      fail()
+                  if not isinstance(g["source"], str) or not g["source"]:
+                      fail()
+                  if not isinstance(g["count"], int) or isinstance(g["count"], bool) or g["count"] < 0:
+                      fail()
+
+              error_count = payload["error_count"]
+              if expected_exit == 0 and error_count != 0:
+                  fail()
+              if expected_exit == 2 and error_count <= 0:
+                  fail()
+
+              print("VALID %d %d %d %d" % (
+                  error_count, payload["warn_count"],
+                  payload["distinct_count"], payload["group_count"]))
+          except Exception:
+              print("INVALID")
+          PYEOF
+            PARSER_EXIT=$?
+            # Raw line count, not command-substitution trailing-newline
+            # normalization, is the source of truth: a temp file plus
+            # `mapfile -t` distinguishes zero/one/more-than-one lines
+            # (including a spurious trailing blank line), which `$(...)`
+            # would otherwise silently collapse away. Deleted immediately
+            # after loading — never uploaded, never left behind.
+            mapfile -t PARSER_LINES < "$PARSER_OUTPUT_FILE"
+            rm -f "$PARSER_OUTPUT_FILE"
+            # CRLF-safe scalar boundary: the raw line count above is decided
+            # from PARSER_LINES before any normalization. A dedicated
+            # PARSER_LINE scalar strips at most one terminal carriage return
+            # (mapfile -t removes the LF but retains a CRLF runtime's CR),
+            # never an embedded CR, never spaces, never more than one
+            # terminal CR. No tr -d, no broad trim.
+            PARSER_LINE=""
+            if [ "${#PARSER_LINES[@]}" = "1" ]; then
+              PARSER_LINE="${PARSER_LINES[0]%$'\r'}"
+            fi
+            if [ "$PARSER_EXIT" = "0" ] &&
+               [ "${#PARSER_LINES[@]}" = "1" ] &&
+               [[ "$PARSER_LINE" =~ ^VALID\ ([0-9]+)\ ([0-9]+)\ ([0-9]+)\ ([0-9]+)$ ]]; then
+              ERROR_COUNT="${BASH_REMATCH[1]}"
+              WARN_COUNT="${BASH_REMATCH[2]}"
+              DISTINCT_COUNT="${BASH_REMATCH[3]}"
+              GROUP_COUNT="${BASH_REMATCH[4]}"
+              if [ "$PRIVACY_EXIT" = "0" ]; then
+                RESULT="NO_ERRORS"
+              else
+                RESULT="ERROR_FINDINGS"
+              fi
+            else
+              RESULT="EXECUTION_FAILURE"
+              FAILURE_DIAGNOSTIC="[privacyreport] summary payload failed schema/consistency validation"
+              ERROR_COUNT="n/a"
+              WARN_COUNT="n/a"
+              DISTINCT_COUNT="n/a"
+              GROUP_COUNT="n/a"
+            fi
+          fi
+
+          if [ "$RESULT" = "EXECUTION_FAILURE" ]; then
+            echo "$FAILURE_DIAGNOSTIC" >> "$STDERR_FILE"
+          fi
+
+          {
+            echo ""
+            echo "### Privacy validator (record-level, report-only)"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| result | $RESULT |"
+            echo "| validator exit code | $PRIVACY_EXIT |"
+            echo "| errors | $ERROR_COUNT |"
+            echo "| warnings | $WARN_COUNT |"
+            echo "| distinct findings | $DISTINCT_COUNT |"
+            echo "| groups | $GROUP_COUNT |"
+            echo "| surfaces scanned | 11 |"
+            echo "| blocking | no (report-only) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$RESULT" = "ERROR_FINDINGS" ]; then
+            echo "::warning::Privacy validator reported ERROR findings in report-only mode; publication is not blocked."
+          elif [ "$RESULT" = "EXECUTION_FAILURE" ]; then
+            echo "::error::Privacy validator could not produce trustworthy evidence in report-only mode (exit code $PRIVACY_EXIT); publication is not blocked."
+          fi
+
+          exit 0
+
       - name: Commit data if changed
         id: commit
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
@@ -469,5 +640,7 @@ jobs:
             _tmp/scheduled_merge_conflicts_live_*.json
             _tmp/scheduled_run_report_*.json
             _tmp/run_helper.log
+            _tmp/privacy_summary_*.json
+            _tmp/privacy_stderr_*.log
           retention-days: 7
           if-no-files-found: ignore

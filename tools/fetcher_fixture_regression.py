@@ -1616,6 +1616,328 @@ class L3PrivacyValidatorTests(unittest.TestCase):
                     self.assertNotIn(key_text, f.pointer)
 
 
+# =============================================================================
+# p267 / v0.7.1t — D-03 report-only production baseline. Additive only: pins
+# the production summary contract, the exit-code mapping the new workflow
+# step relies on, and static text-level invariants of the `privacyreport`
+# step wired into .github/workflows/fetch.yml between `shardvalidate` and
+# `commit`. No existing test is modified; no privacy fixture or
+# _expectations.json entry is added. Runtime-cost discipline (p267 §6.D): the
+# entire block below performs exactly two complete --validate-public scans,
+# both captured once in setUpClass and reused by every test_p267_a* case.
+# =============================================================================
+
+FETCH_YML_PATH = REPO_ROOT / ".github" / "workflows" / "fetch.yml"
+
+
+class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
+    """p267 / D-03: production summary contract (A), exit-code mapping the
+    workflow depends on (B), and workflow-shape text invariants (C)."""
+
+    @classmethod
+    def setUpClass(cls):
+        # Scan 1 of 2: the exact production invocation the workflow step
+        # runs. Captured once; every test_p267_a* case below reuses this.
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            cls.summary_exit = pv.run(["--validate-public", "--summary-only", "--json"])
+        cls.summary_stdout = out.getvalue()
+        cls.summary_payload = json.loads(cls.summary_stdout)
+
+        # Scan 2 of 2: full (non-summary) report, solely for the bounded-
+        # output size comparison in test_p267_a9 — no other assertion reads it.
+        out2, err2 = io.StringIO(), io.StringIO()
+        with redirect_stdout(out2), redirect_stderr(err2):
+            cls.full_exit = pv.run(["--validate-public", "--json"])
+        cls.full_stdout = out2.getvalue()
+
+    # --- A. Production summary contract -------------------------------------
+
+    def test_p267_a1_schema_exact(self):
+        self.assertEqual(self.summary_payload["schema"],
+                          "ADGOPS_PRIVACY_VALIDATOR_SUMMARY_V1")
+
+    def test_p267_a2_exit_zero_on_current_production(self):
+        self.assertEqual(self.summary_exit, 0)
+
+    def test_p267_a3_error_count_zero(self):
+        self.assertEqual(self.summary_payload["error_count"], 0)
+
+    def test_p267_a4_scalar_counters_are_nonnegative_ints(self):
+        for key in ("error_count", "warn_count", "distinct_count", "group_count"):
+            value = self.summary_payload[key]
+            self.assertIsInstance(value, int)
+            self.assertNotIsInstance(value, bool)
+            self.assertGreaterEqual(value, 0)
+
+    def test_p267_a5_group_count_matches_len_groups(self):
+        self.assertEqual(self.summary_payload["group_count"],
+                          len(self.summary_payload["groups"]))
+
+    def test_p267_a6_every_group_has_exact_key_set(self):
+        for g in self.summary_payload["groups"]:
+            self.assertEqual(set(g), {"severity", "rule_id", "source", "count"})
+
+    def test_p267_a7_every_source_is_a_known_public_surface(self):
+        for g in self.summary_payload["groups"]:
+            self.assertIn(g["source"], pv.PUBLIC_SURFACES)
+
+    def test_p267_a8_summary_output_has_no_pointer_field_or_marker(self):
+        self.assertNotIn('"pointer"', self.summary_stdout)
+        self.assertNotIn("$/", self.summary_stdout)
+
+    def test_p267_a9_summary_output_materially_bounded_vs_full(self):
+        # No exact warning/distinct/group count is pinned here — only that the
+        # bounded summary form is substantially smaller than the full report.
+        self.assertLess(len(self.summary_stdout), len(self.full_stdout))
+        self.assertLess(self.summary_stdout.count("\n"), self.full_stdout.count("\n"))
+
+    # --- B. Exit-code mapping the workflow branches on -----------------------
+
+    def _run_fixture(self, tmp_dir, filename, content_text):
+        path = Path(tmp_dir) / filename
+        path.write_text(content_text, encoding="utf-8")
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = pv.run(["--fixture", str(path), "--surface", "public-build",
+                           "--summary-only", "--json"])
+        return code, out.getvalue(), err.getvalue(), path
+
+    def test_p267_b1_clean_object_exit_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _out, _err, _path = self._run_fixture(
+                tmp, "p267_clean.json",
+                '{"titol":"Servei de disseny","organisme":"Ajuntament sintetic"}')
+            self.assertEqual(code, 0)
+
+    def test_p267_b2_populated_credential_key_exit_two(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out, _err, _path = self._run_fixture(
+                tmp, "p267_findings.json",
+                '{"password":"n0tAreal-secret-p267-0001"}')
+            self.assertEqual(code, 2)
+            self.assertIn("CREDENTIAL_KEY", out)
+            self.assertNotIn("n0tAreal-secret-p267-0001", out)
+
+    def test_p267_b3_malformed_json_exit_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _out, err, _path = self._run_fixture(
+                tmp, "p267_malformed.json", '{ not: valid json,,, ')
+            self.assertEqual(code, 1)
+            self.assertIn("[PARSE]", err)
+
+    def test_p267_b4_exit_one_stderr_has_safe_bracketed_category(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _code, _out, err, _path = self._run_fixture(
+                tmp, "p267_malformed2.json", '{ not: valid json,,, ')
+            self.assertRegex(err, r"\[(USAGE|STRUCTURAL|PARSE|READ)\]")
+
+    def test_p267_b5_exit_one_stderr_no_traceback_no_absolute_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _out, err, path = self._run_fixture(
+                tmp, "p267_malformed3.json", '{ not: valid json,,, ')
+            self.assertEqual(code, 1)
+            self.assertNotIn("Traceback", err)
+            self.assertNotIn(str(path), err)
+            self.assertNotIn(str(tmp), err)
+
+    def test_p267_b6_exit_two_names_rule_not_secret(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            secret = "n0tAreal-p267-secret-9999"
+            code, out, _err, _path = self._run_fixture(
+                tmp, "p267_findings2.json", '{"password":"%s"}' % secret)
+            self.assertEqual(code, 2)
+            self.assertIn("CREDENTIAL_KEY", out)
+            self.assertNotIn(secret, out)
+
+    # --- C. Workflow-shape contract (static text-level invariants) -----------
+
+    @staticmethod
+    def _workflow_text():
+        return FETCH_YML_PATH.read_text(encoding="utf-8")
+
+    def test_p267_c1_privacyreport_step_id_exists(self):
+        self.assertIn("id: privacyreport", self._workflow_text())
+
+    def test_p267_c2_privacyreport_between_shardvalidate_and_commit(self):
+        text = self._workflow_text()
+        i_shardvalidate = text.index("id: shardvalidate")
+        i_privacyreport = text.index("id: privacyreport")
+        i_commit = text.index("id: commit")
+        self.assertLess(i_shardvalidate, i_privacyreport)
+        self.assertLess(i_privacyreport, i_commit)
+
+    def test_p267_c3_condition_names_all_three_env_vars(self):
+        text = self._workflow_text()
+        i = text.index("id: privacyreport")
+        window = text[i:i + 600]
+        self.assertIn("RUN_FETCH", window)
+        self.assertIn("DRY_RUN_MODE", window)
+        self.assertIn("MONOLITH_CHANGED", window)
+
+    def test_p267_c4_invokes_exact_validator_command(self):
+        self.assertIn(
+            "python tools/privacy_validator.py --validate-public --summary-only --json",
+            self._workflow_text())
+
+    def _privacyreport_step_block(self, text):
+        i = text.index("id: privacyreport")
+        j = text.index("id: commit")
+        return text[i:j]
+
+    def test_p267_c5_omits_report_only_flag(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertNotIn("--report-only", step_block)
+
+    def test_p267_c6_omits_continue_on_error(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertNotIn("continue-on-error", step_block)
+
+    def test_p267_c7_step_contains_explicit_final_exit_zero(self):
+        # Prove exit 0 is the LAST non-blank command in the step's own run
+        # body (not merely present somewhere in the block, which would also
+        # match text belonging to the following step).
+        text = self._workflow_text()
+        i = text.index("id: privacyreport")
+        run_start = text.index("run: |", i) + len("run: |")
+        next_step = text.index("\n      - name:", run_start)
+        run_body = text[run_start:next_step]
+        lines = [ln.strip() for ln in run_body.splitlines() if ln.strip()]
+        self.assertTrue(lines, "privacyreport run body must not be empty")
+        self.assertEqual(lines[-1], "exit 0")
+
+    def test_p267_c13_step_contains_broad_except_exception_boundary(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn("except Exception:", step_block)
+
+    def test_p267_c14_step_suppresses_parser_stderr_from_actions_log(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn("2>/dev/null", step_block)
+
+    def test_p267_c15_step_contains_both_fixed_failure_diagnostics(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn(
+            'FAILURE_DIAGNOSTIC="[privacyreport] summary payload failed '
+            'schema/consistency validation"',
+            step_block)
+        self.assertIn(
+            'FAILURE_DIAGNOSTIC="[privacyreport] validator execution did '
+            'not produce trustworthy summary evidence"',
+            step_block)
+
+    def test_p267_c16_failure_diagnostics_have_no_interpolation_or_path(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        assignments = re.findall(r'FAILURE_DIAGNOSTIC="([^"]*)"', step_block)
+        self.assertEqual(len(assignments), 2)
+        for sentence in assignments:
+            self.assertNotIn("$", sentence)
+            self.assertNotIn("{", sentence)
+            self.assertNotIn("_tmp", sentence)
+            self.assertNotIn(".json", sentence)
+            self.assertNotIn(".log", sentence)
+
+    def test_p267_c8_step_contains_three_result_labels(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        for label in ("NO_ERRORS", "ERROR_FINDINGS", "EXECUTION_FAILURE"):
+            self.assertIn(label, step_block)
+
+    def test_p267_c9_step_validates_summary_schema_identifier(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn("ADGOPS_PRIVACY_VALIDATOR_SUMMARY_V1", step_block)
+
+    def test_p267_c10_operational_summary_env_block_unchanged_p265_contract(self):
+        text = self._workflow_text()
+        i = text.index("Operational summary")
+        j = text.index("Upload fail-closed diagnostics")
+        opsummary_block = text[i:j]
+        for key in ("HELPER_OUTCOME", "DRYRUN_OUTCOME", "VALIDATE_OUTCOME",
+                    "DIFFSUMMARY_OUTCOME", "SHARDS_OUTCOME",
+                    "SHARDVALIDATE_OUTCOME", "COMMIT_OUTCOME", "PUSH_OUTCOME"):
+            self.assertIn(key, opsummary_block)
+        # No environment-key assignment (any `NAME:` env mapping key) may
+        # contain PRIVACY in any spelling/casing pattern.
+        env_keys = re.findall(r"^\s*([A-Za-z0-9_]+):", opsummary_block, re.MULTILINE)
+        for key in env_keys:
+            self.assertNotIn("PRIVACY", key.upper())
+
+    def test_p267_c11_existing_step_order_preserved(self):
+        text = self._workflow_text()
+        ids = ["id: time_guard", "id: helper", "id: dryrun", "id: validate",
+               "id: diffsummary", "id: shards", "id: shardvalidate",
+               "id: privacyreport", "id: commit", "id: push"]
+        positions = [text.index(step_id) for step_id in ids]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_p267_c12_upload_step_includes_both_privacy_globs(self):
+        text = self._workflow_text()
+        i = text.index("Upload fail-closed diagnostics")
+        upload_block = text[i:]
+        self.assertIn("_tmp/privacy_summary_*.json", upload_block)
+        self.assertIn("_tmp/privacy_stderr_*.log", upload_block)
+
+    def test_p267_c17_strict_scalar_gate_replaces_read_trust_path(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        # Parser stdout is redirected to the exact temp parser-output file,
+        # not captured via command substitution.
+        self.assertIn(
+            'PARSER_OUTPUT_FILE="_tmp/privacy_parser_${GITHUB_RUN_NUMBER}.txt"',
+            step_block)
+        self.assertIn('> "$PARSER_OUTPUT_FILE" 2>/dev/null', step_block)
+        # Parser exit status captured immediately after the parser invocation
+        # (no intervening statement between the heredoc terminator and the
+        # capture).
+        self.assertRegex(step_block, r'PYEOF\s*\n\s*PARSER_EXIT=\$\?')
+        # Raw lines loaded via mapfile, not command substitution.
+        self.assertIn(
+            'mapfile -t PARSER_LINES < "$PARSER_OUTPUT_FILE"', step_block)
+        # The exact parser-output temp file is removed right after loading.
+        self.assertIn('rm -f "$PARSER_OUTPUT_FILE"', step_block)
+        # PARSER_LINE defaults safely, and is assigned only inside a guard
+        # keyed off the RAW loaded line count -- the CRLF-safe scalar never
+        # substitutes for the raw-line-count decision itself.
+        self.assertIn('PARSER_LINE=""', step_block)
+        self.assertRegex(
+            step_block,
+            r'PARSER_LINE=""\s*\n\s*if \[ "\$\{#PARSER_LINES\[@\]\}" = "1" \]; then\s*\n'
+            r'\s*PARSER_LINE="\$\{PARSER_LINES\[0\]%\$\'\\r\'\}"\s*\n\s*fi\b')
+        # Normalization strips at most one terminal carriage return via bash
+        # suffix-pattern parameter expansion -- never tr -d, never xargs,
+        # never a piped sed/broad whitespace trim. The forbidden-executable
+        # scan runs against a comment-aware projection (blank lines and
+        # lines whose first non-whitespace character is "#" excluded), not
+        # against the raw step_block text, so an explanatory comment that
+        # merely *names* a forbidden tool (e.g. "No tr -d, no broad trim.")
+        # cannot itself trip the check -- only an executable occurrence can.
+        self.assertIn(
+            r'''PARSER_LINE="${PARSER_LINES[0]%$'\r'}"''', step_block)
+        executable_lines = [
+            line for line in step_block.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        executable_step_block = "\n".join(executable_lines)
+        self.assertNotIn('tr -d', executable_step_block)
+        self.assertNotIn('xargs', executable_step_block)
+        self.assertNotRegex(executable_step_block, r"\|\s*sed\b")
+        # Acceptance requires parser exit 0, exactly one RAW loaded line
+        # (from the untouched PARSER_LINES array), and an anchored
+        # four-counter match against the normalized PARSER_LINE scalar --
+        # never the raw, possibly CRLF-terminated PARSER_LINES[0] element.
+        self.assertIn('[ "$PARSER_EXIT" = "0" ] &&', step_block)
+        self.assertIn('[ "${#PARSER_LINES[@]}" = "1" ] &&', step_block)
+        self.assertIn(
+            r'"$PARSER_LINE" =~ ^VALID\ ([0-9]+)\ ([0-9]+)\ ([0-9]+)\ ([0-9]+)$',
+            step_block)
+        self.assertNotIn(
+            r'"${PARSER_LINES[0]}" =~ ^VALID', step_block)
+        # Counters populated only from the validated BASH_REMATCH captures.
+        for idx, var in enumerate(
+                ("ERROR_COUNT", "WARN_COUNT", "DISTINCT_COUNT", "GROUP_COUNT"), start=1):
+            self.assertIn('%s="${BASH_REMATCH[%d]}"' % (var, idx), step_block)
+        # Both prior trust paths are fully removed.
+        self.assertNotIn("read -r TAG", step_block)
+        self.assertNotIn('PARSED="$(python', step_block)
+
+
 # ---------------------------------------------------------------------------
 # Runner with production-file no-touch proof
 # ---------------------------------------------------------------------------
