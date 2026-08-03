@@ -47,6 +47,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from tools import scheduled_candidate_policy as scp
+except ImportError:  # pragma: no cover - direct-run fallback
+    import scheduled_candidate_policy as scp
+
 REPORT_SCHEMA = "ADGOPS_SCHEDULED_RUN_REPORT_V1"
 REPORT_VERSION = "1.0"
 WORKFLOW_NAME = "Fetch Licitaciones Scheduled Safe Merge"
@@ -132,7 +137,9 @@ def candidate_failed_closed(cand_partial, cand_run_status: str) -> bool:
     exit, a partial/EMPTY_FAILURE candidate must still classify fail-closed — it
     was never an accepted production write.
     """
-    if cand_partial is True and "success" not in cand_run_status.lower():
+    if cand_partial is True and scp.run_status_lacks_success(
+        cand_run_status.lower()
+    ):
         return True
     rs = cand_run_status.upper()
     if "EMPTY_FAILURE" in rs or "FAILURE" in rs:

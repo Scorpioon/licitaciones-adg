@@ -51,6 +51,7 @@ DATA_FILE = REPO_ROOT / "data" / "licitaciones.json"
 
 import tools.scheduled_fetch_merge as sfm  # noqa: E402
 import tools.scheduled_run_classify as src  # noqa: E402
+import tools.scheduled_candidate_policy as scp  # noqa: E402
 import tools.privacy_validator as pv  # noqa: E402
 
 AUTOMATION_ID = "ADGOPS_AUTO_FETCHER1_SCHEDULED"
@@ -534,6 +535,115 @@ class L2ClassifierTests(unittest.TestCase):
         summary = step_summary.read_text(encoding="utf-8")
         self.assertIn("Scheduled Fetcher — Operational Summary", summary)
         self.assertIn("SUCCESS_REAL_FETCH_WRITE", summary)
+
+
+# ---------------------------------------------------------------------------
+# p271 / D-04 F4 — shared normalized run_status subpredicate
+# ---------------------------------------------------------------------------
+
+class _UpperOnlyRunStatus:
+    """Sentinel run_status exposing upper() but deliberately not lower().
+
+    Used to prove the classifier still short-circuits on `cand_partial is True`
+    before requesting .lower(): with cand_partial=False the historical code
+    reaches the separate upper-case guard without ever touching .lower().
+    """
+
+    def upper(self):
+        return "PARTIAL_SUCCESS"
+
+
+class CandidatePartialFailurePolicyTests(unittest.TestCase):
+    """Covers tools/scheduled_candidate_policy.py:run_status_lacks_success()
+    and its two consumers. The shared helper owns ONLY the substring decision
+    over an already-normalized (lower-case) run_status. The `is_partial is
+    True` identity guard and the raw normalization (str(...).lower() in the
+    merger, cand_run_status.lower() in the classifier) stay consumer-owned so
+    each consumer keeps its historical short-circuit evaluation order.
+    This suite must NOT assert the merger's and classifier's complete
+    policies are equal."""
+
+    # --- shared helper: substring decision over already-normalized input ---
+
+    def test_helper_partial_success_is_not_lacking_success(self):
+        self.assertFalse(scp.run_status_lacks_success("partial_success"))
+
+    def test_helper_partial_degraded_lacks_success(self):
+        self.assertTrue(scp.run_status_lacks_success("partial_degraded"))
+
+    def test_helper_empty_run_status_lacks_success(self):
+        self.assertTrue(scp.run_status_lacks_success(""))
+
+    def test_helper_current_substring_semantics_preserved(self):
+        # "unsuccessful" contains the substring "success" — current substring
+        # matching (not a new allow-list) treats this as success-like,
+        # preserving pre-p271 behaviour exactly.
+        self.assertFalse(scp.run_status_lacks_success("unsuccessful_partial"))
+
+    # --- intentional complete-policy divergence (merger vs classifier) -----
+
+    def test_non_partial_empty_failure_classifier_still_fails_closed(self):
+        # Intentional preserved divergence: is_partial=False skips the partial
+        # branch entirely (the merger would not refuse), but the classifier's
+        # complete wrapper still classifies EMPTY_FAILURE as fail-closed via
+        # its own status-only guard.
+        self.assertTrue(src.candidate_failed_closed(False, "EMPTY_FAILURE"))
+
+    def test_missing_is_partial_failure_status_classifier_still_fails_closed(self):
+        self.assertTrue(src.candidate_failed_closed(None, "FAILURE"))
+
+    # --- classifier malformed-input behaviour preservation (not shared) ----
+    # Historical behaviour: with cand_partial is True, cand_run_status.lower()
+    # is evaluated as the right operand of the short-circuiting `and`, so a
+    # non-string run_status still raises AttributeError exactly as it did
+    # before p271. The shared helper does not own or catch this — see
+    # scheduled_candidate_policy.py docstring.
+
+    def test_classifier_none_run_status_raises_attributeerror(self):
+        with self.assertRaises(AttributeError):
+            src.candidate_failed_closed(True, None)
+
+    def test_classifier_non_string_run_status_raises_attributeerror(self):
+        with self.assertRaises(AttributeError):
+            src.candidate_failed_closed(True, 12345)
+
+    # --- classifier short-circuit evaluation order (p271 v0.4) -------------
+
+    def test_classifier_short_circuits_lower_when_not_partial(self):
+        # The sentinel has no .lower(); reaching it would raise AttributeError.
+        # Returning False proves the first branch short-circuited on
+        # `cand_partial is True` and only the upper-case guard ran.
+        sentinel = _UpperOnlyRunStatus()
+        self.assertFalse(hasattr(sentinel, "lower"))
+        self.assertNotIn("FAILURE", sentinel.upper())
+        self.assertFalse(src.candidate_failed_closed(False, sentinel))
+
+    # --- merger historical nesting (source inspection) ---------------------
+    # Proves the exact pre-p271 evaluation order remains at both merger
+    # refusal sites — the str(...).lower() adapter is nested INSIDE the
+    # literal-True partial guard, never evaluated ahead of it — without
+    # executing live merge/write behaviour here; the runtime refusal
+    # behaviour itself is already exercised by L1MergeHelperTests
+    # (test_empty_failure_refused, test_non_atom_refused,
+    # test_partial_no_success_run_status_refused,
+    # test_partial_acceptable_is_accepted, etc.).
+
+    def test_merger_nests_str_lower_adapter_inside_both_partial_guards(self):
+        merger_src = Path(sfm.__file__).read_text(encoding="utf-8")
+        adapter = 'str(cand_meta.get("run_status", "")).lower()'
+        block = (
+            '    if cand_meta.get("is_partial") is True:\n'
+            '        run_status_lower = ' + adapter + '\n'
+            '        if scp.run_status_lacks_success(run_status_lower):\n'
+        )
+        self.assertEqual(
+            merger_src.count(block), 2,
+            "expected two partial-guard blocks with the str(...).lower() adapter nested inside",
+        )
+        self.assertEqual(
+            merger_src.count(adapter), 2,
+            "the str(...).lower() adapter must appear only inside the two partial guards",
+        )
 
 
 # ---------------------------------------------------------------------------

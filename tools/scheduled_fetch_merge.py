@@ -45,6 +45,11 @@ try:
 except ImportError:  # pragma: no cover - direct-run fallback
     import public_contract as pc
 
+try:
+    from tools import scheduled_candidate_policy as scp
+except ImportError:  # pragma: no cover - direct-run fallback
+    import scheduled_candidate_policy as scp
+
 PRODUCTION_PATH = Path("data/licitaciones.json")
 FETCHER_SCRIPT  = Path("fetch_licitaciones.py")
 TMP_DIR         = Path("_tmp")
@@ -716,8 +721,8 @@ def run_merge_dry_run(args) -> None:
     # Refuse partial/failed candidate unless explicitly overridden.
     cand_meta = cand_data.get("meta", {})
     if cand_meta.get("is_partial") is True:
-        rs = str(cand_meta.get("run_status", "")).lower()
-        if "success" not in rs:
+        run_status_lower = str(cand_meta.get("run_status", "")).lower()
+        if scp.run_status_lacks_success(run_status_lower):
             sys.exit(
                 "[ERROR] Candidate has is_partial=True and run_status is not success-like. "
                 "Refusing merge. Use an explicit override flag if this is intentional."
@@ -891,8 +896,8 @@ def run_live(args) -> None:
         print(f"[run-live] source_error {_sname}: {_err}")
 
     if cand_meta.get("is_partial") is True:
-        rs = str(cand_meta.get("run_status", "")).lower()
-        if "success" not in rs:
+        run_status_lower = str(cand_meta.get("run_status", "")).lower()
+        if scp.run_status_lacks_success(run_status_lower):
             sys.exit(
                 "[ERROR] Partial/failed candidate — refusing production write. "
                 "Investigate fetcher output before re-running."
