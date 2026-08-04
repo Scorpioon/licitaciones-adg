@@ -657,12 +657,12 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sh-ficha__body::-webkit-scrollbar { display:block; width:3px; }
 .sh-ficha__body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
 .sh-ficha__title { font-size:12px; font-weight:700; line-height:1.45; letter-spacing:-.01em; color:var(--text); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-/* p201: factual one-line miniresumen + conservative document status surface */
+/* p201: factual one-line miniresumen. p272: factual document inventory counts. */
 .sh-ficha__resumen { font-size:9.5px; line-height:1.5; color:var(--text2); }
 .sh-ficha__doc-status { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:2px; }
 .sh-ficha__doc-count { font-size:9px; font-weight:600; color:var(--text2); }
-.sh-ficha__doc-pending { display:inline-flex; align-items:center; gap:4px; font-size:8px; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); border:1px dashed var(--border2); border-radius:var(--radius); padding:2px 6px; }
-.sh-ficha__doc-pending i.bi { font-size:9px; }
+.sh-ficha__doc-resolved { font-size:9px; color:var(--text3); }
+.sh-ficha__doc-resolved::before { content:"\00b7"; margin-right:6px; }
 .sh-ficha__badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
 .sh-ficha__rows { display:flex; flex-direction:column; gap:0; border:1px solid var(--border2); border-radius:var(--radius); overflow:hidden; }
 .sh-ficha__row { display:flex; gap:0; border-bottom:1px solid var(--border3); }
@@ -684,12 +684,26 @@ body.lic-page .list-col thead th { padding:5px 8px; }
 .sh-ficha__chip { font-size:9px; padding:3px 8px; border:1px solid var(--border2); border-radius:var(--radius); color:var(--text2); display:inline-flex; align-items:center; gap:4px; }
 .sh-ficha__chip i.bi { font-size:9px; }
 .sh-ficha__empty { font-size:9.5px; color:var(--text3); font-style:italic; }
-.sh-ficha__doc-empty { display:flex; flex-direction:column; gap:3px; }
-.sh-ficha__f2-hint { font-size:8px; color:var(--text3); font-style:italic; display:block; }
+.sh-ficha__doc-empty { display:flex; flex-direction:column; gap:5px; align-items:flex-start; }
 .sh-ficha__docs { display:flex; flex-direction:column; gap:4px; }
-.sh-ficha__doc { display:flex; align-items:center; gap:6px; font-size:9.5px; padding:5px 8px; border:1px solid var(--border2); border-radius:var(--radius); text-decoration:none; color:var(--text2); transition:all .1s; }
-.sh-ficha__doc:hover { border-color:var(--border); color:var(--text); background:var(--hover); }
-.sh-ficha__doc i.bi { font-size:11px; flex-shrink:0; }
+.sh-ficha__doc { display:flex; align-items:flex-start; gap:6px; font-size:9.5px; padding:5px 8px; border:1px solid var(--border2); border-radius:var(--radius); text-decoration:none; color:var(--text2); transition:all .1s; }
+.sh-ficha__doc i.bi { font-size:11px; flex-shrink:0; margin-top:1px; }
+/* p272: only resolvable https: documents become links; the rest stay inert text
+   and must not imitate one (no hover affordance, no pointer, not focusable). */
+.sh-ficha__doc--link:hover { border-color:var(--border); color:var(--text); background:var(--hover); }
+.sh-ficha__doc--link:focus-visible { outline:2px solid var(--text); outline-offset:-2px; }
+.sh-ficha__doc--static { border-style:dashed; color:var(--text3); cursor:default; }
+.sh-ficha__doc-body { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.sh-ficha__doc-title { line-height:1.4; overflow-wrap:break-word; word-break:break-word; }
+.sh-ficha__doc-meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px; font-size:8px; color:var(--text3); }
+.sh-ficha__doc-role { letter-spacing:.05em; text-transform:uppercase; }
+.sh-ficha__doc-badge { border:1px solid var(--border2); border-radius:var(--radius); padding:1px 5px; letter-spacing:.05em; text-transform:uppercase; }
+.sh-ficha__doc-badge--resolved { color:var(--text2); border-color:var(--border); }
+.sh-ficha__doc-nolink { font-style:italic; }
+.sh-ficha__doc-src { display:inline-flex; align-items:center; gap:5px; font-size:9px; color:var(--text2); text-decoration:underline; text-underline-offset:2px; }
+.sh-ficha__doc-src:hover { color:var(--text); }
+.sh-ficha__doc-src:focus-visible { outline:2px solid var(--text); outline-offset:2px; border-radius:2px; }
+.sh-ficha__doc-src i.bi { font-size:9px; }
 .sh-ficha__hist { display:flex; flex-direction:column; gap:4px; }
 .sh-ficha__hist-item { display:flex; align-items:center; gap:8px; font-size:9.5px; padding:4px 0; border-bottom:1px solid var(--border3); }
 .sh-ficha__hist-item:last-child { border-bottom:none; }

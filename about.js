@@ -1,6 +1,6 @@
 /*
  * ADG Plataforma Digital -- about.js
- * 0.6.92-about -- Jul 2026
+ * 0.7.1v-about -- Aug 2026
  * Role: Public changelog rendering, credit line, guide title I18N update.
  * Page: about.html
  * Depends on: app.js (ADG_Utils, ADG), shared.js (ADG_Shared)
@@ -18,6 +18,7 @@
 const { el, applyI18n, updateTicker, initShared, loadData } = ADG_Utils;
 
 const CHANGELOG = [
+  { ver:"v0.7.1v", date:"Aug 2026", text:"Detalle de licitación: el inventario de documentos pasa a ser explícito y honesto. Cada documento muestra su tipo (pliego administrativo PCAP, pliego técnico PPT, actas, anuncios), su título cuando existe, y su formato y fecha cuando constan; además distingue entre una referencia oficial y un enlace que fue verificado en su día. Los enlaces solo son pulsables cuando son https seguros: el resto se muestra como información no pulsable en lugar de un enlace muerto. Se retira el aviso permanente de enriquecimiento pendiente y se sustituye por el recuento real de documentos. Etiquetas disponibles en los cuatro idiomas. Sin datos nuevos, sin documentos nuevos y sin comprobación en vivo de los enlaces." },
   { ver:"v0.6.92", date:"Jul 2026", text:"Accesibilidad: se refuerza la estructura semántica de las secciones activas de la plataforma (landmark principal y título de página; la redirección de Barómetro queda excluida a propósito), el estado de foco/teclado en tabla, mapa y filtros, y los nombres accesibles de los controles de tema e idioma, integrados en el sistema multilingüe con fallback seguro. Sin rediseño visual ni cambios de datos." },
   { ver:"v0.6.91", date:"Jul 2026", text:"Codificación UTF-8 estricta verificada en toda la plataforma; los diccionarios ES/CA/EU/GL alcanzan ahora paridad completa de claves mediante un mecanismo explícito de reserva sobre el español, sin inventar contenido de traducción." },
   { ver:"v0.6.90", date:"Jul 2026", text:"Política de finales de línea del repositorio: se añade .gitattributes con normalización LF determinista para archivos públicos de texto/fuente/datos y tratamiento binario explícito para fuentes tipográficas e imágenes, sin cambio de comportamiento visible." },

@@ -10,6 +10,11 @@
  * Exports: window.ADG_Shared
  *
  * CHANGELOG (newest first)
+ * 0.7.1v Aug 2026 p272 document inventory: deterministic role labels, dedupe and
+ *                  ordering over r.documents; two processing states only
+ *                  (inventory / resolved); strict https: link rule; factual
+ *                  tender-level counts replace the former constant
+ *                  pending-enrichment badge.
  * 0.6.36 Jun 2026 fichaHTML emits a drag-grip handle (mobile bottom-sheet, p179). Hidden on desktop via CSS.
  * 0.4.4q May 2026  computeTrafficLight and computeAdvisory use getDisplayStatus/isOpenOpportunity.
  *                   fichaHTML uses stateBadgeRow for current record badge.
@@ -196,10 +201,234 @@ function assessmentBlock(r) {
   );
 }
 
+// -- DOCUMENT INVENTORY (p272) ------------------------------------------------
+// Presentation layer over record.documents. This surface renders document
+// INVENTORY only: what an official source referenced, plus whether a link was
+// resolved at some past crawl. It never claims retrieval, parsing, extraction,
+// OCR, review, confidence or current reachability -- canonical data carries
+// none of those states, so the UI must not imply them.
+//
+// Two processing states exist and no more:
+//   inventory -- an official source referenced the document
+//   resolved  -- the link was resolved at a past crawl (past tense, always)
+
+// Strict document link rule: only an absolute https: URL with a non-empty
+// hostname may render as a clickable anchor. Relative paths, http:,
+// javascript:, data:, file:, blob:, fragments and malformed values all fail,
+// and the item then renders as non-interactive metadata instead of a dead link.
 function isValidDocUrl(url) {
   if (typeof url !== 'string') return false;
-  var u = url.trim();
-  return u.length > 0 && u !== '#';
+  var raw = url.trim();
+  if (!raw.length) return false;
+  var parsed;
+  try { parsed = new URL(raw); } catch (e) { return false; }
+  return parsed.protocol === 'https:' && !!parsed.hostname;
+}
+
+function docStr(v) {
+  return (typeof v === 'string') ? v.trim() : '';
+}
+
+// Notice-type role keys, used only under additionalpublicationdocumentreference.
+var DOC_NOTICE_ROLE_KEYS = {
+  PUB                   : 'doc_role_notice_publication',
+  AWARD                 : 'doc_role_notice_award',
+  RES                   : 'doc_role_notice_resolution',
+  EV                    : 'doc_role_notice_evaluation',
+  PRE                   : 'doc_role_notice_preliminary',
+  CONTRACT_MODIFICATION : 'doc_role_notice_contract_modification'
+};
+
+// Deterministic role classification from existing canonical fields only.
+// Never infers from URL or filename substrings; never returns an empty key or
+// a raw source token. Returns an i18n key, never a display string.
+function documentRoleKey(d) {
+  if (!d) return 'doc_role_document';
+  var section = docStr(d.source_section).toLowerCase();
+  var type    = docStr(d.document_type);
+  var notice  = docStr(d.notice_type).toUpperCase();
+
+  if (section === 'legaldocumentreference')     return 'doc_role_pcap';
+  if (section === 'technicaldocumentreference') return 'doc_role_ppt';
+  if (type === 'ACTA_ADJ')     return 'doc_role_award_minutes';
+  if (type === 'ACTA_FORM')    return 'doc_role_formalization_minutes';
+  if (type === 'pliego_admin') return 'doc_role_admin_spec';
+  if (section === 'additionalpublicationdocumentreference' &&
+      Object.prototype.hasOwnProperty.call(DOC_NOTICE_ROLE_KEYS, notice)) {
+    return DOC_NOTICE_ROLE_KEYS[notice];
+  }
+  if (section === 'f2_document_evidence') return 'doc_role_tender_document';
+  return 'doc_role_document';
+}
+
+function isResolverDocument(d) {
+  return !!d && d.provenance === 'f2b_resolver';
+}
+
+// The only authorized "resolved" predicate. Everything else is inventory.
+function isResolvedDocument(d) {
+  return isResolverDocument(d) && (d.http_status === 200 || d.http_status === '200');
+}
+
+// Canonical identity for presentation-layer dedupe only. Lowercases scheme and
+// host (case-insensitive by spec) and leaves the path untouched. A value that
+// does not parse yields no identity at all: docIdentity then falls through to
+// original_url and finally to the guarded metadata composite, so two malformed
+// values are never treated as the same document on the strength of matching
+// junk.
+function normalizeDocUrl(value) {
+  var raw = docStr(value);
+  if (!raw) return '';
+  var parsed;
+  try { parsed = new URL(raw); } catch (e) { return ''; }
+  return parsed.protocol.toLowerCase() + '//' + parsed.host.toLowerCase() +
+         parsed.pathname + parsed.search + parsed.hash;
+}
+
+function docIdentity(d) {
+  var u = normalizeDocUrl(d.url);
+  if (u) return 'u:' + u;
+  var o = normalizeDocUrl(d.original_url);
+  if (o) return 'u:' + o;
+  // Metadata composite, for local display dedupe only. It counts as an identity
+  // only when a distinguishing field is present -- source_section alone is
+  // shared by thousands of entries and would collapse unrelated documents.
+  var distinguishing = [docStr(d.notice_id), docStr(d.document_type),
+                        docStr(d.title), docStr(d.published_at)];
+  if (!distinguishing.join('')) return '';
+  return 'm:' + distinguishing.concat([docStr(d.notice_type), docStr(d.source_section)]).join('|');
+}
+
+// Deterministic dedupe. Returns a NEW array; never mutates record.documents and
+// never synthesizes an object merging fields from two different producers. When
+// identity cannot be established safely both items are retained.
+function canonicalDocumentItems(documents) {
+  if (!documents || typeof documents.length !== 'number') return [];
+  var out = [], seen = {}, i, d, key, prev;
+  for (i = 0; i < documents.length; i++) {
+    d = documents[i];
+    if (!d || typeof d !== 'object') continue;
+    key = docIdentity(d);
+    if (!key) { out.push(d); continue; }
+    if (!Object.prototype.hasOwnProperty.call(seen, key)) {
+      seen[key] = out.length;
+      out.push(d);
+      continue;
+    }
+    // Same final URL: keep the resolver item, which carries the richer field
+    // set. Never merge values across the two producers.
+    prev = seen[key];
+    if (isResolverDocument(d) && !isResolverDocument(out[prev])) out[prev] = d;
+  }
+  return out;
+}
+
+function documentSortRank(d) {
+  var section = docStr(d.source_section).toLowerCase();
+  if (section === 'legaldocumentreference')     return 0;
+  if (section === 'technicaldocumentreference') return 1;
+  if (isResolvedDocument(d))                    return 2;
+  return 3;
+}
+
+function documentSortTime(d) {
+  var raw = docStr(d.published_at);
+  if (!raw) return Number.NEGATIVE_INFINITY;
+  var ms = new Date(raw).getTime();
+  return isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+}
+
+// Decorate-sort-undecorate: deterministic without relying on engine sort
+// stability. Original array order is the final tie-break.
+function orderedDocumentItems(items) {
+  var decorated = items.map(function (d, i) {
+    return { doc: d, idx: i, rank: documentSortRank(d), ts: documentSortTime(d) };
+  });
+  decorated.sort(function (a, b) {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    if (a.rank === 3 && a.ts !== b.ts) return b.ts - a.ts;
+    return a.idx - b.idx;
+  });
+  return decorated.map(function (e) { return e.doc; });
+}
+
+// Readable label for proven format values only. Never inferred from the URL.
+var DOC_FORMAT_LABELS = {
+  'application/pdf' : 'PDF',
+  'pdf'             : 'PDF'
+};
+
+function documentFormatLabel(d) {
+  var raw = docStr(d.mime_hint) || docStr(d.format_hint);
+  if (!raw) return '';
+  var known = DOC_FORMAT_LABELS[raw.toLowerCase()];
+  if (known) return known;
+  return raw.length > 24 ? raw.slice(0, 24) : raw;
+}
+
+function documentDateLabel(d, langStr) {
+  var raw = docStr(d.published_at);
+  if (!raw) return '';
+  var ms = new Date(raw).getTime();
+  if (isNaN(ms)) return raw.length > 24 ? raw.slice(0, 24) : raw;
+  return new Date(ms).toLocaleDateString(langStr, { day:'numeric', month:'short', year:'numeric' });
+}
+
+function documentItemHTML(d, langStr) {
+  var roleLabel = t(documentRoleKey(d));
+  var title     = docStr(d.title);
+  var headline  = title || roleLabel;
+  var resolved  = isResolvedDocument(d);
+  var clickable = isValidDocUrl(d.url);
+
+  var meta = [];
+  // Only show the role separately when the title is not already the role label.
+  if (title) meta.push('<span class="sh-ficha__doc-role">' + esc(roleLabel) + '</span>');
+  meta.push('<span class="sh-ficha__doc-badge' + (resolved ? ' sh-ficha__doc-badge--resolved' : '') + '">' +
+    esc(t(resolved ? 'fp_doc_state_resolved' : 'fp_doc_state_inventory')) + '</span>');
+  var fmt = documentFormatLabel(d);
+  if (fmt) meta.push('<span class="sh-ficha__doc-fmt">' + esc(fmt) + '</span>');
+  var date = documentDateLabel(d, langStr);
+  if (date) meta.push('<span class="sh-ficha__doc-date">' + esc(date) + '</span>');
+  if (!clickable) meta.push('<span class="sh-ficha__doc-nolink">' + esc(t('fp_doc_no_link')) + '</span>');
+
+  var inner =
+    '<i class="bi bi-file-earmark-text" aria-hidden="true"></i>' +
+    '<span class="sh-ficha__doc-body">' +
+      '<span class="sh-ficha__doc-title">' + esc(headline) + '</span>' +
+      '<span class="sh-ficha__doc-meta">' + meta.join('') + '</span>' +
+    '</span>';
+
+  // An unsafe or absent URL keeps its metadata but never becomes an anchor, and
+  // the raw value is never emitted.
+  return clickable
+    ? '<a class="sh-ficha__doc sh-ficha__doc--link" href="' + esc(docStr(d.url)) + '" target="_blank" rel="noopener">' + inner + '</a>'
+    : '<div class="sh-ficha__doc sh-ficha__doc--static">' + inner + '</div>';
+}
+
+function documentSummaryHTML(items) {
+  if (!items.length) return '';
+  var resolved = items.filter(isResolvedDocument).length;
+  var countTxt = (items.length === 1)
+    ? t('fp_docs_count_one')
+    : t('fp_docs_count').replace('{n}', items.length);
+  var parts = '<span class="sh-ficha__doc-count">' + esc(countTxt) + '</span>';
+  // m == 0 omits the clause entirely rather than printing "0 verificados".
+  if (resolved > 0) {
+    var resTxt = (resolved === 1)
+      ? t('fp_docs_resolved_one')
+      : t('fp_docs_resolved').replace('{m}', resolved);
+    parts += '<span class="sh-ficha__doc-resolved">' + esc(resTxt) + '</span>';
+  }
+  return '<div class="sh-ficha__doc-status">' + parts + '</div>';
+}
+
+function officialSourceLinkHTML(recordUrl) {
+  if (!isValidDocUrl(recordUrl)) return '';
+  return '<a class="sh-ficha__doc-src" href="' + esc(docStr(recordUrl)) + '" target="_blank" rel="noopener">' +
+    '<i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>' +
+    '<span>' + esc(t('fp_docs_official_source')) + '</span>' +
+  '</a>';
 }
 
 // -- FICHA PANEL --------------------------------------------------------------
@@ -282,60 +511,25 @@ function fichaHTML(r) {
   kwChips.push('<span class="sh-ficha__chip sh-ficha__chip--src"><i class="bi bi-database"></i>' + esc(r.font || 'PLACSP') + '</span>');
   var kwHTML = kwChips.join('');
 
-  var docs = r.documents || [];
+  // Document inventory surface (p272). Every referenced document is retained and
+  // described; only its clickability depends on the strict https: rule.
+  var docItems = orderedDocumentItems(canonicalDocumentItems(r.documents));
   var docsHTML;
-  if (!docs.length) {
+  if (!docItems.length) {
     docsHTML =
       '<div class="sh-ficha__doc-empty">' +
         '<span class="sh-ficha__empty">' + esc(t('fp_no_docs')) + '</span>' +
-        '<span class="sh-ficha__f2-hint">' + esc(t('fp_f2_ready')) + '</span>' +
+        officialSourceLinkHTML(r.url) +
       '</div>';
   } else {
-    var hasMeaningfulTitle = docs.some(function(d){ return d.title && d.title.trim().length > 0; });
-    if (hasMeaningfulTitle) {
-      var validDocs = docs.filter(function(d){ return isValidDocUrl(d.url); });
-      if (validDocs.length) {
-        docsHTML = validDocs.map(function(d){
-          var docLabel = (d.title && d.title.trim())
-            ? d.title.trim()
-            : (d.notice_type
-                ? (d.published_at && d.published_at.trim()
-                    ? d.notice_type + ' · ' + d.published_at.trim()
-                    : d.notice_type)
-                : 'Documento disponible');
-          return '<a class="sh-ficha__doc" href="' + esc(d.url) + '" target="_blank" rel="noopener">' +
-            '<i class="bi bi-file-earmark-text"></i>' +
-            '<span>' + esc(docLabel) + '</span>' +
-            (d.date ? '<span class="sh-ficha__hist-date">' + esc(d.date) + '</span>' : '') +
-          '</a>';
-        }).join('');
-      } else {
-        var fbHref = (r.url && r.url.indexOf('http') === 0) ? r.url : null;
-        docsHTML = fbHref
-          ? '<a class="sh-ficha__doc" href="' + esc(fbHref) + '" target="_blank" rel="noopener">' +
-              '<i class="bi bi-files"></i>' +
-              '<span>' + docs.length + ' ' + esc(t('fp_docs_available')) + '</span>' +
-            '</a>'
-          : '<span class="sh-ficha__empty">' + esc(t('fp_docs_available')) + '</span>';
-      }
-    } else {
-      var summaryHref = (r.url && r.url.indexOf('http') === 0) ? r.url : '#';
-      docsHTML =
-        '<a class="sh-ficha__doc" href="' + esc(summaryHref) + '" target="_blank" rel="noopener">' +
-          '<i class="bi bi-files"></i>' +
-          '<span>' + docs.length + ' ' + esc(t('fp_docs_available')) + '</span>' +
-        '</a>';
+    docsHTML = docItems.map(function(d){ return documentItemHTML(d, langStr); }).join('');
+    // When no item is clickable, keep a route to the tender's official source.
+    if (!docItems.some(function(d){ return isValidDocUrl(d.url); })) {
+      docsHTML += officialSourceLinkHTML(r.url);
     }
   }
 
-  // Conservative document status surface (p201): count + honest DocIntel-pending
-  // label. Uses only r.documents.length. No extracted/evidence/PCAP/PPT claims.
-  var docStatusHTML = docs.length
-    ? '<div class="sh-ficha__doc-status">' +
-        '<span class="sh-ficha__doc-count">' + esc(t('fp_docs_detected').replace('{n}', docs.length)) + '</span>' +
-        '<span class="sh-ficha__doc-pending"><i class="bi bi-hourglass-split"></i>' + esc(t('fp_docintel_pending')) + '</span>' +
-      '</div>'
-    : '';
+  var docStatusHTML = documentSummaryHTML(docItems);
 
   var hist    = r.historial || [];
   var histHTML = hist.length
