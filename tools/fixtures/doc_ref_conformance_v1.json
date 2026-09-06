@@ -1,0 +1,181 @@
+{
+  "authority": "ADGOPS_IB3_DOCREF_CONFORMANCE_AUTHORITY",
+  "version": 1,
+  "status": "FROZEN_COMPANION_DECISION",
+  "date": "2026-09-05",
+  "canonical_spec": "ADGOPS_p273_DocIntel_public_schema_contract_audit_v0.3.md",
+  "canonical_spec_sha256": "59FC898D390C975ED4740767940B4118F5EE24778C8311F3897E932C5709A980",
+  "decision": {
+    "normative_parse_model": "p273-v0.3-N1-N9-as-frozen-by-these-vectors",
+    "implementation_library": null,
+    "implementation_runtime": null,
+    "notes": [
+      "These expected values are frozen before PublicProjection implementation.",
+      "Implementations are conformant only when they reproduce expected_doc_ref exactly.",
+      "canonical_url is audit evidence for each positive vector; expected_doc_ref is the normative output.",
+      "Negative vectors MUST mint no doc_ref.",
+      "This authority does not authorize appendix/1 as a PublicProjection input."
+    ]
+  },
+  "gate_b_adjudication": {
+    "accepted_current_producer_schema": "appendix_pcap_ppt/1",
+    "future_schema_named_by_p273": "docread/1",
+    "explicitly_not_authorized_in_ib3_v1": [
+      "appendix/1"
+    ],
+    "reason": "p273 v0.3 §13 supersedes predecessor wording and names appendix_pcap_ppt/1 plus future docread/1; appendix/1 is omitted and remains out of the IB-3 v1 accepted-input set."
+  },
+  "vectors": [
+    {
+      "id": "default_https_port",
+      "input": "https://example.com:443/path",
+      "canonical_url": "https://example.com/path",
+      "expected_doc_ref": "d-5faa4bf4918ff56562141cc328545ec8",
+      "expect_mint": true,
+      "covers": [
+        "default_port"
+      ]
+    },
+    {
+      "id": "non_default_port",
+      "input": "https://example.com:8443/path",
+      "canonical_url": "https://example.com:8443/path",
+      "expected_doc_ref": "d-82753c422e83b41a40df322a827dfcfd",
+      "expect_mint": true,
+      "covers": [
+        "non_default_port"
+      ]
+    },
+    {
+      "id": "uppercase_host",
+      "input": "https://EXAMPLE.COM/Case",
+      "canonical_url": "https://example.com/Case",
+      "expected_doc_ref": "d-9c648aded7649d175a1a083d8fa8686b",
+      "expect_mint": true,
+      "covers": [
+        "uppercase_host"
+      ]
+    },
+    {
+      "id": "idna_host",
+      "input": "https://bücher.example/path",
+      "canonical_url": "https://xn--bcher-kva.example/path",
+      "expected_doc_ref": "d-70fc69cadb7fa542243b04d38b1d1f6c",
+      "expect_mint": true,
+      "covers": [
+        "idna_host"
+      ]
+    },
+    {
+      "id": "percent_encoded_path_preserved",
+      "input": "https://example.com/a%2Fb/%7Euser",
+      "canonical_url": "https://example.com/a%2Fb/%7Euser",
+      "expected_doc_ref": "d-9de8f1c6e8c6bff09834321181c79928",
+      "expect_mint": true,
+      "covers": [
+        "percent_encoded_path"
+      ]
+    },
+    {
+      "id": "empty_query_preserved",
+      "input": "https://example.com/path?",
+      "canonical_url": "https://example.com/path?",
+      "expected_doc_ref": "d-cc2a0af6e54fb44b752c7fbfe7c457c0",
+      "expect_mint": true,
+      "covers": [
+        "empty_query"
+      ]
+    },
+    {
+      "id": "empty_fragment_preserved",
+      "input": "https://example.com/path#",
+      "canonical_url": "https://example.com/path#",
+      "expected_doc_ref": "d-b936a444acde61c754bbe3aa95005d69",
+      "expect_mint": true,
+      "covers": [
+        "empty_fragment"
+      ]
+    },
+    {
+      "id": "http_default_port",
+      "input": "http://example.com:80/path",
+      "canonical_url": "http://example.com/path",
+      "expected_doc_ref": "d-7db5de67837e9b1d9b64416db779f447",
+      "expect_mint": true,
+      "covers": [
+        "http_input",
+        "default_port"
+      ]
+    },
+    {
+      "id": "unicode_whitespace_trim",
+      "input": " https://example.com/path ",
+      "canonical_url": "https://example.com/path",
+      "expected_doc_ref": "d-5faa4bf4918ff56562141cc328545ec8",
+      "expect_mint": true,
+      "covers": [
+        "unicode_whitespace_trim"
+      ]
+    },
+    {
+      "id": "query_order_preserved",
+      "input": "https://example.com/path?b=2&a=1",
+      "canonical_url": "https://example.com/path?b=2&a=1",
+      "expected_doc_ref": "d-36f7e60b7f6d9ae053690d126778fb3c",
+      "expect_mint": true,
+      "covers": [
+        "query_order_preservation"
+      ]
+    },
+    {
+      "id": "non_http_scheme",
+      "input": "ftp://example.com/path",
+      "canonical_url": null,
+      "expected_doc_ref": null,
+      "expect_mint": false,
+      "covers": [
+        "non_http_scheme"
+      ]
+    },
+    {
+      "id": "unparseable_absolute_url",
+      "input": "not a url",
+      "canonical_url": null,
+      "expected_doc_ref": null,
+      "expect_mint": false,
+      "covers": [
+        "unparseable_input"
+      ]
+    },
+    {
+      "id": "empty_string",
+      "input": "",
+      "canonical_url": null,
+      "expected_doc_ref": null,
+      "expect_mint": false,
+      "covers": [
+        "empty_input"
+      ]
+    },
+    {
+      "id": "whitespace_only",
+      "input": " \t\r\n ",
+      "canonical_url": null,
+      "expected_doc_ref": null,
+      "expect_mint": false,
+      "covers": [
+        "empty_after_unicode_whitespace_trim"
+      ]
+    },
+    {
+      "id": "non_string_null",
+      "input": null,
+      "canonical_url": null,
+      "expected_doc_ref": null,
+      "expect_mint": false,
+      "covers": [
+        "non_string_input"
+      ]
+    }
+  ]
+}
