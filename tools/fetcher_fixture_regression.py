@@ -1903,10 +1903,10 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         step_block = self._privacyreport_step_block(self._workflow_text())
         self.assertNotIn("continue-on-error", step_block)
 
-    def test_p267_c7_step_contains_explicit_final_exit_zero(self):
-        # Prove exit 0 is the LAST non-blank command in the step's own run
-        # body (not merely present somewhere in the block, which would also
-        # match text belonging to the following step).
+    def test_p267_c7_step_ends_with_result_based_exit_not_unconditional_zero(self):
+        # IB-4 (p273 v0.3 §14.1): the step's own final exit must be
+        # RESULT-derived (blocking), never an unconditional "exit 0" as the
+        # literal last command — that was the pre-IB-4 report-only shape.
         text = self._workflow_text()
         i = text.index("id: privacyreport")
         run_start = text.index("run: |", i) + len("run: |")
@@ -1914,7 +1914,17 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         run_body = text[run_start:next_step]
         lines = [ln.strip() for ln in run_body.splitlines() if ln.strip()]
         self.assertTrue(lines, "privacyreport run body must not be empty")
-        self.assertEqual(lines[-1], "exit 0")
+        self.assertNotEqual(lines[-1], "exit 0",
+                             "step must not end on an unconditional exit 0")
+        self.assertEqual(lines[-7:], [
+            'if [ "$RESULT" = "NO_ERRORS" ]; then',
+            "exit 0",
+            'elif [ "$RESULT" = "ERROR_FINDINGS" ]; then',
+            "exit 2",
+            "else",
+            "exit 1",
+            "fi",
+        ])
 
     def test_p267_c13_step_contains_broad_except_exception_boundary(self):
         step_block = self._privacyreport_step_block(self._workflow_text())
@@ -2039,6 +2049,61 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
             step_block)
         self.assertNotIn(
             r'"${PARSER_LINES[0]}" =~ ^VALID', step_block)
+
+    # =========================================================================
+    # IB-4 (p273 v0.3 §14, WRKOPS t_20260906_adgops286): privacyreport step
+    # becomes blocking. Additive per §9.2 — does not loosen any test above.
+    # =========================================================================
+
+    def test_ib4_summary_row_says_blocking_yes(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn('echo "| blocking | yes |"', step_block)
+        self.assertNotIn("no (report-only)", step_block)
+
+    def test_ib4_annotations_say_publication_blocked(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn(
+            '::error::Privacy validator reported ERROR findings; '
+            'publication blocked.', step_block)
+        self.assertIn(
+            '::error::Privacy validator could not produce trustworthy '
+            'evidence (exit code $PRIVACY_EXIT); publication blocked.',
+            step_block)
+        self.assertNotIn("not blocked", step_block)
+        self.assertNotIn("::warning::", step_block)
+
+    def test_ib4_result_and_exit_code_stay_distinguishable(self):
+        # Execution failure and a real privacy finding must map to different
+        # exit codes so the two failure modes remain distinguishable even
+        # though both now block the step (proven precisely, line-by-line, by
+        # test_p267_c7 above; this is a lighter substring-level guard).
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        i_elif = step_block.index('elif [ "$RESULT" = "ERROR_FINDINGS" ]; then')
+        i_else = step_block.index("\n          else\n", i_elif)
+        i_fi = step_block.index("\n          fi", i_else)
+        self.assertIn("exit 2", step_block[i_elif:i_else])
+        self.assertIn("exit 1", step_block[i_else:i_fi])
+        self.assertNotIn("exit 2", step_block[i_else:i_fi])
+
+    def test_ib4_no_producer_or_publicprojection_step_added(self):
+        text = self._workflow_text()
+        self.assertNotIn("public_projection", text)
+        self.assertNotIn("PublicProjection", text)
+
+    def test_ib4_dependency_install_step_unchanged(self):
+        text = self._workflow_text()
+        self.assertIn(
+            "python -m pip install -r requirements.txt -c constraints.txt",
+            text)
+
+    def test_ib4_privacyreport_still_before_commit_and_push(self):
+        text = self._workflow_text()
+        step_block = self._privacyreport_step_block(text)
+        i_privacyreport = text.index("id: privacyreport")
+        i_commit = text.index("id: commit")
+        i_push = text.index("id: push")
+        self.assertLess(i_privacyreport, i_commit)
+        self.assertLess(i_commit, i_push)
         # Counters populated only from the validated BASH_REMATCH captures.
         for idx, var in enumerate(
                 ("ERROR_COUNT", "WARN_COUNT", "DISTINCT_COUNT", "GROUP_COUNT"), start=1):

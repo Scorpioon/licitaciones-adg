@@ -713,6 +713,55 @@ def compute_canonical_record_count(records) -> int:
     return len(seen)
 
 
+# ---------------------------------------------------------------------------
+# Record-scope contract (IB-4, p273 v0.3 §14.4) — path-scoped recognition of
+# `documents[].doc_ref` and `documents[].doc_intel` (plus every descendant of
+# `doc_intel`). Deliberately narrow: this contract knows only these two
+# structural positions and must never be extended to disposition the
+# unrelated legacy record-level unknown-key debt (DS-11B, p273 §15.2). Pure,
+# read-only, stdlib-only — usable by any blocking validation path that
+# already tracks a dict-key/list-index path tuple (the same tracked-path
+# convention as find_forbidden_version_paths above).
+# ---------------------------------------------------------------------------
+
+DOCUMENTS_KEY = "documents"
+DOC_REF_KEY = "doc_ref"
+DOC_INTEL_KEY = "doc_intel"
+
+
+def is_document_doc_ref_path(path):
+    """True iff `path` is exactly a `documents[].doc_ref` sibling position:
+    (..., "documents", <int>, "doc_ref"). A `doc_ref` key anywhere else
+    (wrong ancestry, wrong depth) is NOT a legal document sibling under this
+    contract (p273 v0.3 §14.3.3) — it is never globally legalised."""
+    return (len(path) >= 3
+            and path[-1] == DOC_REF_KEY
+            and isinstance(path[-2], int)
+            and path[-3] == DOCUMENTS_KEY)
+
+
+def is_document_doc_intel_root_path(path):
+    """True iff `path` is exactly a `documents[].doc_intel` root position:
+    (..., "documents", <int>, "doc_intel")."""
+    return (len(path) >= 3
+            and path[-1] == DOC_INTEL_KEY
+            and isinstance(path[-2], int)
+            and path[-3] == DOCUMENTS_KEY)
+
+
+def doc_intel_root_prefix_len(path):
+    """Length of `path` up to and including the LAST `documents[].doc_intel`
+    root found in it (i.e. one past the "doc_intel" segment), or None if
+    `path` never passes through one. Any path whose prefix of this length
+    equals that root is the root itself or a descendant of it."""
+    best = None
+    for i in range(2, len(path)):
+        if (path[i] == DOC_INTEL_KEY and isinstance(path[i - 1], int)
+                and path[i - 2] == DOCUMENTS_KEY):
+            best = i + 1
+    return best
+
+
 def find_forbidden_paths(node):
     """Recursively walk a structure (dict keys + values, lists) collecting the
     set of internal path/host family names present in any string.

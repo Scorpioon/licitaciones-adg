@@ -400,18 +400,23 @@ jobs:
                 % (gen, len(records), expected_canonical, len(shards), shard_total))
           PYEOF
 
-      - name: Privacy report (record-level, report-only)
+      - name: Privacy report (record-level, blocking)
         id: privacyreport
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
         shell: bash
         run: |
-          # p267 / v0.7.1t (D-03): record-level privacy validator, wired as a
-          # report-only step. Invokes the UNMODIFIED tools/privacy_validator.py
-          # over all 11 tracked public surfaces. This step always exits 0 — a
-          # privacy finding or a validator execution failure is surfaced via
-          # $GITHUB_STEP_SUMMARY and a workflow annotation, never by failing
-          # the step or altering MONOLITH_CHANGED / DATA_CHANGED / any other
-          # step outcome. No blocking gate is introduced here.
+          # IB-4 (p273 v0.3 §14.1, WRKOPS t_20260906_adgops286): record-level
+          # privacy/DocIntel gate, now BLOCKING. Invokes
+          # tools/privacy_validator.py over all 11 tracked public surfaces.
+          # rc=0 (no ERROR) lets the step pass; rc=2 (>=1 ERROR finding) and
+          # rc=1 (execution/parse/structural failure) both fail this step —
+          # publication is blocked because this step sits before "Commit
+          # data if changed" and "Push", and those steps' plain `if:`
+          # conditions are implicitly gated on no prior step having failed.
+          # `set +e` below exists ONLY so this script can capture the
+          # validator's exit code itself before deciding the step's own
+          # fate; the trailing `exit` at the end of this script is the
+          # actual pass/fail decision — never an unconditional exit 0.
           set +e
           mkdir -p _tmp
           SUMMARY_FILE="_tmp/privacy_summary_${GITHUB_RUN_NUMBER}.json"
@@ -549,7 +554,7 @@ jobs:
 
           {
             echo ""
-            echo "### Privacy validator (record-level, report-only)"
+            echo "### Privacy validator (record-level, blocking)"
             echo ""
             echo "| Field | Value |"
             echo "| --- | --- |"
@@ -560,16 +565,22 @@ jobs:
             echo "| distinct findings | $DISTINCT_COUNT |"
             echo "| groups | $GROUP_COUNT |"
             echo "| surfaces scanned | 11 |"
-            echo "| blocking | no (report-only) |"
+            echo "| blocking | yes |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$RESULT" = "ERROR_FINDINGS" ]; then
-            echo "::warning::Privacy validator reported ERROR findings in report-only mode; publication is not blocked."
+            echo "::error::Privacy validator reported ERROR findings; publication blocked."
           elif [ "$RESULT" = "EXECUTION_FAILURE" ]; then
-            echo "::error::Privacy validator could not produce trustworthy evidence in report-only mode (exit code $PRIVACY_EXIT); publication is not blocked."
+            echo "::error::Privacy validator could not produce trustworthy evidence (exit code $PRIVACY_EXIT); publication blocked."
           fi
 
-          exit 0
+          if [ "$RESULT" = "NO_ERRORS" ]; then
+            exit 0
+          elif [ "$RESULT" = "ERROR_FINDINGS" ]; then
+            exit 2
+          else
+            exit 1
+          fi
 
       - name: Commit data if changed
         id: commit
