@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-tools/test_public_projection.py  (ADG OPS / p285 / v0.7.4i)
+tools/test_public_projection.py  (ADG OPS / p287 / v0.7.4k)
 
 Offline/synthetic regression suite for tools/public_projection.py
 (WRKOPS t_20260905_adgops282, IB-3 real-input + inventory join correction;
@@ -15,7 +15,11 @@ apply_projection() patch-application helper is proven directly; extended by
 WRKOPS t_20260906_adgops285 for the all-exit-path record cap correction --
 the 64 KiB cap now fires identically whether the record ends in no CPV, a
 malformed/short CPV, missing/ambiguous/cross-record evidence, or a missing
-generated_at_utc, not only on the CPV-attach success path).
+generated_at_utc, not only on the CPV-attach success path; extended by WRKOPS
+t_20260907_adgops287 for the null-to-absence correction -- no-intelligence
+and cap-cleared documents now assert true `doc_intel` key absence rather than
+a present `null`, and apply_projection()'s stale-key removal on absent
+projected DocIntel is proven directly).
 
 Standard-library only. No network. No file writes. Reads only the tracked
 conformance fixture (tools/fixtures/doc_ref_conformance_v1.json) and the
@@ -705,7 +709,7 @@ class IRealInputJoinTests(unittest.TestCase):
         doc_a2 = next(d for d in rec["documents"] if d["url"] == URL_PROD_A2)
         self.assertIsNotNone(doc_a["doc_intel"])
         self.assertEqual(doc_a["doc_intel"]["fields"][0]["value"], ["12345678"])
-        self.assertIsNone(doc_a2["doc_intel"])
+        self.assertNotIn("doc_intel", doc_a2)
         self.assertIsNotNone(doc_a2["doc_ref"])  # inventory still minted
 
     # 5. missing record join rejects
@@ -739,7 +743,7 @@ class IRealInputJoinTests(unittest.TestCase):
         rec = result["records"][0]
         self.assertEqual(rec["rejected_reason"], "evidence_document_missing")
         self.assertEqual(len(rec["documents"]), 2)
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
         self.assertTrue(all(d["doc_ref"] is not None for d in rec["documents"]))
 
     # 9. ambiguous document join rejects field
@@ -750,7 +754,7 @@ class IRealInputJoinTests(unittest.TestCase):
         result = ppj.project_manifest(manifest, AMBIGUOUS_DOCUMENT_MONOLITH)
         rec = result["records"][0]
         self.assertEqual(rec["rejected_reason"], "evidence_document_ambiguous")
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
 
     # 10. cross-record evidence rejects
     def test_document_join_cross_record_rejected(self):
@@ -758,7 +762,7 @@ class IRealInputJoinTests(unittest.TestCase):
         result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
         rec = result["records"][0]
         self.assertEqual(rec["rejected_reason"], "evidence_cross_record")
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
 
     # 12. doc_ref minted from production documents[].url only
     def test_doc_ref_minted_from_production_url_only(self):
@@ -806,7 +810,7 @@ class IRealInputJoinTests(unittest.TestCase):
         result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
         rec = result["records"][0]
         self.assertIsNone(rec["rejected_reason"])
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
         self.assertTrue(all(d["doc_ref"] is not None for d in rec["documents"]))
 
     # 17. unrelated production record keys structurally unchanged
@@ -842,7 +846,7 @@ class IRealInputJoinTests(unittest.TestCase):
         result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
         rec = result["records"][0]
         self.assertEqual(rec["rejected_reason"], "producer_generated_at_missing")
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
 
     def test_malformed_cpv_evidence_shape_suppresses_field(self):
         rec_in = cpv_record("CK-1")
@@ -851,7 +855,7 @@ class IRealInputJoinTests(unittest.TestCase):
         result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
         rec = result["records"][0]
         self.assertIsNone(rec["rejected_reason"])
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
 
     def test_no_cpv_field_present_is_not_a_rejection(self):
         manifest = producer_manifest([{"canonical_key": "CK-1"}])
@@ -859,7 +863,7 @@ class IRealInputJoinTests(unittest.TestCase):
         rec = result["records"][0]
         self.assertIsNone(rec["rejected_reason"])
         self.assertEqual(len(rec["documents"]), 2)
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
 
 
 # --------------------------------------------------------------------------- #
@@ -994,7 +998,7 @@ class JRecordCapAndAnalysedAtTests(unittest.TestCase):
         self.assertEqual(rec["rejected_reason"], "record_docintel_cap_exceeded")
         self.assertEqual(rec["canonical_key"], "CK-1")
         self.assertEqual(len(rec["documents"]), 2)
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
         self.assertTrue(all(d["doc_ref"] is not None for d in rec["documents"]))
         serialized = json.dumps(result)
         self.assertNotIn("12345678", serialized)  # no leaked payload value
@@ -1022,7 +1026,7 @@ class JRecordCapAndAnalysedAtTests(unittest.TestCase):
         result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
         rec = result["records"][0]
         self.assertEqual(rec["rejected_reason"], "producer_generated_at_missing")
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
         self.assertTrue(all(d["doc_ref"] is not None for d in rec["documents"]))
 
     # ----------------------------------------------------------------- #
@@ -1062,7 +1066,7 @@ class JRecordCapAndAnalysedAtTests(unittest.TestCase):
 
         self.assertEqual(rec["rejected_reason"], "record_docintel_cap_exceeded")
         self.assertEqual(ppj.compute_record_docintel_bytes(rec["documents"]), 0)
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
         self.assertEqual(len(rec["documents"]), 10)
         self.assertTrue(all(d["doc_ref"] is not None for d in rec["documents"]))
         serialized = json.dumps(result)
@@ -1312,7 +1316,7 @@ class LAllExitPathRecordCapTests(unittest.TestCase):
         rec = result["records"][0]
         self.assertEqual(rec["rejected_reason"], "record_docintel_cap_exceeded")
         self.assertEqual(ppj.compute_record_docintel_bytes(rec["documents"]), 0)
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
         self.assertTrue(all(d["doc_ref"] is not None for d in rec["documents"]))
 
         applied = ppj.apply_projection(monolith, result)
@@ -1331,7 +1335,7 @@ class LAllExitPathRecordCapTests(unittest.TestCase):
         rec = result["records"][0]
         self.assertEqual(rec["rejected_reason"], "record_docintel_cap_exceeded")
         self.assertEqual(ppj.compute_record_docintel_bytes(rec["documents"]), 0)
-        self.assertTrue(all(d["doc_intel"] is None for d in rec["documents"]))
+        self.assertTrue(all("doc_intel" not in d for d in rec["documents"]))
 
     # C. evidence document missing -- cap enforced, cap reason dominates.
     def test_evidence_document_missing_cap_dominates(self):
@@ -1407,7 +1411,7 @@ class LAllExitPathRecordCapTests(unittest.TestCase):
         for applied in (applied_once, applied_twice):
             applied_docs = applied["data"][0]["documents"]
             self.assertEqual(ppj.compute_record_docintel_bytes(applied_docs), 0)
-            self.assertTrue(all(d["doc_intel"] is None for d in applied_docs))
+            self.assertTrue(all("doc_intel" not in d for d in applied_docs))
             self.assertTrue(all(d["doc_ref"] is not None for d in applied_docs))
             self.assertEqual(
                 applied["data"][0]["titol"],
@@ -1419,6 +1423,89 @@ class LAllExitPathRecordCapTests(unittest.TestCase):
             json.dumps(applied_once, sort_keys=True), json.dumps(applied_twice, sort_keys=True))
         self.assertEqual(monolith, frozen)  # project_manifest never mutated production_monolith
         self.assertEqual(result, result_frozen)  # apply_projection never mutated its result argument
+
+
+# --------------------------------------------------------------------------- #
+# M. null-to-absence correction (WRKOPS t_20260907_adgops287)
+#
+# Dedicated proof of the corrected canonical semantics: absent `doc_intel`
+# is the sole no-intelligence representation, never a present `null`; and
+# apply_projection() removes any stale target `doc_intel` outright when the
+# projected result carries none.
+# --------------------------------------------------------------------------- #
+
+class MNullToAbsenceCorrectionTests(unittest.TestCase):
+
+    # 1. no-intel projected document: doc_intel key absent, not present-null.
+    def test_no_intel_projects_as_absent_key_not_null(self):
+        manifest = producer_manifest([{"canonical_key": "CK-1"}])
+        result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
+        rec = result["records"][0]
+        for doc in rec["documents"]:
+            self.assertNotIn("doc_intel", doc)
+
+    # 3. cap-exceeded / rejected effective-final case: doc_intel key absent.
+    def test_cap_exceeded_projects_as_absent_key_not_null(self):
+        target_url = "https://example.com/expediente/m-cap-target"
+        monolith = _over_cap_monolith_with_target(target_url, prefix="m-cap")
+        manifest = producer_manifest([cpv_record("CK-ALLEXIT", source_url=target_url)])
+        result = ppj.project_manifest(manifest, monolith)
+        rec = result["records"][0]
+        self.assertEqual(rec["rejected_reason"], "record_docintel_cap_exceeded")
+        for doc in rec["documents"]:
+            self.assertNotIn("doc_intel", doc)
+
+    # 4. apply_projection() onto a matched target already carrying stale
+    # doc_intel, when the projected result has none: stale key removed.
+    #
+    # Projection source and application target are deliberately two separate
+    # monoliths sharing only canonical_key/document identity and order: the
+    # projection must come from a document with NO pre-existing doc_intel (so
+    # the correctly-preserved IB-3 carry-forward semantics yield canonical
+    # absence, not a competing "keep the existing object" outcome), while the
+    # application target is a distinct copy that already holds a valid stale
+    # doc_intel on the matching document (WRKOPS t_20260907_adgops287 R1 §3).
+    def test_apply_projection_removes_stale_doc_intel_when_projected_absent(self):
+        manifest = producer_manifest([{"canonical_key": "CK-1"}])
+        result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
+        rec = result["records"][0]
+        proj_doc_a = next(d for d in rec["documents"] if d["url"] == URL_PROD_A)
+        self.assertNotIn("doc_intel", proj_doc_a)
+
+        stale_doc_ref = ppj.mint_doc_ref(URL_PROD_A)
+        stale_doc_intel = ppj.build_doc_intel(
+            analysed_candidate(stale_doc_ref, url=URL_PROD_A), stale_doc_ref)
+        stale_target = {
+            "data": [{
+                "canonical_key": "CK-1",
+                "documents": [
+                    {"url": URL_PROD_A, "doc_intel": stale_doc_intel},
+                    {"url": URL_PROD_A2},
+                ],
+            }],
+        }
+        frozen_stale_target = json.loads(json.dumps(stale_target))
+        frozen_production_monolith = json.loads(json.dumps(PRODUCTION_MONOLITH))
+
+        applied = ppj.apply_projection(stale_target, result)
+        applied_doc_a = next(d for d in applied["data"][0]["documents"] if d["url"] == URL_PROD_A)
+        applied_doc_a2 = next(d for d in applied["data"][0]["documents"] if d["url"] == URL_PROD_A2)
+        self.assertNotIn("doc_intel", applied_doc_a)
+        self.assertNotIn("doc_intel", applied_doc_a2)
+
+        # neither the projection input nor the application target was mutated
+        self.assertEqual(stale_target, frozen_stale_target)
+        self.assertEqual(PRODUCTION_MONOLITH, frozen_production_monolith)
+
+    # 5. apply_projection() with valid projected DocIntel: valid object
+    # written/preserved.
+    def test_apply_projection_preserves_valid_doc_intel(self):
+        manifest = producer_manifest([cpv_record("CK-1")])
+        result = ppj.project_manifest(manifest, PRODUCTION_MONOLITH)
+        applied = ppj.apply_projection(PRODUCTION_MONOLITH, result)
+        applied_doc_a = next(d for d in applied["data"][0]["documents"] if d["url"] == URL_PROD_A)
+        self.assertIn("doc_intel", applied_doc_a)
+        self.assertEqual(applied_doc_a["doc_intel"]["fields"][0]["value"], ["12345678"])
 
 
 def main() -> int:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-tools/public_projection.py  (ADG OPS / p285 / v0.7.4i)
+tools/public_projection.py  (ADG OPS / p287 / v0.7.4k)
 
 PublicProjection — IB-3 doc_ref minting and DocIntel construct-only projector,
 corrected to consume the real producer input plus a read-only production
@@ -18,7 +18,11 @@ cap check moved into one common per-record finalization step applied to
 EVERY exit path once a production record is matched, not only the
 success-path attach, so a record already over cap from pre-existing
 doc_intel alone still fail-closes even when this run adds no valid CPV
-(WRKOPS t_20260906_adgops285, IB-3 all-exit-path record cap correction).
+(WRKOPS t_20260906_adgops285, IB-3 all-exit-path record cap correction),
+and no-intelligence / cap-cleared documents now project and apply as true
+`doc_intel` key absence rather than a present `null`, with apply_projection()
+removing any stale target `doc_intel` when the projected result carries none
+(WRKOPS t_20260907_adgops287, PublicProjection null-to-absence correction).
 
 Scope:
   - mint_doc_ref(): unchanged from p281 — derives a stable public document
@@ -613,10 +617,18 @@ def _project_production_document(prod_doc: Any) -> dict:
     document this run does not touch keeps whatever doc_intel the real
     production record already holds, so the record's effective-final
     DocIntel cap arithmetic reflects real production state, not merely an
-    always-empty reconstruction. Never reads or copies any other key."""
+    always-empty reconstruction. Never reads or copies any other key.
+
+    No public intelligence carries forward as true key absence, never a
+    present `null` (WRKOPS t_20260907_adgops287 §5.1): the returned dict
+    only gains a `doc_intel` key when the production document actually has
+    one."""
     url = prod_doc.get("url") if isinstance(prod_doc, dict) else None
     existing_doc_intel = prod_doc.get("doc_intel") if isinstance(prod_doc, dict) else None
-    return {"url": url, "doc_ref": mint_doc_ref(url), "doc_intel": existing_doc_intel}
+    doc: dict = {"url": url, "doc_ref": mint_doc_ref(url)}
+    if existing_doc_intel is not None:
+        doc["doc_intel"] = existing_doc_intel
+    return doc
 
 
 def _extract_cpv_candidate(record_candidate: dict):
@@ -662,9 +674,10 @@ def _finalize_projected_record(canonical_key: Any, projected_docs: list, rejecte
     doc_intel this run never touched must fail-closed even when this run
     attaches nothing new.
 
-    If the effective final per-record payload exceeds the cap, clears
-    doc_intel on every document in the record (never truncates), preserves
-    every doc_ref, and returns the stable reason `record_docintel_cap_exceeded`
+    If the effective final per-record payload exceeds the cap, omits
+    doc_intel on every document in the record (never truncates, never a
+    present null -- WRKOPS t_20260907_adgops287 §5.3), preserves every
+    doc_ref, and returns the stable reason `record_docintel_cap_exceeded`
     -- overriding whatever `rejected_reason` was supplied, since the cap
     dominates any prior business outcome. Otherwise returns the supplied
     `rejected_reason` (success or prior business rejection) unchanged.
@@ -675,7 +688,7 @@ def _finalize_projected_record(canonical_key: Any, projected_docs: list, rejecte
     mutated in place."""
     if compute_record_docintel_bytes(projected_docs) > MAX_RECORD_DOCINTEL_BYTES:
         for pd in projected_docs:
-            pd["doc_intel"] = None
+            pd.pop("doc_intel", None)
         return {"canonical_key": canonical_key, "rejected_reason": "record_docintel_cap_exceeded",
                 "documents": projected_docs}
     return {"canonical_key": canonical_key, "rejected_reason": rejected_reason, "documents": projected_docs}
@@ -842,7 +855,12 @@ def apply_projection(production_monolith: dict, projection_result: dict) -> dict
     per-record `documents` list is produced by project_manifest() as a 1:1,
     order-preserving projection of that same production record's own
     documents[] (see _project_producer_record), so corresponding entries are
-    paired by position rather than by re-deriving a URL/doc_ref lookup."""
+    paired by position rather than by re-deriving a URL/doc_ref lookup.
+
+    A projected document that carries no `doc_intel` key at all (no public
+    intelligence, or cap-cleared -- WRKOPS t_20260907_adgops287 §5.4) removes
+    any stale `doc_intel` already on the matched target document outright,
+    rather than leaving it in place or overwriting it with a present null."""
     applied = copy.deepcopy(production_monolith)
     if not isinstance(applied, dict) or not isinstance(applied.get("data"), list):
         return applied
@@ -863,6 +881,9 @@ def apply_projection(production_monolith: dict, projection_result: dict) -> dict
             if not isinstance(doc, dict) or not isinstance(proj_doc, dict):
                 continue
             doc["doc_ref"] = proj_doc.get("doc_ref")
-            doc["doc_intel"] = proj_doc.get("doc_intel")
+            if "doc_intel" in proj_doc:
+                doc["doc_intel"] = proj_doc["doc_intel"]
+            else:
+                doc.pop("doc_intel", None)
 
     return applied
