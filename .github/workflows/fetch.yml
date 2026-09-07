@@ -640,17 +640,16 @@ jobs:
           # imported by the offline regression harness so workflow and tests agree.
           python tools/scheduled_run_classify.py
 
-      - name: Upload fail-closed diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: adgops-auto-fetcher1-scheduled-diagnostics-${{ github.run_number }}
-          path: |
-            _tmp/scheduled_live_candidate_*.json
-            _tmp/scheduled_merge_conflicts_live_*.json
-            _tmp/scheduled_run_report_*.json
-            _tmp/run_helper.log
-            _tmp/privacy_summary_*.json
-            _tmp/privacy_stderr_*.log
-          retention-days: 7
-          if-no-files-found: ignore
+      # F-04 (ADGOPS_ROUTINE_PLATFORM_HEALTH_SECURITY_AUDIT_20260906_v0.1):
+      # the diagnostic artifact upload step formerly here (actions/upload-
+      # artifact@v4, name adgops-auto-fetcher1-scheduled-diagnostics-*)
+      # published _tmp/** internal-ephemeral material — raw live-candidate
+      # JSON, raw merge-conflict diagnostics, the machine-readable run report
+      # (embeds a local _tmp path and raw per-source upstream error text),
+      # the raw helper log, and the privacy validator's stderr — as a
+      # downloadable GitHub Actions artifact from this public repository. No
+      # already-contracted public-safe artifact existed to allowlist instead,
+      # so the step is removed rather than narrowed. Operator evidence
+      # remains available via the Step Summary written by the "Privacy
+      # report" and "Operational summary" steps above; nothing here is
+      # consumed by a later automated step.

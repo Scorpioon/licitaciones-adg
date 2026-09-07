@@ -1968,7 +1968,10 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
     def test_p267_c10_operational_summary_env_block_unchanged_p265_contract(self):
         text = self._workflow_text()
         i = text.index("Operational summary")
-        j = text.index("Upload fail-closed diagnostics")
+        # F-04: the former "Upload fail-closed diagnostics" step that used to
+        # bound this block was removed (no upload-artifact step remains), so
+        # "Operational summary" is now the workflow's last step.
+        j = len(text)
         opsummary_block = text[i:j]
         for key in ("HELPER_OUTCOME", "DRYRUN_OUTCOME", "VALIDATE_OUTCOME",
                     "DIFFSUMMARY_OUTCOME", "SHARDS_OUTCOME",
@@ -1988,12 +1991,54 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         positions = [text.index(step_id) for step_id in ids]
         self.assertEqual(positions, sorted(positions))
 
-    def test_p267_c12_upload_step_includes_both_privacy_globs(self):
+    def test_p267_c12_f04_no_internal_ephemeral_artifact_publication(self):
+        """F-04 (ADGOPS_ROUTINE_PLATFORM_HEALTH_SECURITY_AUDIT_20260906_v0.1):
+        internal/ephemeral _tmp/** diagnostics (raw live-candidate JSON, raw
+        merge-conflict diagnostics, the run report, and the privacy
+        validator's bounded summary/stderr) must never again be published as
+        a downloadable GitHub Actions artifact from this public repository.
+        The prior "Upload fail-closed diagnostics" step is removed outright
+        (no already-contracted public-safe artifact existed to allowlist
+        instead), so this also locks the invariant generically: neither the
+        upload mechanism nor any of its former forbidden globs may silently
+        reappear.
+
+        R1 correction: the scan runs against an ACTIVE-YAML projection (full-
+        line comments -- lines whose first non-whitespace character is "#" --
+        excluded), not the raw workflow text. A non-executable explanatory
+        comment that merely narrates the removed _tmp/** publication surface
+        is prose, not executable artifact configuration, and must not itself
+        trip this test; the mechanism and every former forbidden glob must
+        still be absent from what actually executes."""
         text = self._workflow_text()
-        i = text.index("Upload fail-closed diagnostics")
-        upload_block = text[i:]
-        self.assertIn("_tmp/privacy_summary_*.json", upload_block)
-        self.assertIn("_tmp/privacy_stderr_*.log", upload_block)
+        active_lines = [
+            line for line in text.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        active_text = "\n".join(active_lines)
+        self.assertNotIn("actions/upload-artifact", active_text)
+        self.assertNotIn("actions/download-artifact", active_text)
+        self.assertNotIn("Upload fail-closed diagnostics", active_text)
+        forbidden_fragments = (
+            "_tmp/scheduled_live_candidate_*.json",
+            "_tmp/scheduled_merge_conflicts_live_*.json",
+            "_tmp/scheduled_run_report_*.json",
+            "_tmp/privacy_summary_*.json",
+            "_tmp/privacy_stderr_*.log",
+            "_tmp/**",
+        )
+        for fragment in forbidden_fragments:
+            self.assertNotIn(fragment, active_text)
+
+    def test_fetch_workflow_contains_no_unicode_replacement_character(self):
+        """R1 (Prompt 288 operator validation): the operator run transcript
+        reported literal U+FFFD replacement characters in fetch.yml prose
+        while other Unicode in the same terminal rendered correctly. This is
+        a source-hygiene invariant only -- it forbids the replacement
+        character specifically and does not restrict legitimate Unicode
+        (e.g. em dashes, section signs) elsewhere in the workflow."""
+        text = self._workflow_text()
+        self.assertNotIn("�", text)
 
     def test_p267_c17_strict_scalar_gate_replaces_read_trust_path(self):
         step_block = self._privacyreport_step_block(self._workflow_text())
