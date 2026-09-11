@@ -248,6 +248,127 @@ class L1MergeHelperTests(unittest.TestCase):
         self.assertEqual(report["final_verdict"], "FAIL")
         self.assertTrue(any("generation_id" in e for e in report["validation_errors"]))
 
+    # --- p294 / WRKOPS t_20260910_adgops294: internal/public state split ---
+    # load_internal_state / persist_internal_state / canonicalize_and_project
+    # are the new --run-live glue this prompt adds. Coverage here is narrowly
+    # scoped to that new glue, not a re-test of the already-closed
+    # tools.canonical_tender_merge / tools.public_record_projection
+    # contracts (69/69 and their own suites already own that).
+
+    def test_load_internal_state_missing_file_fails_closed(self):
+        missing = self.tmp / "does_not_exist.json"
+        with self.assertRaises(SystemExit):
+            sfm.load_internal_state(missing)
+
+    def test_load_internal_state_malformed_json_fails_closed(self):
+        bad = self.tmp / "bad_internal_state.json"
+        bad.write_text("{ not valid json,,, ", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            sfm.load_internal_state(bad)
+
+    def test_load_internal_state_invalid_shape_fails_closed(self):
+        bad = self.tmp / "no_data_key_internal_state.json"
+        bad.write_text(json.dumps({"meta": {}}), encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            sfm.load_internal_state(bad)
+
+    def test_load_internal_state_valid_file_round_trips(self):
+        valid = self.tmp / "internal_state.json"
+        payload = load_fixture("production_min.json")
+        valid.write_text(json.dumps(payload), encoding="utf-8")
+        loaded = sfm.load_internal_state(valid)
+        self.assertEqual(loaded["data"], payload["data"])
+        self.assertEqual(loaded["meta"], payload["meta"])
+
+    def test_persist_internal_state_writes_rows_and_bookkeeping(self):
+        out = self.tmp / "internal_state_out.json"
+        prior_meta = {"note": "prior-internal-meta"}
+        rows = [{"id": "X1", "enrichment_version": "v1"}]
+        wrote = sfm.persist_internal_state(out, prior_meta, [], rows)
+        self.assertTrue(wrote)
+        written = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(written["data"], rows)
+        self.assertEqual(written["meta"]["note"], "prior-internal-meta")
+        self.assertIn("internal_state_updated_at", written["meta"])
+        self.assertEqual(written["meta"]["internal_state_prompt"], "294")
+        self.assertEqual(written["meta"]["internal_state_record_count"], 1)
+
+    def test_persist_internal_state_skips_write_when_unchanged(self):
+        # p294 R1 §4: a semantically no-op run must not rewrite the file —
+        # rewriting on every call (even with byte-identical `rows`) would
+        # bump the wall-clock `internal_state_updated_at` field every time,
+        # forcing the workflow's diff-guarded private commit to fire on every
+        # run regardless of content, which the handoff explicitly forbids.
+        out = self.tmp / "internal_state_noop.json"
+        rows = [{"id": "X1", "enrichment_version": "v1"}]
+        wrote_first = sfm.persist_internal_state(out, {"note": "prior"}, [], rows)
+        self.assertTrue(wrote_first)
+        first_bytes = out.read_bytes()
+
+        wrote_second = sfm.persist_internal_state(out, {"note": "prior"}, rows, rows)
+        self.assertFalse(wrote_second)
+        self.assertEqual(out.read_bytes(), first_bytes)
+
+    def test_canonicalize_and_project_happy_path_strips_bookkeeping(self):
+        rows = [dict(r) for r in load_fixture("production_min.json")["data"]]
+        result = sfm.canonicalize_and_project(rows)
+        self.assertEqual(len(result), len(rows))
+        self.assertEqual({r["id"] for r in result}, {r["id"] for r in rows})
+        for pub in result:
+            self.assertIn("public_id", pub)
+            for bookkeeping in ("enrichment_version", "lifecycle_category",
+                                "active_opportunity_eligible",
+                                "lifecycle_review_required",
+                                "source_merge_class"):
+                self.assertNotIn(bookkeeping, pub)
+
+    def test_canonicalize_and_project_fails_closed_on_merge_error(self):
+        class _StubMergeError(Exception):
+            def __init__(self):
+                super().__init__("invalid_id: stub")
+                self.code = "invalid_id"
+
+        class _StubCtm:
+            CanonicalTenderMergeError = _StubMergeError
+
+            @staticmethod
+            def merge_canonical_tenders(rows):
+                raise _StubMergeError()
+
+        saved = sfm.ctm
+        sfm.ctm = _StubCtm
+        try:
+            with self.assertRaises(SystemExit):
+                sfm.canonicalize_and_project([])
+        finally:
+            sfm.ctm = saved
+
+    def test_canonicalize_and_project_fails_closed_on_rejected_projection(self):
+        class _StubPrp:
+            @staticmethod
+            def project_public_records(rows):
+                return {"accepted": False, "rejected_reason": "duplicate_public_id", "records": []}
+
+        saved = sfm.prp
+        sfm.prp = _StubPrp
+        try:
+            rows = [dict(r) for r in load_fixture("production_min.json")["data"]]
+            with self.assertRaises(SystemExit):
+                sfm.canonicalize_and_project(rows)
+        finally:
+            sfm.prp = saved
+
+    def test_run_live_requires_internal_state_path(self):
+        # Must fail closed before any network/subprocess fetch is attempted.
+        args = types.SimpleNamespace(allow_production_write=True, internal_state_path=None)
+        with self.assertRaises(SystemExit):
+            sfm.run_live(args)
+
+    def test_run_live_requires_allow_production_write(self):
+        args = types.SimpleNamespace(allow_production_write=False, internal_state_path="ignored")
+        with self.assertRaises(SystemExit):
+            sfm.run_live(args)
+
 
 # ---------------------------------------------------------------------------
 # L2 — scheduled_run_classify operational-status classifier / report

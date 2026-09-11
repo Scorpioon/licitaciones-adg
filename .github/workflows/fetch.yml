@@ -133,17 +133,83 @@ jobs:
           INPUT_DRY_RUN:   ${{ inputs.dry_run   || 'false' }}
           EVENT_SCHEDULE:  ${{ github.event.schedule || '' }}
 
+      - name: Checkout private internal-state repo
+        id: statecheckout
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        uses: actions/checkout@v4
+        with:
+          repository: Scorpioon/licitaciones-adg-state
+          ref: main
+          # ADGOPS_STATE_SSH_KEY is a secret of THIS (public, workflow-owning)
+          # repository, Scorpioon/licitaciones-adg — secrets.* always resolves
+          # against the repo running the workflow, never the checkout target.
+          # Its PUBLIC half is a deploy key granted READ+WRITE on the PRIVATE
+          # target repo, Scorpioon/licitaciones-adg-state, only.
+          ssh-key: ${{ secrets.ADGOPS_STATE_SSH_KEY }}
+          # actions/checkout@v4's `path` is always resolved under, and
+          # validated to remain under, $GITHUB_WORKSPACE — it rejects any
+          # resolved path outside it (an earlier draft of this workflow
+          # incorrectly assumed an absolute ${{ runner.temp }} path would
+          # escape $GITHUB_WORKSPACE; it would not have, and the checkout
+          # would have failed outright). `_tmp/` is already fully gitignored
+          # in this repo's own .gitignore (`_tmp/` / `/_tmp/`) and is already
+          # this workflow's own ephemeral-material directory (every other
+          # step below that needs a scratch path uses `mkdir -p _tmp`), so
+          # nesting the private checkout at `_tmp/adgops-state` never appears
+          # in this repo's `git status` and is never reachable by "Commit
+          # data if changed" below, which `git add`s an explicit public-file
+          # list only — never `git add -A`/`.`.
+          path: _tmp/adgops-state
+          persist-credentials: true
+
       - name: Run scheduled helper (live fetch + lifecycle-safe merge)
         id: helper
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         shell: bash
+        env:
+          # WRKOPS t_20260910_adgops294 (R1-corrected): the private companion
+          # repo's working copy, checked out above at `_tmp/adgops-state`
+          # (relative to $GITHUB_WORKSPACE, per actions/checkout@v4's real
+          # path contract). `_tmp/` is already gitignored in this repo, so
+          # this never appears as an untracked path in this repo's git
+          # status, and "Commit data if changed" below can never stage it
+          # (it `git add`s an explicit public-file list only).
+          ADGOPS_INTERNAL_STATE_PATH: _tmp/adgops-state/state/licitaciones.json
         run: |
           set -euo pipefail
           mkdir -p _tmp
           # set -o pipefail: the helper's exit code propagates through tee, so a
-          # fail-closed refusal (EMPTY_FAILURE / partial candidate) fails the step
-          # instead of being masked by tee's own exit 0.
-          python tools/scheduled_fetch_merge.py --run-live --allow-production-write 2>&1 | tee _tmp/run_helper.log
+          # fail-closed refusal (EMPTY_FAILURE / partial candidate / missing or
+          # invalid internal state) fails the step instead of being masked by
+          # tee's own exit 0.
+          python tools/scheduled_fetch_merge.py --run-live --allow-production-write \
+            --internal-state-path "$ADGOPS_INTERNAL_STATE_PATH" 2>&1 | tee _tmp/run_helper.log
+
+      - name: Commit and push private internal state
+        id: statepush
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        shell: bash
+        working-directory: _tmp/adgops-state
+        run: |
+          # Must succeed before any public commit/push (handoff §2 steps
+          # 10-11, §5B): this step runs before "Commit data if changed" /
+          # "Push" below, and (like those steps' own plain `if:`) relies on
+          # GitHub Actions' default behaviour that a later step does not run
+          # once an earlier step in this job has failed. A failure here
+          # (auth, network, push rejected) therefore fails the whole run
+          # closed before the public artifact is ever committed or pushed.
+          # Diff-guarded: a no-change internal state produces no empty commit.
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/licitaciones.json
+          if git diff --cached --quiet; then
+            echo "no internal-state changes to commit"
+          else
+            git commit -m "state(auto/fetcher1-scheduled): update internal continuity state [run #${{ github.run_number }}]" \
+                        -m "Automation-ID: ${AUTOMATION_ID}"
+            git push
+          fi
 
       - name: Diagnostic only (dry_run=true)
         id: dryrun
