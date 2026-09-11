@@ -43,6 +43,10 @@ on:
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: fetch-licitaciones-${{ inputs.dry_run == 'true' && 'diagnostic' || 'production' }}
+      cancel-in-progress: ${{ inputs.dry_run == 'true' }}
     permissions:
       contents: write
     env:
@@ -165,6 +169,7 @@ jobs:
       - name: Run scheduled helper (live fetch + lifecycle-safe merge)
         id: helper
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        timeout-minutes: 10
         shell: bash
         env:
           # WRKOPS t_20260910_adgops294 (R1-corrected): the private companion
