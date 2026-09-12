@@ -241,11 +241,73 @@ jobs:
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         run: |
           git diff --stat
-          if git diff --quiet -- data/licitaciones.json; then
-            echo "MONOLITH_CHANGED=false" >> "$GITHUB_ENV"
-          else
-            echo "MONOLITH_CHANGED=true" >> "$GITHUB_ENV"
-          fi
+          # F-14 (WRKOPS t_20260912_adgops298): MONOLITH_CHANGED means the
+          # canonical public dataset CONTENT changed, authorized exclusively
+          # by meta.dataset_sha256 -- never raw serialized file bytes, and
+          # never volatile metadata (dataset_generated_at, generation_id,
+          # source_retrieved_at) or Git working-tree dirtiness alone. Both
+          # the current and committed hash authorities are validated
+          # strictly; any missing/malformed/unreadable authority fails this
+          # step (and therefore the whole run, via the runner's default
+          # `set -e`) closed -- it is never silently converted to 'false'.
+          python - <<'PYEOF'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+
+          HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+
+          def fail(msg):
+              print(f"::error::[diffsummary] {msg}", file=sys.stderr)
+              sys.exit(1)
+
+          def extract_hash(label, payload):
+              if not isinstance(payload, dict):
+                  fail(f"{label}: top-level JSON is not an object")
+              meta = payload.get("meta")
+              if not isinstance(meta, dict):
+                  fail(f"{label}: missing 'meta' object")
+              value = meta.get("dataset_sha256")
+              if not isinstance(value, str) or not HEX64_RE.fullmatch(value):
+                  fail(f"{label}: meta.dataset_sha256 missing, non-string, or not a "
+                       f"64-hex-character SHA-256 digest")
+              return value
+
+          try:
+              with open("data/licitaciones.json", "r", encoding="utf-8") as fh:
+                  current_raw = fh.read()
+          except OSError as exc:
+              fail(f"failed to read working-tree data/licitaciones.json: {exc}")
+
+          try:
+              current_payload = json.loads(current_raw)
+          except ValueError as exc:
+              fail(f"working-tree data/licitaciones.json is not valid JSON: {exc}")
+
+          proc = subprocess.run(
+              ["git", "show", "HEAD:data/licitaciones.json"],
+              capture_output=True, text=True,
+          )
+          if proc.returncode != 0:
+              fail("failed to retrieve committed data/licitaciones.json via "
+                   "'git show HEAD:data/licitaciones.json': " + proc.stderr.strip())
+
+          try:
+              committed_payload = json.loads(proc.stdout)
+          except ValueError as exc:
+              fail(f"committed data/licitaciones.json (HEAD) is not valid JSON: {exc}")
+
+          current_hash = extract_hash("current working-tree dataset", current_payload)
+          committed_hash = extract_hash("committed (HEAD) dataset", committed_payload)
+
+          changed = "true" if current_hash != committed_hash else "false"
+          with open(os.environ["GITHUB_ENV"], "a") as fh:
+              fh.write(f"MONOLITH_CHANGED={changed}\n")
+          print(f"[diffsummary] current dataset_sha256={current_hash} "
+                f"committed dataset_sha256={committed_hash} MONOLITH_CHANGED={changed}")
+          PYEOF
 
       - name: Build data shards (freshness sync)
         id: shards
@@ -655,15 +717,21 @@ jobs:
 
       - name: Commit data if changed
         id: commit
-        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
         shell: bash
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/licitaciones.json data/licitaciones_manifest.json data/licitaciones_2026.json data/licitaciones_2025.json data/licitaciones_2024.json data/licitaciones_archive.json
           if git diff --cached --quiet; then
-            echo "no data changes to commit"
-            echo "DATA_CHANGED=false" >> "$GITHUB_ENV"
+            # F-14 (WRKOPS t_20260912_adgops298): this step now runs only
+            # when MONOLITH_CHANGED == 'true' (canonical dataset CONTENT
+            # changed per meta.dataset_sha256), so an empty staged diff here
+            # contradicts the content gate that authorized the step to run
+            # at all -- fail closed as an invariant violation rather than
+            # the pre-F-14 behaviour of succeeding with DATA_CHANGED=false.
+            echo "::error::[commit] MONOLITH_CHANGED=true but the six-file public staging surface is empty (invariant violation)"
+            exit 1
           else
             # A commit is created only when the helper succeeded, validation passed and
             # data changed — so the commit-time operational status is, by construction,
@@ -685,7 +753,7 @@ jobs:
 
       - name: Push
         id: push
-        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.DATA_CHANGED == 'true'
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true' && env.DATA_CHANGED == 'true'
         run: |
           git push
 

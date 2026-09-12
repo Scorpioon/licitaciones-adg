@@ -32,8 +32,10 @@ not touched. Final line:
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import types
@@ -2277,6 +2279,328 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         # Both prior trust paths are fully removed.
         self.assertNotIn("read -r TAG", step_block)
         self.assertNotIn('PARSED="$(python', step_block)
+
+
+# =============================================================================
+# F-14 (WRKOPS t_20260912_adgops298): monolith content-change publication
+# gate. Locks the meta.dataset_sha256-based MONOLITH_CHANGED authority that
+# replaced the removed raw `git diff --quiet -- data/licitaciones.json`
+# byte-diff, its fail-closed hash validation, and the commit/push gate
+# predicates that now consume it (Prompt 297 R1 / F14_MONOLITH_COMMIT_GATE_V1).
+#
+# Static text-level checks (below) lock the workflow shape, following the
+# p267/D-03 pattern above. The functional checks execute the ACTUAL
+# diffsummary inline script extracted from fetch.yml -- not a
+# reimplementation -- with `git show` replaced by a deterministic stub
+# (tools/scheduled_fetch_merge.py is intentionally left untouched; this is a
+# test-local harness only, per the task's guidance to prefer that over a new
+# production module).
+# =============================================================================
+
+DIFFSUMMARY_HEREDOC_MARKER = "<<'PYEOF'\n"
+DIFFSUMMARY_INDENT = " " * 10
+
+
+def _load_diffsummary_source():
+    """Extracts and de-indents the actual inline Python source of the F-14
+    diffsummary classifier from fetch.yml, between id: diffsummary's
+    <<'PYEOF' heredoc markers. Raises if a line isn't indented the way this
+    workflow file's YAML block scalar requires, so a shape drift fails loudly
+    instead of silently extracting the wrong text."""
+    text = FETCH_YML_PATH.read_text(encoding="utf-8")
+    i = text.index("id: diffsummary")
+    marker_pos = text.index(DIFFSUMMARY_HEREDOC_MARKER, i)
+    start = marker_pos + len(DIFFSUMMARY_HEREDOC_MARKER)
+    end = text.index("\n" + DIFFSUMMARY_INDENT + "PYEOF", start)
+    block = text[start:end]
+    dedented = []
+    for line in block.split("\n"):
+        if line == "":
+            dedented.append("")
+        elif line.startswith(DIFFSUMMARY_INDENT):
+            dedented.append(line[len(DIFFSUMMARY_INDENT):])
+        else:
+            raise AssertionError(f"diffsummary heredoc line under-indented: {line!r}")
+    return "\n".join(dedented) + "\n"
+
+
+class _StubCompletedProcess:
+    def __init__(self, returncode, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def _run_diffsummary(tmp_dir, current_text, committed_text=None,
+                      git_returncode=0, git_stderr=""):
+    """Executes the real diffsummary source (see _load_diffsummary_source)
+    against a synthetic working-tree data/licitaciones.json, with the
+    script's own `subprocess.run(["git", "show", ...])` call replaced by a
+    deterministic stub so this never shells out to a real git process or
+    touches the real repository. `current_text=None` leaves the working-tree
+    file unwritten, to exercise the missing/unreadable-file path.
+
+    Returns (exit_code_or_None, github_env_text, stdout_text, stderr_text,
+    git_calls)."""
+    source = _load_diffsummary_source()
+    tmp_path = Path(tmp_dir)
+    (tmp_path / "data").mkdir(exist_ok=True)
+    if current_text is not None:
+        (tmp_path / "data" / "licitaciones.json").write_text(current_text, encoding="utf-8")
+    github_env_path = tmp_path / "github_env.txt"
+    github_env_path.write_text("", encoding="utf-8")
+
+    calls = []
+
+    def fake_run(argv, capture_output=None, text=None):
+        calls.append(list(argv))
+        return _StubCompletedProcess(
+            git_returncode,
+            stdout=committed_text if committed_text is not None else "",
+            stderr=git_stderr,
+        )
+
+    original_run = subprocess.run
+    original_cwd = os.getcwd()
+    original_github_env = os.environ.get("GITHUB_ENV")
+    subprocess.run = fake_run
+    os.chdir(tmp_path)
+    os.environ["GITHUB_ENV"] = str(github_env_path)
+    out, err = io.StringIO(), io.StringIO()
+    exit_code = None
+    try:
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                exec(compile(source, "<diffsummary>", "exec"),
+                     {"__name__": "__diffsummary_under_test__"})
+            except SystemExit as exc:
+                exit_code = exc.code
+    finally:
+        subprocess.run = original_run
+        os.chdir(original_cwd)
+        if original_github_env is None:
+            os.environ.pop("GITHUB_ENV", None)
+        else:
+            os.environ["GITHUB_ENV"] = original_github_env
+
+    return exit_code, github_env_path.read_text(encoding="utf-8"), out.getvalue(), err.getvalue(), calls
+
+
+class P298F14MonolithContentGateTests(unittest.TestCase):
+    """F-14 / WRKOPS t_20260912_adgops298 content-change publication gate."""
+
+    HASH_A = "a" * 64
+    HASH_B = "b" * 64
+
+    @staticmethod
+    def _workflow_text():
+        return FETCH_YML_PATH.read_text(encoding="utf-8")
+
+    @staticmethod
+    def _dataset(dataset_sha256, extra_meta=None, records=None):
+        meta = {"dataset_sha256": dataset_sha256}
+        if extra_meta:
+            meta.update(extra_meta)
+        return json.dumps({"meta": meta, "data": records if records is not None else []})
+
+    # --- static workflow-shape invariants -----------------------------------
+
+    def test_f14_raw_byte_diff_removed_as_semantic_authority(self):
+        self.assertNotIn(
+            "git diff --quiet -- data/licitaciones.json", self._workflow_text())
+
+    def test_f14_diffsummary_classifies_by_dataset_sha256(self):
+        text = self._workflow_text()
+        i = text.index("id: diffsummary")
+        j = text.index("id: shards", i)
+        step_block = text[i:j]
+        self.assertIn("dataset_sha256", step_block)
+        self.assertIn("git diff --stat", step_block)  # kept per §3
+        self.assertIn('os.environ["GITHUB_ENV"]', step_block)
+
+    def test_f14_commit_requires_monolith_changed(self):
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        if_start = text.index("if:", i)
+        if_line = text[if_start:text.index("\n", if_start)]
+        self.assertIn("env.MONOLITH_CHANGED == 'true'", if_line)
+        self.assertIn("env.RUN_FETCH == 'true'", if_line)
+        self.assertIn("env.DRY_RUN_MODE == 'false'", if_line)
+
+    def test_f14_push_requires_monolith_and_data_changed(self):
+        text = self._workflow_text()
+        i = text.index("id: push")
+        if_start = text.index("if:", i)
+        if_line = text[if_start:text.index("\n", if_start)]
+        self.assertIn("env.MONOLITH_CHANGED == 'true'", if_line)
+        self.assertIn("env.DATA_CHANGED == 'true'", if_line)
+        self.assertIn("env.RUN_FETCH == 'true'", if_line)
+        self.assertIn("env.DRY_RUN_MODE == 'false'", if_line)
+
+    def test_f14_push_command_unchanged_no_force(self):
+        text = self._workflow_text()
+        i = text.index("id: push")
+        step_block = text[i:i + 400]
+        self.assertIn("git push", step_block)
+        self.assertNotIn("--force", step_block)
+        self.assertNotIn("-f ", step_block)
+
+    def test_f14_six_file_staging_surface_unchanged(self):
+        self.assertIn(
+            "git add data/licitaciones.json data/licitaciones_manifest.json "
+            "data/licitaciones_2026.json data/licitaciones_2025.json "
+            "data/licitaciones_2024.json data/licitaciones_archive.json",
+            self._workflow_text())
+
+    def test_f14_no_broad_git_staging_introduced(self):
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        j = text.index("id: push", i)
+        step_block = text[i:j]
+        self.assertNotIn("git add -A", step_block)
+        self.assertNotIn("git add .", step_block)
+        self.assertNotIn("git add --all", step_block)
+
+    def test_f14_empty_staged_diff_fails_closed_not_datachanged_false(self):
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        j = text.index("id: push", i)
+        step_block = text[i:j]
+        # The forbidden-executable scan runs against a comment-aware
+        # projection (blank lines and lines whose first non-whitespace
+        # character is "#" excluded), not against the raw step_block text,
+        # so an explanatory comment that merely *names* the pre-F-14
+        # behaviour (e.g. "...succeeding with DATA_CHANGED=false.") cannot
+        # itself trip the check -- only an executable assignment can.
+        executable_lines = [
+            line for line in step_block.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        executable_step_block = "\n".join(executable_lines)
+        self.assertNotIn("DATA_CHANGED=false", executable_step_block)
+        self.assertIn("exit 1", executable_step_block)
+
+    def test_f14_derivative_gates_still_monolith_gated(self):
+        text = self._workflow_text()
+        for step_id in ("id: shards", "id: shardvalidate", "id: privacyreport"):
+            i = text.index(step_id)
+            if_start = text.index("if:", i)
+            if_line = text[if_start:text.index("\n", if_start)]
+            self.assertIn("env.MONOLITH_CHANGED == 'true'", if_line)
+
+    def test_f14_transaction_order_unchanged(self):
+        text = self._workflow_text()
+        ids = ["id: time_guard", "id: statecheckout", "id: helper", "id: statepush",
+               "id: validate", "id: diffsummary", "id: shards", "id: shardvalidate",
+               "id: privacyreport", "id: commit", "id: push"]
+        positions = [text.index(step_id) for step_id in ids]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_f14_f07_concurrency_and_timeout_contract_unchanged(self):
+        text = self._workflow_text()
+        self.assertIn("timeout-minutes: 20", text)
+        self.assertIn("timeout-minutes: 10", text)
+        self.assertIn(
+            "group: fetch-licitaciones-${{ inputs.dry_run == 'true' && "
+            "'diagnostic' || 'production' }}",
+            text)
+        self.assertIn(
+            "cancel-in-progress: ${{ inputs.dry_run == 'true' }}", text)
+
+    # --- functional: executes the actual embedded classifier source --------
+
+    def test_f14_identical_hash_different_volatile_metadata_is_unchanged(self):
+        current = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-12T00:00:00Z",
+                                               "generation_id": "gen-X"})
+        committed = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-01T00:00:00Z",
+                                                 "generation_id": "gen-Y"})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current, committed_text=committed)
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=false", env_text)
+
+    def test_f14_different_hash_classifies_changed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_B))
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=true", env_text)
+
+    def test_f14_missing_current_hash_fails_closed(self):
+        current = json.dumps({"meta": {}, "data": []})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, current, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("current working-tree dataset", err)
+
+    def test_f14_missing_committed_hash_fails_closed(self):
+        committed = json.dumps({"meta": {}, "data": []})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=committed)
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("committed (HEAD) dataset", err)
+
+    def test_f14_malformed_current_hash_wrong_length_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset("short"), committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+
+    def test_f14_malformed_current_hash_non_hex_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset("z" * 64), committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+
+    def test_f14_current_hash_non_string_fails_closed(self):
+        current = json.dumps({"meta": {"dataset_sha256": 12345}, "data": []})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+
+    def test_f14_malformed_current_json_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, err, _calls = _run_diffsummary(
+                tmp, "{ not valid json,,,", committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertIn("not valid JSON", err)
+
+    def test_f14_malformed_committed_json_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text="{ not valid json,,,")
+            self.assertEqual(exit_code, 1)
+            self.assertIn("HEAD", err)
+
+    def test_f14_missing_current_file_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, current_text=None, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("failed to read working-tree data/licitaciones.json", err)
+
+    def test_f14_git_show_failure_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text="",
+                git_returncode=128, git_stderr="fatal: bad object HEAD")
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("git show HEAD:data/licitaciones.json", err)
+
+    def test_f14_git_show_invocation_targets_head(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _exit_code, _env, _out, _err, calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(calls, [["git", "show", "HEAD:data/licitaciones.json"]])
 
 
 # ---------------------------------------------------------------------------
