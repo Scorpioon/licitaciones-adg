@@ -5,11 +5,22 @@ tools/link_check_resolver.py  (ADG-OPS / WRKOPS t_20260914_adgops306 / v0.7.4ad)
 
 IB-5 Phase A dedicated link-check resolver -- SOURCE IMPLEMENTATION ONLY.
 
-Reads already-known public records (a JSON array of `public_id`/`id`/
-`documents[]` objects, the same shape `tools.scheduled_fetch_merge
-.canonicalize_and_project()` produces), selects a deterministic, bounded set
-of http(s) document-URL candidates, and probes each one over HTTP(S) to
+Reads already-known public records, selects a deterministic, bounded set of
+http(s) document-URL candidates, and probes each one over HTTP(S) to
 produce a CANDIDATE `adgops.link_checks/1` sidecar manifest.
+
+CLI input contract (--input): accepts EITHER a bare JSON array of
+`public_id`/`id`/`documents[]` record objects (the shape
+`tools.scheduled_fetch_merge.canonicalize_and_project()` produces), OR the
+canonical persisted artifact envelope `{"meta": {...}, "data": [record,
+...]}` -- the exact shape `tools/scheduled_fetch_merge.py`'s --run-live
+writer persists to data/licitaciones.json (`{"meta": public_meta, "data":
+public_records}`). Both forms yield the same record list; any other
+top-level shape is rejected fail-closed with `unrecognized_input_envelope`.
+Note: current production data predates `public_id` on every record, so
+feeding it as --input today selects zero candidates and the run fails
+closed with `no_candidates_selected` -- this resolver does not mint or
+backfill `public_id`.
 
 This module MUST NOT and does not:
   - perform a real network run as part of this task's own validation (its
@@ -317,6 +328,29 @@ def resolve_url(url, timeout, resolver=socket.getaddrinfo, max_range_bytes=MAX_R
 # Deterministic candidate selection (handoff §7)
 # --------------------------------------------------------------------------- #
 
+def normalize_link_check_input(raw: Any) -> list:
+    """Normalizes the resolver's --input JSON into a list of public records
+    (Prompt 309, IB-5 Phase A-bis input-contract correction). Accepts either:
+
+      1. a bare list: `[record, ...]`
+      2. the canonical persisted artifact envelope:
+         `{"meta": {...}, "data": [record, ...]}`
+         -- the exact shape `tools/scheduled_fetch_merge.py`'s --run-live
+         writer persists (`{"meta": public_meta, "data": public_records}`).
+
+    Records are never derived from any other key. Any other top-level shape
+    -- including an object missing `data`, or whose `data` is not a list --
+    is rejected fail-closed with the stable reason
+    `unrecognized_input_envelope`. Never mutates `raw`."""
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):
+        data = raw.get("data")
+        if isinstance(data, list):
+            return data
+    raise LinkCheckContractError("unrecognized_input_envelope")
+
+
 def select_candidates(public_records: Any, limit: int) -> list:
     """Returns up to `limit` (public_id, record_id, doc, url) tuples,
     deterministically ordered by (public_id, document_identity_key(doc)) --
@@ -492,15 +526,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="link_check_resolver.py",
         description=(
-            f"IB-5 Phase A link-check resolver (ADG-OPS {VERSION}). Reads a "
-            "JSON array of already-known public records (public_id/id/"
-            f"documents[]) and produces a CANDIDATE {SCHEMA} sidecar. Never "
+            f"IB-5 Phase A link-check resolver (ADG-OPS {VERSION}). Reads "
+            "already-known public records (public_id/id/documents[]) as "
+            "either a bare JSON array or the canonical {meta,data} artifact "
+            f"envelope, and produces a CANDIDATE {SCHEMA} sidecar. Never "
             "commits, pushes, or writes production/private state."
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     ap.add_argument("--input", required=True, metavar="PATH",
-                     help="Path to a JSON array of already-known public records.")
+                     help="Path to a JSON array of already-known public records, "
+                          "or the canonical {meta,data} artifact envelope "
+                          "(e.g. data/licitaciones.json's persisted shape).")
     ap.add_argument("--output", required=True, metavar="PATH",
                      help="Output path for the CANDIDATE sidecar manifest.")
     ap.add_argument("--limit", type=int, default=50,
@@ -524,15 +561,31 @@ def main(argv=None) -> int:
 
     try:
         with open(args.input, encoding="utf-8") as f:
-            public_records = json.load(f)
+            raw_input = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
         print(f"[LINK-CHECK BLOCKED] cannot read --input: {e}", file=sys.stderr)
+        return 1
+
+    try:
+        public_records = normalize_link_check_input(raw_input)
+    except LinkCheckContractError as e:
+        print(f"[LINK-CHECK BLOCKED] {e.reason}", file=sys.stderr)
         return 1
 
     try:
         candidates = select_candidates(public_records, args.limit)
     except LinkCheckContractError as e:
         print(f"[LINK-CHECK BLOCKED] {e.reason}", file=sys.stderr)
+        return 1
+
+    if not candidates:
+        # Prompt 309 §4.B: a zero-candidate run is never a false-green
+        # success -- fail closed before any network execution, with a
+        # stable reason token, non-zero exit, and no sidecar written,
+        # regardless of *why* selection produced zero candidates (missing
+        # public_id, missing/invalid id, missing/invalid documents, no
+        # usable http(s) URL, ...).
+        print("[LINK-CHECK BLOCKED] no_candidates_selected", file=sys.stderr)
         return 1
 
     run_id = uuid.uuid4().hex

@@ -409,6 +409,64 @@ class ESidecarContractTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------- #
+# F0. Input-envelope normalization (Prompt 309 §4.A): the resolver's --input
+# must accept both the pre-existing bare-list form and the canonical
+# persisted artifact envelope. The envelope fixture below mirrors the exact
+# shape `tools/scheduled_fetch_merge.py`'s --run-live writer persists to
+# data/licitaciones.json: `{"meta": public_meta, "data": public_records}`
+# (see tools/scheduled_fetch_merge.py, write_json(PRODUCTION_PATH, {"meta":
+# public_meta, "data": public_records})). This is a test of the resolver's
+# input contract, not a modification of that writer.
+# --------------------------------------------------------------------------- #
+
+class F0InputEnvelopeTests(unittest.TestCase):
+
+    def _record(self, pid, rid, urls):
+        return {
+            "public_id": pid, "id": rid,
+            "documents": [{"title": "D", "url": u, "document_type": "generic_doc",
+                           "notice_id": "N", "notice_type": "PUB"} for u in urls],
+        }
+
+    def test_bare_list_accepted(self):
+        recs = [self._record("pid-1", "rec-1", ["https://example.org/a"])]
+        self.assertEqual(lcr.normalize_link_check_input(recs), recs)
+
+    def test_canonical_envelope_matches_writer_shape_and_yields_same_selection(self):
+        recs = [self._record("pid-1", "rec-1", ["https://example.org/a"])]
+        envelope = {
+            "meta": {"schema": "adgops.public.licitaciones/1", "generation_id": "g1"},
+            "data": recs,
+        }
+        normalized = lcr.normalize_link_check_input(envelope)
+        self.assertEqual(normalized, recs)
+        self.assertEqual(
+            lcr.select_candidates(normalized, 50),
+            lcr.select_candidates(recs, 50),
+        )
+        # normalize_link_check_input() must not mutate its input.
+        self.assertIn("data", envelope)
+        self.assertEqual(envelope["data"], recs)
+
+    def test_envelope_missing_data_rejected(self):
+        with self.assertRaises(lcr.LinkCheckContractError) as cm:
+            lcr.normalize_link_check_input({"meta": {}})
+        self.assertEqual(cm.exception.reason, "unrecognized_input_envelope")
+
+    def test_envelope_non_list_data_rejected(self):
+        with self.assertRaises(lcr.LinkCheckContractError) as cm:
+            lcr.normalize_link_check_input({"meta": {}, "data": {"not": "a list"}})
+        self.assertEqual(cm.exception.reason, "unrecognized_input_envelope")
+
+    def test_arbitrary_top_level_shapes_rejected(self):
+        for bad in ("a string", 42, None, True):
+            with self.subTest(bad=bad):
+                with self.assertRaises(lcr.LinkCheckContractError) as cm:
+                    lcr.normalize_link_check_input(bad)
+                self.assertEqual(cm.exception.reason, "unrecognized_input_envelope")
+
+
+# --------------------------------------------------------------------------- #
 # F. Deterministic candidate selection (handoff §7)
 # --------------------------------------------------------------------------- #
 
@@ -545,6 +603,67 @@ class GMainCliTests(unittest.TestCase):
         bad_path.write_text("{ not valid json,,,", encoding="utf-8")
         output_path = self.tmp / "out.json"
         code = lcr.main(["--input", str(bad_path), "--output", str(output_path)])
+        self.assertEqual(code, 1)
+        self.assertFalse(output_path.exists())
+
+    def test_unrecognized_envelope_exits_nonzero_without_writing_output(self):
+        bad_path = self.tmp / "bad_envelope.json"
+        bad_path.write_text(json.dumps({"meta": {}}), encoding="utf-8")
+        output_path = self.tmp / "out.json"
+        code = lcr.main(["--input", str(bad_path), "--output", str(output_path)])
+        self.assertEqual(code, 1)
+        self.assertFalse(output_path.exists())
+
+    def test_canonical_envelope_reaches_normal_candidate_processing(self):
+        """CLI/main fed the canonical {meta,data} artifact envelope with a
+        valid projected record reaches normal candidate processing directly
+        -- no separate adapter file is required (Prompt 309 §4.A/§5.5)."""
+        def fake_resolve(url, timeout, resolver=None, max_range_bytes=None, max_redirects=None):
+            return "HEAD", 200, url, "REACHABLE", None, None
+        lcr.resolve_url = fake_resolve
+
+        records = json.loads(self._write_input(2).read_text(encoding="utf-8"))
+        envelope_path = self.tmp / "envelope_input.json"
+        envelope_path.write_text(
+            json.dumps({"meta": {"schema": "adgops.public.licitaciones/1"}, "data": records}),
+            encoding="utf-8",
+        )
+        output_path = self.tmp / "out.json"
+        code = lcr.main(["--input", str(envelope_path), "--output", str(output_path), "--sleep", "0"])
+        self.assertEqual(code, 0)
+        sidecar = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(sidecar["observations"]), 2)
+        lcr.validate_link_check_sidecar(sidecar)
+
+    def test_envelope_records_missing_public_id_fails_closed_no_candidates(self):
+        """A canonical envelope whose records lack `public_id` (as current
+        production data does, pending Option C) must fail closed with
+        `no_candidates_selected`, non-zero exit, and no output sidecar --
+        never a schema-valid empty sidecar / exit 0 false-green."""
+        records = [{
+            "id": "rec-0",
+            "documents": [{"title": "D", "url": "https://example.org/doc-0.pdf",
+                           "document_type": "generic_doc", "notice_id": "N0",
+                           "notice_type": "PUB"}],
+        }]
+        envelope_path = self.tmp / "no_public_id.json"
+        envelope_path.write_text(
+            json.dumps({"meta": {"schema": "adgops.public.licitaciones/1"}, "data": records}),
+            encoding="utf-8",
+        )
+        output_path = self.tmp / "out.json"
+        code = lcr.main(["--input", str(envelope_path), "--output", str(output_path)])
+        self.assertEqual(code, 1)
+        self.assertFalse(output_path.exists())
+
+    def test_bare_list_zero_candidates_fails_closed_no_sidecar(self):
+        """Any other zero-candidate selection path (here: no usable http(s)
+        document URL) likewise cannot exit 0 with an empty sidecar."""
+        records = [{"public_id": "pid-0", "id": "rec-0", "documents": []}]
+        input_path = self.tmp / "no_urls.json"
+        input_path.write_text(json.dumps(records), encoding="utf-8")
+        output_path = self.tmp / "out.json"
+        code = lcr.main(["--input", str(input_path), "--output", str(output_path)])
         self.assertEqual(code, 1)
         self.assertFalse(output_path.exists())
 
