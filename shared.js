@@ -2,7 +2,8 @@
  * ADG Plataforma Digital -- shared.js
  * b4.0 -- Mar 2026
  * Role: Shared UI components -- FichaPanel, TrafficLight, ToggleSwitch,
- *       AlertasStub. Available on all pages after app.js.
+ *       AlertasStub, plus the p307 under-construction entry notice.
+ *       Available on all pages after app.js.
  * Page: All pages (loaded second, after app.js, before page script)
  * Depends on: app.js -- bare globals: DISC, TERR, ADG
  *             app.js -- ADG_Utils: el, t, fmt, fmtFull, daysTo, isNew,
@@ -10,6 +11,11 @@
  * Exports: window.ADG_Shared
  *
  * CHANGELOG (newest first)
+ * 0.7.4ae Sep 2026 p307 under-construction entry notice: self-contained,
+ *                  dependency-free modal injected on entry to every public
+ *                  page, acknowledged once per browser session via a
+ *                  versioned sessionStorage key. No HTML, data, workflow
+ *                  or dependency change.
  * 0.7.1v Aug 2026 p272 document inventory: deterministic role labels, dedupe and
  *                  ordering over r.documents; two processing states only
  *                  (inventory / resolved); strict https: link rule; factual
@@ -23,6 +29,154 @@
  *                 AlertasStub. Components available but not yet wired
  *                 to existing pages (Phase 2+).
  */
+
+/* ── p307 · UNDER-CONSTRUCTION ENTRY NOTICE ──────────────────────────────────
+   Temporary review-safety notice shown once per browser session on entry to
+   any normal public page. Deliberately self-contained: it does NOT read
+   ADG_Utils / ADG / the I18N layer, so it still renders if app.js is missing
+   or failed, and it exports nothing onto window. No network, no cookie, no
+   analytics, no dependency. Remove this block (and the matching style.css
+   section) when the site leaves review mode. */
+;(function () {
+'use strict';
+
+var ACK_KEY   = 'adgops_under_construction_ack_v1';
+var ROOT_ID   = 'adgops-uc-notice';
+var TITLE_ID  = 'adgops-uc-notice-title';
+var BODY_ID   = 'adgops-uc-notice-body';
+var LOCK_CLS  = 'adgops-uc-notice-lock';
+
+var COPY_TITLE  = 'Página en construcción';
+var COPY_BODY   = 'Esta web está actualmente en construcción y se comparte únicamente para revisión y feedback. Algunas funciones, datos o contenidos pueden estar incompletos, contener errores o no funcionar correctamente. Por favor, continúa con cautela y responsabilidad.';
+var COPY_BUTTON = 'De acuerdo, continuar';
+
+// Storage is advisory only. If sessionStorage is missing, disabled or throws
+// (private modes, blocked storage, sandboxed file://), we fail toward SHOWING
+// the notice rather than silently suppressing it.
+function isAcknowledged() {
+  try {
+    return window.sessionStorage.getItem(ACK_KEY) === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+function rememberAcknowledgement() {
+  try {
+    window.sessionStorage.setItem(ACK_KEY, '1');
+  } catch (e) {
+    // Non-fatal: the notice simply reappears on the next entry.
+  }
+}
+
+function buildNotice() {
+  var overlay = document.createElement('div');
+  overlay.id = ROOT_ID;
+  overlay.className = 'adgops-uc-notice';
+
+  var panel = document.createElement('div');
+  panel.className = 'adgops-uc-notice__panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', TITLE_ID);
+  panel.setAttribute('aria-describedby', BODY_ID);
+
+  var title = document.createElement('h2');
+  title.id = TITLE_ID;
+  title.className = 'adgops-uc-notice__title';
+  title.textContent = COPY_TITLE;
+
+  var body = document.createElement('p');
+  body.id = BODY_ID;
+  body.className = 'adgops-uc-notice__body';
+  body.textContent = COPY_BODY;
+
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'adgops-uc-notice__btn';
+  btn.textContent = COPY_BUTTON;
+
+  panel.appendChild(title);
+  panel.appendChild(body);
+  panel.appendChild(btn);
+  overlay.appendChild(panel);
+
+  return { overlay: overlay, panel: panel, btn: btn };
+}
+
+function showNotice() {
+  if (isAcknowledged()) return;
+  if (document.getElementById(ROOT_ID)) return;
+  if (!document.body) return;
+
+  var parts   = buildNotice();
+  var overlay = parts.overlay, panel = parts.panel, btn = parts.btn;
+
+  var prevFocus = document.activeElement;
+  var root      = document.documentElement;
+
+  // The only dismissal path is the acknowledgement button: no backdrop click
+  // handler, no close icon, no Escape handler that closes.
+  function onKeydown(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof btn.focus === 'function') btn.focus();
+    }
+  }
+
+  // Minimal focus containment: the panel holds exactly one focusable node, so
+  // any focus that escapes it (Tab / Shift+Tab / background click) is pulled
+  // straight back to the acknowledgement button.
+  function onFocusIn(e) {
+    if (!panel.contains(e.target)) {
+      e.stopPropagation();
+      if (typeof btn.focus === 'function') btn.focus();
+    }
+  }
+
+  function acknowledge() {
+    rememberAcknowledgement();
+
+    document.removeEventListener('keydown', onKeydown, true);
+    document.removeEventListener('focusin', onFocusIn, true);
+
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+
+    if (root) root.classList.remove(LOCK_CLS);
+    if (document.body) document.body.classList.remove(LOCK_CLS);
+
+    // Restore focus only to a still-connected, meaningful prior target.
+    if (prevFocus && prevFocus !== document.body && typeof prevFocus.focus === 'function' &&
+        document.contains(prevFocus)) {
+      try { prevFocus.focus(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  btn.addEventListener('click', acknowledge);
+  document.addEventListener('keydown', onKeydown, true);
+  document.addEventListener('focusin', onFocusIn, true);
+
+  document.body.appendChild(overlay);
+
+  // Lock the background scroller on both scrollers used across the site
+  // (html/body); restored in acknowledge().
+  if (root) root.classList.add(LOCK_CLS);
+  document.body.classList.add(LOCK_CLS);
+
+  if (typeof btn.focus === 'function') btn.focus();
+}
+
+// shared.js is loaded at end-of-body (or deferred) on every public page, so
+// the body normally exists already; the guard covers any future head/async load.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', showNotice);
+} else {
+  showNotice();
+}
+
+})();
+
 ;(function () {
 'use strict';
 
