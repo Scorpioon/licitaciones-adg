@@ -867,6 +867,59 @@ class PBookkeepingTests(unittest.TestCase):
         self.assertEqual(result[0]["internal_bookkeeping_marker"], "keep-me")
 
 
+# --------------------------------------------------------------------------- #
+# Q. document_identity_key() public wrapper (WRKOPS t_20260914_adgops306 §5,
+# IB-5 Phase A). Proves exact equivalence to the private _doc_identity_key()
+# implementation for the three cases the handoff names, plus the tuple-shape
+# contract new external callers (the link-check resolver/overlay) depend on.
+# --------------------------------------------------------------------------- #
+
+class QDocumentIdentityKeyWrapperTests(unittest.TestCase):
+
+    def test_wrapper_matches_private_implementation_for_url_document(self):
+        doc = {"title": "Doc", "url": "https://example.org/d", "document_type": "generic_doc",
+                "notice_id": "N1", "notice_type": "PUB"}
+        self.assertEqual(ctm.document_identity_key(doc), ctm._doc_identity_key(doc))
+
+    def test_wrapper_matches_private_implementation_for_content_document(self):
+        doc = {"title": "Doc", "document_type": "generic_doc", "notice_id": "N1"}  # no url
+        self.assertEqual(ctm.document_identity_key(doc), ctm._doc_identity_key(doc))
+
+    def test_wrapper_distinguishes_near_duplicates_by_notice_type(self):
+        base = {"title": "Same resource", "url": "https://example.org/same",
+                "document_type": "generic_doc", "notice_id": "N1"}
+        a = dict(base, notice_type="EV")
+        b = dict(base, notice_type="AWARD")
+        key_a = ctm.document_identity_key(a)
+        key_b = ctm.document_identity_key(b)
+        self.assertNotEqual(key_a, key_b)
+        self.assertEqual(key_a, ctm._doc_identity_key(a))
+        self.assertEqual(key_b, ctm._doc_identity_key(b))
+
+    def test_wrapper_url_canonicalization_equivalence(self):
+        # Differing only by host case / explicit default port -- must still
+        # produce the identical identity key via the shared canonicalization.
+        a = {"title": "Doc", "url": "https://Example.ORG:443/d", "document_type": "generic_doc",
+             "notice_id": "N1", "notice_type": "PUB"}
+        b = {"title": "Doc", "url": "https://example.org/d", "document_type": "generic_doc",
+             "notice_id": "N1", "notice_type": "PUB"}
+        self.assertEqual(ctm.document_identity_key(a), ctm.document_identity_key(b))
+
+    def test_wrapper_is_a_tuple_of_strings(self):
+        doc = {"title": "Doc", "url": "https://example.org/d", "document_type": "generic_doc",
+                "notice_id": "N1", "notice_type": "PUB"}
+        key = ctm.document_identity_key(doc)
+        self.assertIsInstance(key, tuple)
+        self.assertTrue(all(isinstance(x, str) for x in key))
+
+    def test_wrapper_does_not_mutate_input(self):
+        doc = {"title": "Doc", "url": "https://example.org/d", "document_type": "generic_doc",
+                "notice_id": "N1", "notice_type": "PUB"}
+        frozen = copy.deepcopy(doc)
+        ctm.document_identity_key(doc)
+        self.assertEqual(doc, frozen)
+
+
 def main() -> int:
     verbose = any(a in ("-v", "--verbose") for a in sys.argv[1:])
     loader = unittest.TestLoader()

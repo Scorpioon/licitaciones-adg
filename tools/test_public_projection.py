@@ -36,6 +36,7 @@ Final line:
   PUBLIC_PROJECTION TESTS: FAIL (N cases)
 """
 
+import copy
 import json
 import sys
 import unittest
@@ -46,6 +47,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import tools.public_projection as ppj  # noqa: E402
+import tools.canonical_tender_merge as ctm  # noqa: E402
 
 FIXTURE_PATH = REPO_ROOT / "tools" / "fixtures" / "doc_ref_conformance_v1.json"
 
@@ -1506,6 +1508,133 @@ class MNullToAbsenceCorrectionTests(unittest.TestCase):
         applied_doc_a = next(d for d in applied["data"][0]["documents"] if d["url"] == URL_PROD_A)
         self.assertIn("doc_intel", applied_doc_a)
         self.assertEqual(applied_doc_a["doc_intel"]["fields"][0]["value"], ["12345678"])
+
+
+# --------------------------------------------------------------------------- #
+# Q. apply_link_check_overlay() (WRKOPS t_20260914_adgops306 §10, IB-5 Phase A)
+# --------------------------------------------------------------------------- #
+
+def _lc_doc(url="https://example.org/doc.pdf", **overrides):
+    d = {"title": "Doc", "url": url, "document_type": "generic_doc", "notice_id": "N1",
+         "notice_type": "PUB"}
+    d.update(overrides)
+    return d
+
+
+def _lc_record(public_id="pid-1", rid="rec-1", documents=None):
+    return {"public_id": public_id, "id": rid, "documents": documents if documents is not None else [_lc_doc()]}
+
+
+def _lc_observation(public_id="pid-1", record_id="rec-1", doc=None,
+                     observed_at="2026-01-01T00:00:00Z", classification="REACHABLE", **overrides):
+    doc = doc if doc is not None else _lc_doc()
+    obs = {
+        "public_id": public_id,
+        "record_id": record_id,
+        "document_key": list(ctm.document_identity_key(doc)),
+        "requested_url": doc.get("url", ""),
+        "observed_at": observed_at,
+        "resolver_method": "HEAD",
+        "http_status": 200,
+        "classification": classification,
+    }
+    obs.update(overrides)
+    return obs
+
+
+class QLinkCheckOverlayTests(unittest.TestCase):
+
+    def test_valid_reachable_observation_attaches_link_checked(self):
+        rec = _lc_record()
+        obs = _lc_observation()
+        result = ppj.apply_link_check_overlay([rec], [obs])
+        di = result[0]["documents"][0].get("doc_intel")
+        self.assertIsNotNone(di)
+        self.assertEqual(di["state"], "link_checked")
+        self.assertEqual(di["link_checked_at"], "2026-01-01T00:00:00Z")
+        self.assertEqual(di["schema"], ppj.DOC_INTEL_SCHEMA)
+
+    def test_non_reachable_observation_does_not_project(self):
+        for cls in ("CONFIRMED_UNAVAILABLE", "UNKNOWN_OR_TRANSIENT"):
+            rec = _lc_record()
+            obs = _lc_observation(classification=cls)
+            result = ppj.apply_link_check_overlay([rec], [obs])
+            self.assertNotIn("doc_intel", result[0]["documents"][0])
+
+    def test_unknown_record_dropped(self):
+        rec = _lc_record()
+        obs = _lc_observation(public_id="does-not-exist")
+        result = ppj.apply_link_check_overlay([rec], [obs])
+        self.assertNotIn("doc_intel", result[0]["documents"][0])
+
+    def test_unknown_document_dropped(self):
+        rec = _lc_record()
+        other_doc = _lc_doc(url="https://example.org/other.pdf")
+        obs = _lc_observation(doc=other_doc)
+        result = ppj.apply_link_check_overlay([rec], [obs])
+        self.assertNotIn("doc_intel", result[0]["documents"][0])
+
+    def test_ambiguous_document_match_fails_closed(self):
+        doc = _lc_doc()
+        rec = _lc_record(documents=[doc, dict(doc)])  # two identical-identity docs
+        obs = _lc_observation(doc=doc)
+        result = ppj.apply_link_check_overlay([rec], [obs])
+        for d in result[0]["documents"]:
+            self.assertNotIn("doc_intel", d)
+
+    def test_malformed_timestamp_rejected(self):
+        rec = _lc_record()
+        obs = _lc_observation(observed_at="not-a-timestamp")
+        result = ppj.apply_link_check_overlay([rec], [obs])
+        self.assertNotIn("doc_intel", result[0]["documents"][0])
+
+    def test_inconsistent_public_id_record_id_rejected(self):
+        rec = _lc_record(public_id="pid-1", rid="rec-1")
+        obs = _lc_observation(public_id="pid-1", record_id="WRONG-rec-id")
+        result = ppj.apply_link_check_overlay([rec], [obs])
+        self.assertNotIn("doc_intel", result[0]["documents"][0])
+
+    def test_no_sidecar_internal_fields_leak(self):
+        rec = _lc_record()
+        obs = _lc_observation(final_url="https://example.org/final.pdf")
+        result = ppj.apply_link_check_overlay([rec], [obs])
+        di = result[0]["documents"][0]["doc_intel"]
+        self.assertEqual(set(di.keys()), {"schema", "state", "link_checked_at"})
+        for forbidden in ("requested_url", "final_url", "http_status", "resolver_method",
+                          "run_id", "document_key", "record_id", "public_id"):
+            self.assertNotIn(forbidden, di)
+
+    def test_input_not_mutated(self):
+        rec = _lc_record()
+        obs = _lc_observation()
+        frozen_rec = copy.deepcopy(rec)
+        frozen_obs = copy.deepcopy(obs)
+        ppj.apply_link_check_overlay([rec], [obs])
+        self.assertEqual(rec, frozen_rec)
+        self.assertEqual(obs, frozen_obs)
+
+    def test_conflicting_duplicate_observations_fail_closed(self):
+        rec = _lc_record()
+        obs_a = _lc_observation(observed_at="2026-01-01T00:00:00Z")
+        obs_b = _lc_observation(observed_at="2026-01-02T00:00:00Z")
+        result = ppj.apply_link_check_overlay([rec], [obs_a, obs_b])
+        self.assertNotIn("doc_intel", result[0]["documents"][0])
+
+    def test_identical_duplicate_observations_deduplicate(self):
+        rec = _lc_record()
+        obs_a = _lc_observation()
+        obs_b = _lc_observation()
+        result = ppj.apply_link_check_overlay([rec], [obs_a, obs_b])
+        self.assertIn("doc_intel", result[0]["documents"][0])
+        self.assertEqual(
+            result[0]["documents"][0]["doc_intel"]["link_checked_at"], "2026-01-01T00:00:00Z"
+        )
+
+    def test_top_level_non_list_raises(self):
+        with self.assertRaises(ppj.RejectedCandidate):
+            ppj.apply_link_check_overlay("not-a-list", [])
+        with self.assertRaises(ppj.RejectedCandidate):
+            ppj.apply_link_check_overlay([], "not-a-list")
 
 
 def main() -> int:

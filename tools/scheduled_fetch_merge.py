@@ -85,6 +85,19 @@ try:
 except ImportError:  # pragma: no cover - direct-run fallback
     import public_record_projection as prp
 
+# IB-5 Phase A (WRKOPS t_20260914_adgops306): optional offline link-checks
+# sidecar consumption path for --run-live. Both closed contracts this
+# composes, not reimplemented.
+try:
+    from tools import public_projection as pp
+except ImportError:  # pragma: no cover - direct-run fallback
+    import public_projection as pp
+
+try:
+    from tools import link_check_resolver as lcr
+except ImportError:  # pragma: no cover - direct-run fallback
+    import link_check_resolver as lcr
+
 PRODUCTION_PATH = Path("data/licitaciones.json")
 FETCHER_SCRIPT  = Path("fetch_licitaciones.py")
 TMP_DIR         = Path("_tmp")
@@ -956,6 +969,26 @@ def canonicalize_and_project(merged_rows: list) -> list:
     return projection["records"]
 
 
+def apply_link_checks_if_requested(public_records: list, link_checks_path) -> list:
+    """IB-5 Phase A (WRKOPS t_20260914_adgops306 §11): optional, offline-only
+    consumption of a reviewed `adgops.link_checks/1` sidecar.
+
+    Absent (the default): returns `public_records` unchanged -- behavior is
+    then byte-identical to before this task. When supplied, the sidecar is
+    strictly validated (tools.link_check_resolver.load_link_check_sidecar)
+    and the pure overlay (tools.public_projection.apply_link_check_overlay)
+    is applied. A missing or malformed sidecar fails closed via sys.exit
+    BEFORE any public write; this never derives or guesses a private-repo
+    path -- `link_checks_path` must be explicitly supplied by the caller."""
+    if not link_checks_path:
+        return public_records
+    try:
+        sidecar = lcr.load_link_check_sidecar(link_checks_path)
+    except lcr.LinkCheckContractError as exc:
+        sys.exit(f"[ERROR] --link-checks-path sidecar invalid ({exc.reason}): {link_checks_path}")
+    return pp.apply_link_check_overlay(public_records, sidecar["observations"])
+
+
 # ---------------------------------------------------------------------------
 # Mode: --run-live  (NOT executed in prompt 118)
 # ---------------------------------------------------------------------------
@@ -1099,6 +1132,12 @@ def run_live(args) -> None:
     # on either step; never publish a partial/rejected result.
     public_records = canonicalize_and_project(merged_rows)
 
+    # IB-5 Phase A (WRKOPS t_20260914_adgops306 §3/§11): optional offline
+    # link-checks overlay, absent by default (no behavior change). Must run
+    # AFTER canonicalization/STRIP projection and BEFORE the public
+    # backup/write block below.
+    public_records = apply_link_checks_if_requested(public_records, args.link_checks_path)
+
     # Backup the current public artifact before overwriting it. This is a
     # defensive byte copy only — never read back into merge/lifecycle logic.
     backup_dir = Path("data/_backup")
@@ -1186,6 +1225,12 @@ def main() -> None:
                          "state file (the private companion repo's working "
                          "copy of state/licitaciones.json). Required for "
                          "--run-live; there is no runtime bootstrap.")
+    ap.add_argument("--link-checks-path",       metavar="PATH", dest="link_checks_path",
+                    default=None,
+                    help="IB-5 Phase A (WRKOPS t_20260914_adgops306): optional path to a "
+                         "reviewed adgops.link_checks/1 sidecar to overlay onto "
+                         "--run-live's public output. Absent by default (no behavior "
+                         "change). Never derived/guessed -- must be explicit.")
 
     args = ap.parse_args()
 

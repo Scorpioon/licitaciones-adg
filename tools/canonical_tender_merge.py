@@ -844,6 +844,21 @@ def _merge_pair(row_x: dict, row_y: dict, rid: str) -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# Public document identity wrapper (WRKOPS t_20260914_adgops306 §5, IB-5
+# Phase A) -- exposes this module's canonical per-document identity so new
+# external callers (the IB-5 link-check resolver and its public-projection
+# overlay) never import the private function or reconstruct the tuple shape
+# independently. Existing internal dedupe/merge behavior is unchanged.
+# --------------------------------------------------------------------------- #
+
+def document_identity_key(doc: dict):
+    """Public wrapper returning exactly what `_doc_identity_key()` already
+    produces for one document object. See `_doc_identity_key`'s own
+    docstring for the tuple shape (URL-bearing vs URL-less entries)."""
+    return _doc_identity_key(doc)
+
+
+# --------------------------------------------------------------------------- #
 # Public API (handoff §6)
 # --------------------------------------------------------------------------- #
 

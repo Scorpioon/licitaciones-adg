@@ -332,6 +332,61 @@ class DocIntelGateTests(unittest.TestCase):
         findings = pv.validate_json_object(obj, pv.SURFACE_PUBLIC, production=True)
         self.assertIn("DOCINTEL_SCHEMA", _rule_ids(findings))
 
+    # --- IB-5 Phase A (WRKOPS t_20260914_adgops306): link_checked passes ---
+
+    def test_ib5_valid_link_checked_passes_gate_with_no_internal_fields(self):
+        di = {
+            "schema": pp.DOC_INTEL_SCHEMA,
+            "state": "link_checked",
+            "link_checked_at": "2026-01-01T00:00:00Z",
+        }
+        obj = _record_with(doc_intel=di)
+        findings = pv.validate_json_object(obj, pv.SURFACE_PUBLIC, production=True)
+        n_err, _n_warn = _severity_counts(findings)
+        self.assertEqual(n_err, 0)
+        docintel_rules = {r for r in _rule_ids(findings) if r.startswith("DOCINTEL_")}
+        self.assertEqual(docintel_rules, set())
+        # Internal sidecar fields must never be present alongside link_checked.
+        for internal_field in ("requested_url", "final_url", "http_status",
+                                "resolver_method", "run_id", "document_key",
+                                "record_id", "public_id"):
+            self.assertNotIn(internal_field, di)
+
+    def test_ib5_undated_link_checked_rejected_by_construct_only_kernel(self):
+        # Layer ownership: an undated `link_checked` is a CROSS-FIELD
+        # violation, and this publication-time gate's DocIntel ruleset is a
+        # closed per-key/per-value grammar (_walk_doc_intel /
+        # _classify_docintel_leaf) with no required-key arithmetic -- it
+        # cannot and does not own this invariant. The construct-only kernel
+        # does (public_projection.validate_doc_intel ->
+        # "undated_link_checked"), so an undated link_checked can never be
+        # constructed and therefore never reaches the gate at all. Assert it
+        # at the layer that actually enforces it.
+        with self.assertRaises(pp.RejectedCandidate):
+            pp.validate_doc_intel(
+                {"schema": pp.DOC_INTEL_SCHEMA, "state": "link_checked"}, "")
+        with self.assertRaises(pp.RejectedCandidate):
+            pp.build_doc_intel({"state": "link_checked"}, "")
+
+    def test_ib5_malformed_link_checked_at_flagged_by_gate(self):
+        # What this gate DOES own for the same state: a PRESENT
+        # link_checked_at whose value is not RFC3339-Z.
+        di = {"schema": pp.DOC_INTEL_SCHEMA, "state": "link_checked",
+              "link_checked_at": "not-a-timestamp"}
+        obj = _record_with(doc_intel=di)
+        findings = pv.validate_json_object(obj, pv.SURFACE_PUBLIC, production=True)
+        self.assertIn("DOCINTEL_FREE_TEXT", _rule_ids(findings))
+
+    def test_ib5_link_checked_via_build_doc_intel_round_trips_through_gate(self):
+        # Proves the exact object apply_link_check_overlay() constructs
+        # (via build_doc_intel(), never bypassed) is itself gate-clean.
+        candidate = {"state": "link_checked", "link_checked_at": "2026-01-01T00:00:00Z"}
+        di = pp.build_doc_intel(candidate, "")
+        obj = _record_with(doc_intel=di)
+        findings = pv.validate_json_object(obj, pv.SURFACE_PUBLIC, production=True)
+        n_err, _n_warn = _severity_counts(findings)
+        self.assertEqual(n_err, 0)
+
 
 def main() -> int:
     verbose = any(a in ("-v", "--verbose") for a in sys.argv[1:])

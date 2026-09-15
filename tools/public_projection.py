@@ -887,3 +887,138 @@ def apply_projection(production_monolith: dict, projection_result: dict) -> dict
                 doc.pop("doc_intel", None)
 
     return applied
+
+
+# --------------------------------------------------------------------------- #
+# IB-5 link-check overlay (WRKOPS t_20260914_adgops306 §10)
+#
+# Pure, construct-only overlay: attaches a `link_checked` DocIntel state to
+# public_records[].documents[] entries named by reviewed, REACHABLE sidecar
+# observations produced by tools/link_check_resolver.py. Never mutates its
+# inputs, never touches the filesystem, network, or clock, and never
+# bypasses build_doc_intel()/validate_doc_intel() -- the same construct-only
+# kernel the IB-3 CPV lane above already uses.
+# --------------------------------------------------------------------------- #
+
+def apply_link_check_overlay(public_records: list, observations: list) -> list:
+    """Returns a NEW public_records list with `link_checked` DocIntel
+    attached wherever a reviewed REACHABLE observation names a document by
+    exact record match (`public_id` + `record_id`-as-`id` verification,
+    handoff §3 JOIN) and document match (`document_identity_key()`, never
+    positional).
+
+    Never mutates `public_records`/`observations` or anything inside them
+    (a fresh `copy.deepcopy` is the only thing ever written to). An invalid
+    observation -- malformed shape, malformed timestamp, unknown record,
+    unknown document, ambiguous document match, or an inconsistent
+    public_id/record_id pair -- is silently dropped and never partially
+    attached; this mirrors `_project_producer_record`'s own per-item
+    fail-closed convention above rather than aborting the whole batch on one
+    bad observation.
+
+    Duplicate observations naming the same (public_id, document identity):
+    identical duplicates (same `observed_at`) deduplicate deterministically;
+    conflicting duplicates (differing `observed_at`) reject that document
+    identity entirely for this call -- neither variant is attached.
+
+    Raises RejectedCandidate only for a top-level argument that is not a
+    list at all -- a genuine caller contract violation, not a per-item
+    business-logic mismatch (matches build_doc_intel()'s own top-level-shape
+    behavior, since this function returns a plain list, not a status
+    envelope like project_manifest())."""
+    if not isinstance(public_records, list):
+        raise RejectedCandidate("public_records_not_a_list")
+    if not isinstance(observations, list):
+        raise RejectedCandidate("observations_not_a_list")
+
+    # Deferred import: tools.canonical_tender_merge imports
+    # canonicalize_document_url from this module at top level, so importing
+    # it back at this module's top level would be circular. Both modules are
+    # fully loaded by the time any caller can reach this function.
+    try:
+        from tools.canonical_tender_merge import document_identity_key
+    except ImportError:
+        from canonical_tender_merge import document_identity_key
+
+    by_public_id: dict = {}
+    for idx, rec in enumerate(public_records):
+        if not isinstance(rec, dict):
+            continue
+        pid = rec.get("public_id")
+        if isinstance(pid, str) and pid:
+            by_public_id.setdefault(pid, []).append(idx)
+
+    accepted: dict = {}   # (public_id, doc_key_tuple) -> {"record_idx", "link_checked_at"}
+    conflicted: set = set()
+
+    for obs in observations:
+        if not isinstance(obs, dict):
+            continue
+        if obs.get("classification") != "REACHABLE":
+            continue
+
+        pid = obs.get("public_id")
+        rid = obs.get("record_id")
+        doc_key_raw = obs.get("document_key")
+        observed_at = obs.get("observed_at")
+
+        if not isinstance(pid, str) or not pid:
+            continue
+        if not isinstance(rid, str) or not rid:
+            continue
+        if not isinstance(doc_key_raw, list) or not doc_key_raw:
+            continue
+        if not all(isinstance(x, str) for x in doc_key_raw):
+            continue
+        if not is_rfc3339_z(observed_at):
+            continue
+
+        record_idxs = by_public_id.get(pid)
+        if not record_idxs or len(record_idxs) != 1:
+            continue  # unknown_record or ambiguous_record
+        record_idx = record_idxs[0]
+        rec = public_records[record_idx]
+        if rec.get("id") != rid:
+            continue  # inconsistent public_id/record_id pair
+
+        docs = rec.get("documents")
+        docs = docs if isinstance(docs, list) else []
+        doc_key_tuple = tuple(doc_key_raw)
+        matches = [
+            d for d in docs
+            if isinstance(d, dict) and tuple(document_identity_key(d)) == doc_key_tuple
+        ]
+        if len(matches) != 1:
+            continue  # unknown_document or ambiguous_document
+
+        cache_key = (pid, doc_key_tuple)
+        if cache_key in conflicted:
+            continue
+        if cache_key in accepted:
+            if accepted[cache_key]["link_checked_at"] == observed_at:
+                continue  # identical duplicate -- deterministic no-op
+            del accepted[cache_key]
+            conflicted.add(cache_key)
+            continue
+
+        accepted[cache_key] = {"record_idx": record_idx, "link_checked_at": observed_at}
+
+    result = copy.deepcopy(public_records)
+    for (_pid, doc_key_tuple), info in accepted.items():
+        rec = result[info["record_idx"]]
+        docs = rec.get("documents")
+        docs = docs if isinstance(docs, list) else []
+        for d in docs:
+            if not isinstance(d, dict):
+                continue
+            if tuple(document_identity_key(d)) != doc_key_tuple:
+                continue
+            candidate = {"state": "link_checked", "link_checked_at": info["link_checked_at"]}
+            try:
+                doc_intel = build_doc_intel(candidate, d.get("doc_ref") or "")
+            except RejectedCandidate:
+                break
+            d["doc_intel"] = doc_intel
+            break
+
+    return result

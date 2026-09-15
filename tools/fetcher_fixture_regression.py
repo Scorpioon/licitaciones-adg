@@ -55,6 +55,8 @@ import tools.scheduled_fetch_merge as sfm  # noqa: E402
 import tools.scheduled_run_classify as src  # noqa: E402
 import tools.scheduled_candidate_policy as scp  # noqa: E402
 import tools.privacy_validator as pv  # noqa: E402
+import tools.canonical_tender_merge as ctm  # noqa: E402
+import tools.link_check_resolver as lcr  # noqa: E402
 
 AUTOMATION_ID = "ADGOPS_AUTO_FETCHER1_SCHEDULED"
 
@@ -370,6 +372,100 @@ class L1MergeHelperTests(unittest.TestCase):
         args = types.SimpleNamespace(allow_production_write=False, internal_state_path="ignored")
         with self.assertRaises(SystemExit):
             sfm.run_live(args)
+
+
+# ---------------------------------------------------------------------------
+# IB-5 Phase A (WRKOPS t_20260914_adgops306 §11/§12.D): offline regression
+# for scheduled_fetch_merge.py's optional --link-checks-path consumption
+# path. No network. sfm.run_live() itself is not invoked here (it requires a
+# live fetch subprocess) -- this exercises the exact two functions run_live()
+# composes at its insertion point: canonicalize_and_project() then
+# apply_link_checks_if_requested(), proving the offline overlay path without
+# any real HTTP resolution.
+# ---------------------------------------------------------------------------
+
+class L1LinkChecksOfflineOverlayTests(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _rows_with_one_document(self):
+        return [{
+            "id": "FIX-LC-001",
+            "titol": "Synthetic link-check tender",
+            "organisme": "Ajuntament Fixticia",
+            "estat": "vigent",
+            "adjudicatari": "",
+            "pressupost": 10000,
+            "data_pub": "2026-05-01",
+            "url": "https://example.invalid/fixture/lc-001",
+            "historial": [],
+            "award_results": [],
+            "documents": [{
+                "title": "Doc", "url": "https://example.invalid/fixture/lc-001.pdf",
+                "document_type": "generic_doc", "notice_id": "N1", "notice_type": "PUB",
+            }],
+        }]
+
+    def test_absent_path_preserves_baseline_behavior(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        result = sfm.apply_link_checks_if_requested(public_records, None)
+        self.assertEqual(result, public_records)
+        self.assertIs(result, public_records)  # no-op: same object, not even a copy
+
+    def test_valid_sidecar_overlays_expected_document(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        doc = public_records[0]["documents"][0]
+        obs = {
+            "public_id": public_records[0]["public_id"],
+            "record_id": public_records[0]["id"],
+            "document_key": list(ctm.document_identity_key(doc)),
+            "requested_url": doc["url"],
+            "observed_at": "2026-06-01T00:00:00Z",
+            "resolver_method": "HEAD",
+            "http_status": 200,
+            "classification": "REACHABLE",
+        }
+        sidecar = {
+            "schema": lcr.SCHEMA,
+            "run_id": "run-1",
+            "started_at": "2026-06-01T00:00:00Z",
+            "completed_at": "2026-06-01T00:00:05Z",
+            "resolver_policy": {"limit": 50},
+            "counts": {"candidates_attempted": 1},
+            "observations": [obs],
+        }
+        sidecar_path = self.tmp / "link_checks.json"
+        sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+        result = sfm.apply_link_checks_if_requested(public_records, str(sidecar_path))
+        result_doc = result[0]["documents"][0]
+        self.assertIn("doc_intel", result_doc)
+        self.assertEqual(result_doc["doc_intel"]["state"], "link_checked")
+        # Original public_records list/dicts untouched.
+        self.assertNotIn("doc_intel", public_records[0]["documents"][0])
+
+    def test_malformed_sidecar_fails_before_public_write(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        bad_path = self.tmp / "bad_link_checks.json"
+        # Missing required run-level keys -- strict schema rejects it.
+        bad_path.write_text(json.dumps({"schema": lcr.SCHEMA}), encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            sfm.apply_link_checks_if_requested(public_records, str(bad_path))
+
+    def test_missing_explicit_path_fails_closed(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        missing = self.tmp / "does_not_exist.json"
+        with self.assertRaises(SystemExit):
+            sfm.apply_link_checks_if_requested(public_records, str(missing))
 
 
 # ---------------------------------------------------------------------------
