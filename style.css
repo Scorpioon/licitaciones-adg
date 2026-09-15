@@ -7,8 +7,12 @@
  *       F3 recursos+calculadora, F4 mapa, F6 barometro,
  *       [b4.0] shared components (FichaPanel, TrafficLight,
  *              ToggleSwitch, AlertasStub).
+ *              [p307] under-construction entry notice.
  *
  * CHANGELOG (newest first)
+ * 0.7.4ae Sep 2026 p307 under-construction entry notice: overlay, panel, title,
+ *                  body, acknowledgement button and background scroll lock, built
+ *                  on existing tokens. No new dependency, font or palette.
  * 0.6.36 Jun 2026 Mobile bottom-sheet detail panel (p179): .detail-col becomes a bottom drawer <=860px (grip, backdrop, slide-up). Desktop p178 side panel preserved.
  * 0.5.0e Jun 2026  Softer selected row treatment (box-shadow accent, natural colors). Removed inverted-black sel overrides.
  * 0.4.3n Apr 2026  Stats/barometro scroll: min-height:0 on .sv-body and .baro-page.
@@ -1483,3 +1487,60 @@ body.sheet-open .shell-foot { pointer-events:none; }
 .sv2-donut-legrow:hover .sv2-donut-leglbl,
 .sv2-donut-legrow:focus-visible .sv2-donut-leglbl { color:var(--text); }
 .sv2-donut-legrow:focus-visible { outline:2px solid var(--text); outline-offset:2px; border-radius:3px; }
+
+/* ═══ p307 · UNDER-CONSTRUCTION ENTRY NOTICE ═══════════════════════════════════
+   Temporary review-safety notice injected by shared.js on entry to every public
+   page (see the matching block there). Uses the existing tokens/typography only
+   — no new font, no new palette, no motion. Appended last so it wins by source
+   order. Remove together with the shared.js block when review mode ends. */
+
+.adgops-uc-notice {
+  position:fixed; inset:0; z-index:1000;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  background:rgba(0,0,0,.62);
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  overflow-y:auto; overscroll-behavior:contain;
+}
+.adgops-uc-notice__panel {
+  width:min(420px,100%); max-width:100%;
+  max-height:calc(100vh - 40px); overflow-y:auto;
+  padding:26px 24px 22px;
+  background:var(--bg); color:var(--text);
+  border:1px solid var(--border2); border-radius:var(--radius);
+  box-shadow:0 8px 32px rgba(0,0,0,.28);
+  text-align:left;
+}
+.adgops-uc-notice__title {
+  font-size:12.5px; font-weight:700; line-height:1.4; letter-spacing:-.01em;
+  color:var(--text); margin:0 0 10px;
+}
+.adgops-uc-notice__body {
+  font-size:10.5px; line-height:1.7; color:var(--text2);
+  margin:0 0 20px; overflow-wrap:break-word;
+}
+.adgops-uc-notice__btn {
+  display:block; width:100%;
+  font-family:var(--f); font-size:8.5px; letter-spacing:.12em; text-transform:uppercase;
+  padding:11px 20px;
+  background:none; color:var(--text2);
+  border:1px solid var(--border2); border-radius:var(--radius);
+  cursor:pointer; transition:border-color .1s, color .1s;
+}
+.adgops-uc-notice__btn:hover { border-color:var(--border); color:var(--text); }
+.adgops-uc-notice__btn:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+
+/* Background scroll lock while the notice is open. Applied to both scrollers
+   because the site uses html/body height:100% on most pages and body:auto on
+   the responsive licitaciones shell. Removed on acknowledgement. */
+html.adgops-uc-notice-lock,
+body.adgops-uc-notice-lock { overflow:hidden; overscroll-behavior:none; }
+
+@media (max-width:480px) {
+  .adgops-uc-notice { padding:14px; }
+  .adgops-uc-notice__panel { padding:22px 18px 18px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .adgops-uc-notice__btn { transition:none; }
+}
