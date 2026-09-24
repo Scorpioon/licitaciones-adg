@@ -43,6 +43,15 @@ try:
 except ImportError:
     sys.exit("Instala requests: pip install requests --break-system-packages")
 
+# Prompt 323 Stage B / WRKOPS t_20260923_adgops323: bounded-production
+# acquisition policy primitives (source/host authorization, request budget,
+# global deadline). Pure, no side effects on import; every existing call
+# site is unaffected unless it explicitly opts into --bounded-mode.
+try:
+    from tools import fetch_bounds
+except ImportError:  # pragma: no cover - direct-run fallback
+    import fetch_bounds
+
 OUTPUT_FILE       = Path("data.json")
 MIN_SCORE_DEFAULT = 20
 MAX_ITEMS_DEFAULT = 0        # 0 = sin límite
@@ -211,8 +220,23 @@ _NO_PROGRESS = False  # set by --no-progress in main()
 # ─────────────────────────────────────────────────────────────────────────────
 
 def pprint(msg: str = "", end: str = "\n"):
-    """Print con flush automático para PowerShell."""
-    print(msg, end=end, flush=True)
+    """Print con flush automático para PowerShell.
+
+    Prompt 323 Stage B R4 (WRKOPS t_20260923_adgops323): a strict output
+    encoding (observed: Windows redirected stdout under cp1252) cannot
+    represent every Unicode glyph this module prints (box-drawing/arrow
+    characters). Presentation-only output must never crash the process --
+    only UnicodeEncodeError is caught, and only to re-emit a
+    backslash-escaped, encoding-safe representation of the same message
+    on the same stream. The normal path (print() succeeding) is byte-for-
+    byte unchanged."""
+    try:
+        print(msg, end=end, flush=True)
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+        safe_msg = msg.encode(encoding, errors="backslashreplace").decode(encoding)
+        safe_end = end.encode(encoding, errors="backslashreplace").decode(encoding)
+        print(safe_msg, end=safe_end, flush=True)
 
 
 def progress_bar(current: int, total: int, width: int = 30, prefix: str = "") -> str:
@@ -260,6 +284,23 @@ def build_session():
     s.headers.update(HEADERS)
     s.mount("https://", HTTPAdapter(max_retries=retry))
     s.mount("http://", HTTPAdapter(max_retries=retry))
+    return s
+
+
+def build_bounded_session():
+    """Scheduled bounded-mode session (Prompt 323 Stage A Sec A / Stage B).
+
+    Identical to build_session() except the transport-layer retry adapter is
+    disabled (Retry(total=0)), so urllib3 never silently multiplies real
+    HTTP attempts underneath fetch_source()'s own single, explicit, bounded
+    retry loop -- the accepted Stage A decision that the application-level
+    loop is the sole retry owner in bounded mode. Every other call site
+    continues to use build_session() unchanged."""
+    no_retry = Retry(total=0)
+    s = requests.Session()
+    s.headers.update(HEADERS)
+    s.mount("https://", HTTPAdapter(max_retries=no_retry))
+    s.mount("http://", HTTPAdapter(max_retries=no_retry))
     return s
 
 
@@ -1380,12 +1421,39 @@ def _describe_non_atom_response(resp) -> str:
 
 
 def fetch_source(session, source: dict, max_pages: int, min_score: int,
-                 retries: int = 3, retry_delay: float = 2.0, retry_backoff: float = 2.0) -> dict:
-    """Returns dict: {results, pages_done, had_error, error_msg, retry_count, retried_pages, retry_errors}.
-    had_error is True only after all retry attempts are exhausted on an actual failure."""
+                 retries: int = 3, retry_delay: float = 2.0, retry_backoff: float = 2.0,
+                 allow_redirects: bool = True, request_timeout: float = None,
+                 max_source_records: int = None, budget=None, deadline=None) -> dict:
+    """Returns dict: {results, pages_done, had_error, error_msg, retry_count, retried_pages,
+    retry_errors, deadline_exhausted, budget_exhausted}.
+    had_error is True only after all retry attempts are exhausted on an actual failure, or when
+    deadline_exhausted/budget_exhausted is True.
+
+    Bounded-mode parameters (Prompt 323 Stage B, WRKOPS t_20260923_adgops323 -- all additive;
+    every default below preserves the exact current behavior of every existing call site when
+    omitted):
+      allow_redirects     -- False disables following redirects; a 3xx response then becomes a
+                              terminal (not retried) outcome for that page. Default True preserves
+                              current transparent-redirect behavior.
+      request_timeout     -- overrides the module TIMEOUT constant for this call when not None.
+                              Default None preserves current behavior (module TIMEOUT applies).
+      max_source_records  -- fail-closed per-source volume sanity ceiling; aborts (never silently
+                              truncates) once len(results) exceeds it. Default None preserves
+                              current unlimited retention.
+      budget               -- a tools.fetch_bounds.RequestBudget; admit() is called immediately
+                              before every real HTTP attempt. Default None disables all budget
+                              enforcement (legacy behavior).
+      deadline              -- a tools.fetch_bounds.Deadline; check() is called at every Stage A
+                              Sec E.1 checkpoint. Default None disables all deadline enforcement
+                              (legacy behavior).
+    """
     name = source["name"]
     src_ccaa = source.get("ccaa")
     url = source["url"]
+    timeout_s = TIMEOUT if request_timeout is None else request_timeout
+
+    _check_deadline = deadline.check if deadline is not None else (lambda: None)
+    _admit_budget = budget.admit if budget is not None else (lambda: None)
 
     pprint(f"  ↓ {name}  [hasta {max_pages} página(s) × ~100 items]")
     all_results = []
@@ -1396,94 +1464,139 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
     retry_count = 0
     retried_pages = []
     retry_errors = []
+    deadline_exhausted = False
+    budget_exhausted = False
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    while url and pages_done < max_pages:
-        page_num = pages_done + 1
-        page_label_str = f"p{page_num}"
-        if not _QUIET:
-            page_label = page_label_str if max_pages > 1 else ""
-            pprint(f"    {url[:90]}{'…' if len(url) > 90 else ''} {page_label}")
+    try:
+        _check_deadline()  # checkpoint: before starting each source (also: before advancing to it)
 
-        page_retry_errs = []
-        root = None
-        hard_fail = False
+        while url and pages_done < max_pages:
+            page_num = pages_done + 1
+            page_label_str = f"p{page_num}"
+            if not _QUIET:
+                page_label = page_label_str if max_pages > 1 else ""
+                pprint(f"    {url[:90]}{'…' if len(url) > 90 else ''} {page_label}")
 
-        for attempt in range(retries + 1):
-            if attempt > 0:
-                secs = retry_sleep(attempt, retry_delay, retry_backoff)
-                pprint(f"    [retry {attempt}/{retries} in {secs:.1f}s] {page_retry_errs[-1]}")
-                time.sleep(secs)
-                retry_count += 1
-                if page_num not in retried_pages:
-                    retried_pages.append(page_num)
+            page_retry_errs = []
+            root = None
+            hard_fail = False
 
-            try:
-                r = session.get(url, timeout=TIMEOUT)
-                r.raise_for_status()
-            except requests.exceptions.HTTPError as e:
-                if e.response is not None and e.response.status_code < 500 and e.response.status_code != 429:
-                    pprint(f"    [!] {e}")
-                    had_error = True
-                    error_msg = f"{page_label_str}: {e}"
-                    hard_fail = True
-                    break
-                page_retry_errs.append(str(e))
-            except Exception as e:
-                if is_retryable_fetch_error(e):
-                    page_retry_errs.append(str(e))
-                else:
-                    pprint(f"    [!] {e}")
-                    had_error = True
-                    error_msg = f"{page_label_str}: {e}"
-                    hard_fail = True
-                    break
-            else:
-                head = r.content[:3000].lower()
-                if b"<feed" not in head and b"<entry" not in head:
-                    page_retry_errs.append(_describe_non_atom_response(r))
-                else:
-                    try:
-                        root = ET.fromstring(r.content)
-                    except ET.ParseError as e:
-                        page_retry_errs.append(f"XML parse error: {e}")
+            for attempt in range(retries + 1):
+                if attempt > 0:
+                    _check_deadline()  # checkpoint: before retry backoff/sleep
+                    secs = retry_sleep(attempt, retry_delay, retry_backoff)
+                    pprint(f"    [retry {attempt}/{retries} in {secs:.1f}s] {page_retry_errs[-1]}")
+                    time.sleep(secs)
+                    _check_deadline()  # checkpoint: after retry backoff/sleep
+                    retry_count += 1
+                    if page_num not in retried_pages:
+                        retried_pages.append(page_num)
+
+                _check_deadline()  # checkpoint: before every REAL_HTTP_ATTEMPT
+                _admit_budget()    # counts exactly this call; fails closed before it is made
+
+                try:
+                    r = session.get(url, timeout=timeout_s, allow_redirects=allow_redirects)
+                except Exception as e:
+                    # checkpoint: immediately after the caught request exception, before any
+                    # retryable/non-retryable classification (Prompt 323 Stage B R2).
+                    _check_deadline()
+                    if is_retryable_fetch_error(e):
+                        page_retry_errs.append(str(e))
                     else:
-                        if page_retry_errs:
-                            pprint(f"    [retry OK {page_label_str} after {attempt} attempt(s)]")
-                            retry_errors.extend(f"{page_label_str}: {err}" for err in page_retry_errs)
-                        break  # success
+                        pprint(f"    [!] {e}")
+                        had_error = True
+                        error_msg = f"{page_label_str}: {e}"
+                        hard_fail = True
+                        break
+                else:
+                    # checkpoint: immediately after the response returns, before redirect
+                    # classification, raise_for_status(), status classification, non-Atom
+                    # inspection, XML parsing, or any break/continue decision (Stage B R2).
+                    _check_deadline()
+                    if not allow_redirects and 300 <= r.status_code < 400:
+                        pprint(f"    [!] redirect blocked (status={r.status_code}) — bounded mode disables redirects")
+                        had_error = True
+                        error_msg = f"{page_label_str}: redirect blocked (status={r.status_code})"
+                        hard_fail = True
+                        break
+                    try:
+                        r.raise_for_status()
+                    except requests.exceptions.HTTPError as e:
+                        if e.response is not None and e.response.status_code < 500 and e.response.status_code != 429:
+                            pprint(f"    [!] {e}")
+                            had_error = True
+                            error_msg = f"{page_label_str}: {e}"
+                            hard_fail = True
+                            break
+                        page_retry_errs.append(str(e))
+                    else:
+                        head = r.content[:3000].lower()
+                        if b"<feed" not in head and b"<entry" not in head:
+                            page_retry_errs.append(_describe_non_atom_response(r))
+                        else:
+                            try:
+                                root = ET.fromstring(r.content)
+                            except ET.ParseError as e:
+                                page_retry_errs.append(f"XML parse error: {e}")
+                            else:
+                                if page_retry_errs:
+                                    pprint(f"    [retry OK {page_label_str} after {attempt} attempt(s)]")
+                                    retry_errors.extend(f"{page_label_str}: {err}" for err in page_retry_errs)
+                                break  # success
 
-            if attempt == retries:
-                last_err = page_retry_errs[-1] if page_retry_errs else "unknown error"
-                pprint(f"    [!] {page_label_str} failed after {retries} retries: {last_err}")
-                had_error = True
-                error_msg = f"{page_label_str}: {last_err}"
-                retry_errors.extend(f"{page_label_str}: {err}" for err in page_retry_errs)
-                hard_fail = True
+                if attempt == retries:
+                    last_err = page_retry_errs[-1] if page_retry_errs else "unknown error"
+                    pprint(f"    [!] {page_label_str} failed after {retries} retries: {last_err}")
+                    had_error = True
+                    error_msg = f"{page_label_str}: {last_err}"
+                    retry_errors.extend(f"{page_label_str}: {err}" for err in page_retry_errs)
+                    hard_fail = True
+                    break
+
+            if hard_fail:
                 break
 
-        if hard_fail:
-            break
+            entries = parse_atom_entries(root)
+            if not _QUIET:
+                pprint(f"    → {len(entries)} entries")
 
-        entries = parse_atom_entries(root)
-        if not _QUIET:
-            pprint(f"    → {len(entries)} entries")
+            page_results, discarded = _process_entries(entries, src_ccaa, name, seen_ids, today, min_score)
+            if not _QUIET:
+                dup_info = f" dup={discarded['dup']}" if discarded["dup"] else ""
+                pprint(
+                    f"    → {len(page_results)} relevantes | "
+                    f"gate={discarded['title_gate']} score={discarded['low_score']} "
+                    f"notitle={discarded['no_title']}{dup_info}"
+                )
 
-        page_results, discarded = _process_entries(entries, src_ccaa, name, seen_ids, today, min_score)
-        if not _QUIET:
-            dup_info = f" dup={discarded['dup']}" if discarded["dup"] else ""
-            pprint(
-                f"    → {len(page_results)} relevantes | "
-                f"gate={discarded['title_gate']} score={discarded['low_score']} "
-                f"notitle={discarded['no_title']}{dup_info}"
-            )
+            all_results.extend(page_results)
 
-        all_results.extend(page_results)
-        pages_done += 1
-        url = _get_next_url(root)
+            if max_source_records is not None and len(all_results) > max_source_records:
+                pprint(
+                    f"    [!] volume ceiling exceeded: {len(all_results)} > {max_source_records} "
+                    "— aborting source (fail-closed, no truncation)"
+                )
+                had_error = True
+                error_msg = f"volume ceiling exceeded: {len(all_results)} > {max_source_records}"
+                break
 
-        if url and pages_done < max_pages:
-            time.sleep(0.4)
+            pages_done += 1
+            url = _get_next_url(root)
+
+            _check_deadline()  # checkpoint: before advancing to another page
+
+            if url and pages_done < max_pages:
+                time.sleep(0.4)
+    except fetch_bounds.DeadlineExceededError:
+        deadline_exhausted = True
+        had_error = True
+        error_msg = error_msg or "bounded acquisition deadline exhausted"
+    except fetch_bounds.BudgetExceededError:
+        budget_exhausted = True
+        had_error = True
+        error_msg = error_msg or "request budget exhausted"
 
     if pages_done > 1 or _QUIET:
         pprint(f"    ── {pages_done} página(s), {len(all_results)} relevantes en total")
@@ -1496,6 +1609,8 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
         "retry_count": retry_count,
         "retried_pages": retried_pages,
         "retry_errors": retry_errors,
+        "deadline_exhausted": deadline_exhausted,
+        "budget_exhausted": budget_exhausted,
     }
 
 
@@ -1695,6 +1810,28 @@ def main():
     ap.add_argument("--retries",       type=int,   default=3,   help="Per-page retry attempts after first failure (default: 3).")
     ap.add_argument("--retry-delay",   type=float, default=2.0, help="Initial retry delay in seconds (default: 2.0).")
     ap.add_argument("--retry-backoff", type=float, default=2.0, help="Exponential backoff multiplier (default: 2.0).")
+    ap.add_argument("--bounded-mode",  action="store_true", dest="bounded_mode",
+                    help="Scheduled bounded-production acquisition mode (Prompt 323, "
+                         "WRKOPS t_20260923_adgops323): single-layer retry (urllib3 auto-retry "
+                         "disabled), redirects disabled, source/host registry authorization, "
+                         "real-HTTP-attempt request budget, global deadline. Additive/opt-in -- "
+                         "default (omitted) preserves current behavior exactly for every other "
+                         "call site.")
+    ap.add_argument("--global-deadline", type=float, default=None, dest="global_deadline",
+                    help="Bounded-mode wall-clock deadline in seconds (monotonic clock). Ignored "
+                         "unless --bounded-mode is set. When --bounded-mode is set and this is "
+                         "omitted, computed locally from the Stage A policy formula "
+                         "(tools/fetch_bounds.py::compute_global_deadline_s); scheduled production "
+                         "passes this explicitly so the in-process cooperative deadline and "
+                         "run_live()'s hard subprocess timeout share one value.")
+    ap.add_argument("--request-timeout", type=float, default=None, dest="request_timeout",
+                    help="Override the per-request timeout in seconds (default: module TIMEOUT="
+                         "45s when omitted). Additive; no existing call site is affected unless "
+                         "passed.")
+    ap.add_argument("--max-source-records", type=int, default=None, dest="max_source_records",
+                    help="Bounded-mode optional fail-closed per-source volume sanity ceiling. "
+                         "Aborts (never truncates) if a source's accepted-record count exceeds "
+                         "this value. Default: no ceiling (unlimited, current behavior).")
     args = ap.parse_args()
 
     global _QUIET, _NO_PROGRESS
@@ -1739,6 +1876,8 @@ def main():
     retry_counts_by_source: dict = {}
     retried_pages_by_source: dict = {}
     retry_errors_by_source: dict = {}
+    deadline_exhausted_any = False
+    budget_exhausted_any = False
 
     if args.local_dir:
         _local_items, _local_stats = fetch_local_dir(Path(args.local_dir), args.min_score, t_start,
@@ -1747,13 +1886,48 @@ def main():
         pprint("")
         session = build_session() if args.enrich else None
     else:
-        session = build_session()
         active_sources = SOURCES if args.source == "all" else [s for s in SOURCES if args.source in s["name"]]
         requested_sources = [s["name"] for s in active_sources]
+
+        bounded = args.bounded_mode
+        if bounded:
+            try:
+                fetch_bounds.verify_source_registry(active_sources)
+            except fetch_bounds.RegistryMismatchError as e:
+                sys.exit(f"[FATAL] bounded-mode source registry check failed: {e}")
+            session = build_bounded_session()
+        else:
+            session = build_session()
+
+        request_timeout = args.request_timeout
+        allow_redirects = not bounded
+        max_source_records = args.max_source_records if bounded else None
+
+        budget = None
+        deadline = None
+        if bounded:
+            budget = fetch_bounds.RequestBudget(
+                fetch_bounds.max_total_requests(len(active_sources), args.pages, args.retries)
+            )
+            deadline_s = args.global_deadline
+            if deadline_s is None:
+                deadline_s = fetch_bounds.compute_global_deadline_s(
+                    active_source_count=len(active_sources), pages=args.pages,
+                    retries=args.retries,
+                    request_timeout_s=(request_timeout if request_timeout is not None else TIMEOUT),
+                    retry_delay=args.retry_delay, retry_backoff=args.retry_backoff,
+                )
+            deadline = fetch_bounds.Deadline(deadline_s)
+            pprint(f"  Bounded mode: ON  |  deadline={deadline_s:.1f}s  budget={budget.max_total} attempts")
+
         for src in active_sources:
             src_result = fetch_source(session, src, args.pages, args.min_score,
                                       retries=args.retries, retry_delay=args.retry_delay,
-                                      retry_backoff=args.retry_backoff)
+                                      retry_backoff=args.retry_backoff,
+                                      allow_redirects=allow_redirects,
+                                      request_timeout=request_timeout,
+                                      max_source_records=max_source_records,
+                                      budget=budget, deadline=deadline)
             all_new_items.extend(src_result["results"])
             sname = src["name"]
             completed_pages_by_source[sname] = src_result["pages_done"]
@@ -1762,6 +1936,10 @@ def main():
                 retried_pages_by_source[sname] = src_result["retried_pages"]
             if src_result["retry_errors"]:
                 retry_errors_by_source[sname] = src_result["retry_errors"]
+            if src_result.get("deadline_exhausted"):
+                deadline_exhausted_any = True
+            if src_result.get("budget_exhausted"):
+                budget_exhausted_any = True
             if src_result["had_error"]:
                 failed_pages_by_source[sname] = 1
                 source_errors[sname] = src_result["error_msg"]
@@ -1770,6 +1948,10 @@ def main():
                 failed_pages_by_source[sname] = 0
                 completed_sources.append(sname)
             pprint("")
+            if deadline_exhausted_any or budget_exhausted_any:
+                # Fail closed for remaining sources once the shared deadline/budget is
+                # exhausted -- no further real HTTP attempt is made (Stage A Sec E.1/H).
+                break
 
     # Dedup dentro de la corrida actual (status_rank primero, rellevancia como desempate)
     dedup_new: dict = {}
@@ -1842,7 +2024,26 @@ def main():
 
     if not args.local_dir:
         is_partial = len(failed_sources) > 0
-        if failed_sources:
+        if deadline_exhausted_any:
+            is_partial = True
+            run_status = "DEADLINE_EXHAUSTED"
+            operator_warning = (
+                "BOUNDED ACQUISITION DEADLINE EXHAUSTED — the scheduled global deadline "
+                "was reached before all sources/pages completed. Do not promote to "
+                "production; this run is not a complete acquisition."
+            )
+            pprint("\n  [DEADLINE EXHAUSTED] bounded acquisition deadline reached")
+        elif budget_exhausted_any:
+            is_partial = True
+            run_status = "REQUEST_BUDGET_EXHAUSTED"
+            operator_warning = (
+                "BOUNDED ACQUISITION REQUEST BUDGET EXHAUSTED — the scheduled "
+                "real-HTTP-attempt budget was reached before all sources/pages "
+                "completed. Do not promote to production; this run is not a complete "
+                "acquisition."
+            )
+            pprint("\n  [BUDGET EXHAUSTED] bounded acquisition request budget reached")
+        elif failed_sources:
             run_status = "PARTIAL_SUCCESS" if all_new_items else "EMPTY_FAILURE"
             operator_warning = (
                 f"PARTIAL RUN — failed sources: {', '.join(failed_sources)}. "
@@ -1899,6 +2100,9 @@ def main():
         envelope["retry_counts_by_source"]    = retry_counts_by_source
         envelope["retried_pages_by_source"]   = retried_pages_by_source
         envelope["retry_errors_by_source"]    = retry_errors_by_source
+        envelope["bounded_mode"]              = args.bounded_mode
+        envelope["deadline_exhausted"]        = deadline_exhausted_any
+        envelope["budget_exhausted"]          = budget_exhausted_any
 
     if _local_stats is not None:
         envelope["observed_entries_count"]    = _local_stats["observed_entries_count"]

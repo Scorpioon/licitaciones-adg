@@ -42,6 +42,9 @@ import types
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
+
+import requests
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -57,6 +60,8 @@ import tools.scheduled_candidate_policy as scp  # noqa: E402
 import tools.privacy_validator as pv  # noqa: E402
 import tools.canonical_tender_merge as ctm  # noqa: E402
 import tools.link_check_resolver as lcr  # noqa: E402
+import tools.fetch_bounds as fetch_bounds  # noqa: E402 - Prompt 323 Stage B
+import fetch_licitaciones as fl  # noqa: E402 - Prompt 323 Stage B
 
 AUTOMATION_ID = "ADGOPS_AUTO_FETCHER1_SCHEDULED"
 
@@ -2697,6 +2702,721 @@ class P298F14MonolithContentGateTests(unittest.TestCase):
             _exit_code, _env, _out, _err, calls = _run_diffsummary(
                 tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_A))
             self.assertEqual(calls, [["git", "show", "HEAD:data/licitaciones.json"]])
+
+
+# ---------------------------------------------------------------------------
+# Prompt 323 Stage B (WRKOPS t_20260923_adgops323) -- bounded-production
+# acquisition offline coverage. No network anywhere below: all HTTP I/O is
+# replaced by _ScriptedSession/_FakeResponse, all subprocess dispatch in the
+# hard-timeout tests is mocked, and every fake clock is injected rather than
+# reading real wall-clock time. Authored per the Stage A/R1 report's Sec 5
+# offline test plan; NOT executed by this authoring session (WRKOPS
+# NO_RUNTIME) -- the operator runs this suite via
+# `python tools/fetcher_fixture_regression.py -v`.
+# ---------------------------------------------------------------------------
+
+_ATOM_NS_STAGE_B = "http://www.w3.org/2005/Atom"
+
+
+class _FakeResponse:
+    """Minimal stand-in for a requests.Response -- only the attributes/
+    methods fetch_source() actually touches."""
+
+    def __init__(self, status_code=200, content=b"", headers=None,
+                 url="https://example.invalid/feed", encoding="utf-8"):
+        self.status_code = status_code
+        self.content = content
+        self.headers = headers or {}
+        self.url = url
+        self.encoding = encoding
+
+    def raise_for_status(self):
+        if 400 <= self.status_code < 600:
+            raise requests.exceptions.HTTPError(f"{self.status_code} error", response=self)
+
+
+def _atom_bytes(entries_xml: str = "", next_href: str = None) -> bytes:
+    next_link = f'<link rel="next" href="{next_href}"/>' if next_href else ""
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<feed xmlns="{_ATOM_NS_STAGE_B}">{next_link}{entries_xml}</feed>'
+    ).encode("utf-8")
+
+
+def _fake_atom_response(status_code: int = 200, next_href: str = None, headers=None) -> _FakeResponse:
+    return _FakeResponse(status_code=status_code, content=_atom_bytes(next_href=next_href),
+                          headers=headers)
+
+
+class _ScriptedSession:
+    """Fake matching the .get(url, timeout=, allow_redirects=) surface
+    fetch_source() calls. `script` is a list consumed in order, one entry
+    per .get() call -- an Exception instance is raised, anything else is
+    returned as the response. Every call is recorded in `.calls`."""
+
+    def __init__(self, script):
+        self._script = list(script)
+        self.calls = []
+
+    def get(self, url, timeout=None, allow_redirects=True):
+        self.calls.append({"url": url, "timeout": timeout, "allow_redirects": allow_redirects})
+        if not self._script:
+            raise AssertionError("fake session.get() called more times than scripted")
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class _ManualClock:
+    """Injectable fake monotonic clock: reads `.t` directly, advanced only
+    when a test (or a patched time.sleep) explicitly mutates it -- never on
+    its own, so expiry timing in a test is fully deterministic."""
+
+    def __init__(self, start: float = 0.0):
+        self.t = start
+
+    def __call__(self):
+        return self.t
+
+
+class FetchBoundsUnitTests(unittest.TestCase):
+    """Pure unit coverage for tools/fetch_bounds.py -- registry/host
+    authorization (Stage A Sec F), the request-budget formula and
+    fail-closed counter (Sec H), and the deadline formula/object (Sec E).
+    No network, no file I/O."""
+
+    # --- registry / host authorization --------------------------------
+
+    def test_verify_source_registry_matching_passes(self):
+        active = [{"name": n, "url": e["url"]} for n, e in fetch_bounds.pc.PUBLIC_SOURCES.items()]
+        fetch_bounds.verify_source_registry(active)  # must not raise
+
+    def test_verify_source_registry_missing_entry_fails_closed(self):
+        registry = dict(fetch_bounds.pc.PUBLIC_SOURCES)
+        active = [{"name": n, "url": e["url"]} for n, e in registry.items()][:1]
+        with self.assertRaises(fetch_bounds.RegistryMismatchError):
+            fetch_bounds.verify_source_registry(active, registry=registry)
+
+    def test_verify_source_registry_extra_entry_fails_closed(self):
+        registry = dict(fetch_bounds.pc.PUBLIC_SOURCES)
+        active = [{"name": n, "url": e["url"]} for n, e in registry.items()]
+        active.append({"name": "EXTRA-SOURCE", "url": "https://extra.invalid/feed"})
+        with self.assertRaises(fetch_bounds.RegistryMismatchError):
+            fetch_bounds.verify_source_registry(active, registry=registry)
+
+    def test_verify_source_registry_url_drift_fails_closed(self):
+        registry = dict(fetch_bounds.pc.PUBLIC_SOURCES)
+        active = [{"name": n, "url": e["url"]} for n, e in registry.items()]
+        active[0] = {"name": active[0]["name"], "url": "https://drifted.invalid/feed"}
+        with self.assertRaises(fetch_bounds.RegistryMismatchError):
+            fetch_bounds.verify_source_registry(active, registry=registry)
+
+    def test_allowed_hosts_derived_from_registry(self):
+        hosts = fetch_bounds.allowed_hosts()
+        self.assertIn("contrataciondelestado.es", hosts)
+        self.assertIn("contrataciondelsectorpublico.gob.es", hosts)
+
+    def test_is_authorized_host(self):
+        self.assertTrue(fetch_bounds.is_authorized_host("contrataciondelestado.es"))
+        self.assertFalse(fetch_bounds.is_authorized_host("evil.invalid"))
+        self.assertFalse(fetch_bounds.is_authorized_host(""))
+        self.assertFalse(fetch_bounds.is_authorized_host(None))
+
+    # --- request-budget formula -----------------------------------------
+
+    def test_max_total_requests_formula_not_a_frozen_literal(self):
+        # Stage A Sec H: MAX_TOTAL_REQUESTS = sources * pages * (1+retries),
+        # never a hard-coded 8 -- prove it recomputes for different inputs.
+        self.assertEqual(fetch_bounds.max_total_requests(2, pages=1, retries=3), 8)
+        self.assertEqual(fetch_bounds.max_total_requests(3, pages=1, retries=3), 12)
+        self.assertEqual(fetch_bounds.max_total_requests(2, pages=2, retries=3), 16)
+        self.assertEqual(fetch_bounds.max_total_requests(2, pages=1, retries=0), 2)
+
+    def test_request_budget_admits_up_to_max_then_fails_closed(self):
+        budget = fetch_bounds.RequestBudget(3)
+        budget.admit()
+        budget.admit()
+        budget.admit()
+        self.assertEqual(budget.used, 3)
+        self.assertEqual(budget.remaining(), 0)
+        with self.assertRaises(fetch_bounds.BudgetExceededError):
+            budget.admit()
+        self.assertEqual(budget.used, 3)  # the refused call is never counted
+
+    def test_request_budget_rejects_negative_max(self):
+        with self.assertRaises(ValueError):
+            fetch_bounds.RequestBudget(-1)
+
+    # --- deadline formula --------------------------------------------
+
+    def test_compute_global_deadline_s_matches_stage_a_worked_example(self):
+        # Stage A/R1 report Sec E worked example: 2 sources, pages=1,
+        # retries=3, timeout=45s, delay=2.0, backoff=2.0 -> approx 394s.
+        value = fetch_bounds.compute_global_deadline_s(
+            active_source_count=2, pages=1, retries=3,
+            request_timeout_s=45.0, retry_delay=2.0, retry_backoff=2.0)
+        self.assertAlmostEqual(value, 393.6, places=1)
+
+    def test_compute_global_deadline_s_scales_with_inputs(self):
+        base = fetch_bounds.compute_global_deadline_s(active_source_count=1)
+        doubled_sources = fetch_bounds.compute_global_deadline_s(active_source_count=2)
+        self.assertAlmostEqual(doubled_sources, base * 2)
+
+    def test_worst_case_backoff_matches_retry_sleep_upper_bound(self):
+        value = fetch_bounds.worst_case_backoff_s(retries=3, retry_delay=2.0, retry_backoff=2.0)
+        self.assertAlmostEqual(value, 2.0 * (1 + 2 + 4) * 1.2)
+
+    # --- Deadline object (fake clock) ------------------------------------
+
+    def test_deadline_not_expired_before_horizon(self):
+        clock = _ManualClock(start=0.0)
+        d = fetch_bounds.Deadline(10.0, clock=clock)
+        self.assertFalse(d.expired())
+        clock.t = 9.999
+        self.assertFalse(d.expired())
+        d.check()  # must not raise
+
+    def test_deadline_expired_at_and_after_horizon(self):
+        clock = _ManualClock(start=0.0)
+        d = fetch_bounds.Deadline(10.0, clock=clock)
+        clock.t = 10.0
+        self.assertTrue(d.expired())
+        with self.assertRaises(fetch_bounds.DeadlineExceededError):
+            d.check()
+        clock.t = 999.0
+        self.assertTrue(d.expired())
+
+    def test_deadline_remaining_never_negative(self):
+        clock = _ManualClock(start=0.0)
+        d = fetch_bounds.Deadline(5.0, clock=clock)
+        clock.t = 100.0
+        self.assertEqual(d.remaining(), 0.0)
+
+
+class BoundedSessionConstructionTests(unittest.TestCase):
+    """Stage A Sec A: build_bounded_session() must mount a non-retrying
+    transport adapter (Retry(total=0)), while build_session() (every other
+    call site) is unchanged. No network -- inspects only the constructed
+    Session's mounted adapter configuration."""
+
+    def test_build_session_retains_current_retry_adapter(self):
+        s = fl.build_session()
+        adapter = s.get_adapter("https://contrataciondelestado.es/x")
+        self.assertEqual(adapter.max_retries.total, 3)
+        self.assertEqual(adapter.max_retries.connect, 3)
+        self.assertEqual(adapter.max_retries.read, 3)
+
+    def test_build_bounded_session_disables_transport_retries(self):
+        s = fl.build_bounded_session()
+        adapter = s.get_adapter("https://contrataciondelestado.es/x")
+        self.assertEqual(adapter.max_retries.total, 0)
+
+    def test_build_bounded_session_still_sets_headers(self):
+        s = fl.build_bounded_session()
+        self.assertEqual(s.headers.get("User-Agent"), fl.HEADERS["User-Agent"])
+
+
+class BoundedFetchSourceTests(unittest.TestCase):
+    """fetch_source() bounded-mode coverage -- single-layer retry/attempt
+    accounting, failure classification (Stage A Sec B), redirect policy
+    (Sec G), the volume-sanity ceiling (Sec J), and the seven Stage A
+    Sec E.1 deadline checkpoints. All network I/O is replaced by
+    _ScriptedSession; retry backoff sleep and its jitter are mocked out so
+    these tests run instantly and deterministically."""
+
+    def setUp(self):
+        self._sleep_patch = mock.patch.object(fl.time, "sleep", lambda secs: None)
+        self._sleep_patch.start()
+        self._jitter_patch = mock.patch("random.uniform", return_value=1.0)
+        self._jitter_patch.start()
+        # fetch_source() funnels every progress line through fl.pprint(); several of
+        # those lines are unconditional (not gated by _QUIET/_NO_PROGRESS) and contain
+        # non-ASCII glyphs (e.g. U+2193 DOWNWARDS ARROW), which raise UnicodeEncodeError
+        # on a cp1252 Windows stdout. Silence the funnel itself for these direct
+        # fetch_source() calls rather than toggling the CLI flags, which do not cover
+        # every call site.
+        self._pprint_patch = mock.patch.object(fl, "pprint", lambda *a, **kw: None)
+        self._pprint_patch.start()
+
+    def tearDown(self):
+        self._pprint_patch.stop()
+        self._jitter_patch.stop()
+        self._sleep_patch.stop()
+
+    def _source(self, name="S1", url="https://example.invalid/feed"):
+        return {"name": name, "ccaa": None, "url": url}
+
+    # --- legacy compatibility (no bounded params) -------------------------
+
+    def test_legacy_call_omits_bounded_params_preserves_redirects_true(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        fl.fetch_source(session, self._source(), max_pages=1, min_score=20)
+        self.assertEqual(session.calls[0]["allow_redirects"], True)
+        self.assertEqual(session.calls[0]["timeout"], fl.TIMEOUT)
+
+    def test_legacy_call_has_no_deadline_or_budget_enforcement(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            _fake_atom_response(),
+        ])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3)
+        self.assertFalse(result["had_error"])
+        self.assertEqual(len(session.calls), 3)
+        self.assertFalse(result["deadline_exhausted"])
+        self.assertFalse(result["budget_exhausted"])
+
+    # --- single-layer retry / attempt accounting (Sec A/H) ----------------
+
+    def test_budget_counts_exactly_each_real_attempt(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            _fake_atom_response(),
+        ])
+        budget = fetch_bounds.RequestBudget(10)
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, budget=budget)
+        self.assertEqual(len(session.calls), 3)
+        self.assertEqual(budget.used, 3)
+        self.assertEqual(result["retry_count"], 2)
+        self.assertFalse(result["had_error"])
+
+    def test_retries_bounded_at_max_attempts_then_terminal(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+        ])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3)
+        # retries=3 -> at most 4 total attempts (1 initial + 3 retries).
+        self.assertEqual(len(session.calls), 4)
+        self.assertTrue(result["had_error"])
+
+    def test_budget_prevents_attempt_before_network_call(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            _fake_atom_response(),  # never reached -- budget exhausted first
+        ])
+        budget = fetch_bounds.RequestBudget(2)
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, budget=budget)
+        self.assertEqual(len(session.calls), 2)  # 3rd attempt never made
+        self.assertTrue(result["budget_exhausted"])
+        self.assertTrue(result["had_error"])
+
+    # --- failure classification (Stage A Sec B) --------------------------
+
+    def test_retryable_connect_error_recovers(self):
+        session = _ScriptedSession([requests.exceptions.ConnectionError("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+        self.assertEqual(len(session.calls), 2)
+
+    def test_retryable_timeout_recovers(self):
+        session = _ScriptedSession([requests.exceptions.Timeout("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_ssl_error_recovers(self):
+        session = _ScriptedSession([requests.exceptions.SSLError("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_chunked_encoding_error_recovers(self):
+        session = _ScriptedSession([requests.exceptions.ChunkedEncodingError("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_http_429_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=429), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_http_5xx_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=503), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_malformed_non_atom_body_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=200, content=b"<html>oops</html>"),
+                                     _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_xml_parse_error_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=200, content=b"<feed><entry>"),
+                                     _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_terminal_other_4xx_not_retried(self):
+        session = _ScriptedSession([_FakeResponse(status_code=404), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3)
+        self.assertTrue(result["had_error"])
+        self.assertEqual(len(session.calls), 1)  # never retried
+
+    def test_terminal_redirect_blocked_when_bounded(self):
+        session = _ScriptedSession([
+            _FakeResponse(status_code=302, headers={"Location": "https://elsewhere.invalid/"}),
+            _fake_atom_response(),
+        ])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3,
+                                  allow_redirects=False)
+        self.assertTrue(result["had_error"])
+        self.assertEqual(len(session.calls), 1)  # never retried, never followed
+        self.assertIn("redirect blocked", result["error_msg"])
+
+    def test_redirect_kwarg_passed_through_when_not_bounded(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        fl.fetch_source(session, self._source(), max_pages=1, min_score=20, allow_redirects=True)
+        self.assertEqual(session.calls[0]["allow_redirects"], True)
+
+    # --- volume-sanity ceiling (Stage A Sec J) ----------------------------
+
+    def test_max_source_records_none_means_unlimited(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  max_source_records=None)
+        self.assertFalse(result["had_error"])
+
+    def test_max_source_records_ceiling_aborts_never_truncates(self):
+        # An empty <feed> yields 0 accepted records; a ceiling of -1 is
+        # always exceeded once any non-negative count is reached, so this
+        # deterministically exercises the fail-closed abort path without
+        # depending on the scoring pipeline accepting synthetic entries.
+        session = _ScriptedSession([_fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  max_source_records=-1)
+        self.assertTrue(result["had_error"])
+        self.assertIn("volume ceiling exceeded", result["error_msg"])
+
+    # --- deadline checkpoints (Stage A Sec E.1) ---------------------------
+
+    def test_deadline_already_expired_admits_no_attempt(self):
+        clock = _ManualClock(start=100.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        clock.t = 200.0  # already past deadline_at=101.0
+        session = _ScriptedSession([_fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(session.calls), 0)
+
+    def test_deadline_expiry_during_backoff_prevents_next_attempt(self):
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        session = _ScriptedSession([requests.exceptions.ConnectionError("boom")])
+        with mock.patch.object(fl.time, "sleep", lambda secs: setattr(clock, "t", clock.t + secs)):
+            result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                      retries=3, retry_delay=2.0, retry_backoff=2.0,
+                                      deadline=deadline)
+        # retry_delay(2.0) * backoff**(1-1)(=1) * jitter(1.0) = 2.0s sleep,
+        # which alone exceeds the 1.0s deadline -- no second real attempt.
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(session.calls), 1)
+
+    def test_deadline_expiry_prevents_next_page(self):
+        # R2 (Prompt 323 Stage B R2, WRKOPS t_20260923_adgops323): the shared
+        # Deadline is now checked immediately on response return, before
+        # non-Atom inspection / XML parsing / page-completion accounting.
+        # Expiry on response return therefore prevents completion of the
+        # current page as well as advancement to the next page -- pages_done
+        # stays 0, not 1, because the response that arrived after expiry is
+        # rejected before it is ever parsed or counted.
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(5.0, clock=clock)
+        call_count = [0]
+
+        def _advance_and_return(url, timeout=None, allow_redirects=True):
+            call_count[0] += 1
+            clock.t += 6.0  # exceeds the 5.0s deadline after this one response
+            return _fake_atom_response(next_href="https://example.invalid/feed?page=2")
+
+        session = _ScriptedSession([])
+        session.get = _advance_and_return
+        result = fl.fetch_source(session, self._source(), max_pages=2, min_score=20,
+                                  deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(result["pages_done"], 0)
+        self.assertEqual(call_count[0], 1)  # no request for page 2
+
+    def test_deadline_expiry_prevents_next_source(self):
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(10.0, clock=clock)
+
+        session1 = _ScriptedSession([_fake_atom_response()])
+        result1 = fl.fetch_source(session1, self._source("S1"), max_pages=1, min_score=20,
+                                   deadline=deadline)
+        self.assertFalse(result1["deadline_exhausted"])
+        self.assertEqual(len(session1.calls), 1)
+
+        clock.t = 11.0  # past the shared deadline before the next source starts
+
+        session2 = _ScriptedSession([_fake_atom_response()])
+        result2 = fl.fetch_source(session2, self._source("S2"), max_pages=1, min_score=20,
+                                   deadline=deadline)
+        self.assertTrue(result2["deadline_exhausted"])
+        self.assertEqual(len(session2.calls), 0)
+
+
+class BoundedDeadlineCheckpointOrderingR2Tests(unittest.TestCase):
+    """Prompt 323 Stage B R2 (WRKOPS t_20260923_adgops323) -- exact-diff review
+    finding: the R1 cooperative deadline checkpoint #3 ("immediately after each
+    response or raised request exception") was control-flow-positioned after
+    several `break` exits, so it never fired on the bounded 3xx / terminal 4xx /
+    non-retryable-exception / successful-Atom-parse paths. These three tests
+    are written to fail against the R1 implementation and pass only once the
+    checkpoint is the first statement in both the except- and else-branches of
+    the session.get() try block. No network; a fake clock and a fake
+    session.get() are the only inputs. Not executed by this authoring session
+    (WRKOPS NO_RUNTIME) -- the operator runs this suite."""
+
+    def setUp(self):
+        self._pprint_patch = mock.patch.object(fl, "pprint", lambda *a, **kw: None)
+        self._pprint_patch.start()
+
+    def tearDown(self):
+        self._pprint_patch.stop()
+
+    def _source(self, name="S1", url="https://example.invalid/feed"):
+        return {"name": name, "ccaa": None, "url": url}
+
+    def test_deadline_checked_before_response_classification_on_success(self):
+        """Test 1 (handoff Sec 6): a fake session.get() advances the clock past
+        the deadline and then returns a valid Atom response. The R1 checkpoint
+        sat after the success `break`, so it never fired here and
+        parse_atom_entries() ran on an already-expired acquisition. Corrected
+        order must raise DeadlineExceededError before any response
+        classification/parsing, so parse_atom_entries() is never reached."""
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        calls = []
+
+        def _expired_then_valid(url, timeout=None, allow_redirects=True):
+            calls.append(1)
+            clock.t = 2.0  # expire the deadline once control returns from session.get()
+            return _fake_atom_response()
+
+        session = _ScriptedSession([])
+        session.get = _expired_then_valid
+        with mock.patch.object(fl, "parse_atom_entries") as parse_mock:
+            result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                      deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(calls), 1)  # no further HTTP attempt
+        parse_mock.assert_not_called()  # response content never parsed/processed after expiry
+
+    def test_deadline_checked_before_exception_classification(self):
+        """Test 2 (handoff Sec 6): a fake session.get() advances the clock past
+        the deadline and then raises a retryable request exception. The
+        checkpoint must fire before is_retryable_fetch_error() classification,
+        so no retry is admitted and deadline exhaustion is not converted into
+        an ordinary network failure."""
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        calls = []
+
+        def _expired_then_raise(url, timeout=None, allow_redirects=True):
+            calls.append(1)
+            clock.t = 2.0
+            raise requests.exceptions.ConnectionError("boom")
+
+        session = _ScriptedSession([])
+        session.get = _expired_then_raise
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(calls), 1)  # no second attempt/retry admitted
+        self.assertEqual(result["retry_count"], 0)
+
+    def test_deadline_checked_before_terminal_response_break(self):
+        """Test 3 (handoff Sec 6): a fake session.get() advances the clock past
+        the deadline and then returns a terminal (non-429) 4xx response. Under
+        R1 the terminal-response `break` (from the HTTPError classification)
+        exited the loop before the post-block checkpoint ever ran, so
+        deadline_exhausted stayed False and the outcome was misreported as an
+        ordinary terminal HTTP failure. Corrected order must raise
+        DeadlineExceededError before raise_for_status()/status classification,
+        so the terminal-response break can no longer bypass it."""
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        calls = []
+
+        def _expired_then_terminal(url, timeout=None, allow_redirects=True):
+            calls.append(1)
+            clock.t = 2.0
+            return _FakeResponse(status_code=404)
+
+        session = _ScriptedSession([])
+        session.get = _expired_then_terminal
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(calls), 1)  # terminal-response break did not bypass the checkpoint
+
+
+class ConsoleEncodingCompatibilityTests(unittest.TestCase):
+    """Prompt 323 Stage B R4 (WRKOPS t_20260923_adgops323): the first live
+    Windows bounded-sandbox run crashed with UnicodeEncodeError from
+    fl.pprint()'s startup-banner print() call, before any bounded
+    acquisition network attempt could occur -- a strict cp1252-encoded
+    redirected stdout cannot represent this module's box-drawing/arrow
+    glyphs (U+2550, U+2193, etc.). fl.pprint() now falls back to a
+    backslash-escaped, encoding-safe representation instead of crashing.
+    No network; a strict-encoding in-memory text stream is constructed
+    directly here rather than depending on the actual host console
+    encoding."""
+
+    def test_strict_cp1252_stream_falls_back_to_escaped_representation(self):
+        buf = io.BytesIO()
+        stream = io.TextIOWrapper(buf, encoding="cp1252", errors="strict", newline="")
+        message = "═ ↓"  # BOX DRAWINGS DOUBLE HORIZONTAL + DOWNWARDS ARROW
+        with mock.patch.object(sys, "stdout", stream):
+            fl.pprint(message)
+            stream.flush()
+        written = buf.getvalue().decode("cp1252")
+        self.assertNotIn("═", written)  # the raw glyph must never reach the strict stream
+        self.assertNotIn("↓", written)
+        self.assertIn("\\u2550", written)    # deterministic escaped representation instead
+        self.assertIn("\\u2193", written)
+
+    def test_ascii_message_unchanged_on_normal_stream(self):
+        buf = io.StringIO()
+        with mock.patch.object(sys, "stdout", buf):
+            fl.pprint("ASCII control")
+        self.assertEqual(buf.getvalue(), "ASCII control\n")
+
+
+class BoundedMainEnvelopeStatusTests(unittest.TestCase):
+    """Proves main()'s bounded-mode status wiring end-to-end: when any
+    source reports deadline/budget exhaustion, the written envelope carries
+    is_partial=True and a run_status that the EXISTING
+    scp.run_status_lacks_success() refusal predicate already treats as
+    lacking success -- no new refusal mechanism, reusing run_live()'s
+    established gate. fetch_source() itself is stubbed here (already
+    covered directly by BoundedFetchSourceTests above); SOURCES and
+    registry verification are patched so no real PUBLIC_SOURCES/network
+    coupling is required. No network, no file writes outside a temp dir."""
+
+    def _run_main_with_stub(self, stub_result):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            out_path = tmp / "candidate.json"
+            fake_sources = [{"name": "S1", "ccaa": None, "url": "https://example.invalid/feed"}]
+
+            def _stub_fetch_source(session, source, max_pages, min_score, **kwargs):
+                return dict(stub_result)
+
+            argv = ["fetch_licitaciones.py", "--output", str(out_path),
+                    "--bounded-mode", "--global-deadline", "1.0", "--no-progress"]
+            with mock.patch.object(fl, "SOURCES", fake_sources), \
+                 mock.patch.object(fl, "fetch_source", _stub_fetch_source), \
+                 mock.patch.object(fl, "build_bounded_session", lambda: object()), \
+                 mock.patch.object(fetch_bounds, "verify_source_registry",
+                                    lambda active_sources, registry=None: None), \
+                 mock.patch.object(sys, "argv", argv), \
+                 redirect_stdout(io.StringIO()):
+                fl.main()
+
+            return json.loads(out_path.read_text(encoding="utf-8"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_deadline_exhaustion_produces_partial_nonsuccess_envelope(self):
+        written = self._run_main_with_stub({
+            "results": [], "pages_done": 0, "had_error": True,
+            "error_msg": "bounded acquisition deadline exhausted",
+            "retry_count": 0, "retried_pages": [], "retry_errors": [],
+            "deadline_exhausted": True, "budget_exhausted": False,
+        })
+        self.assertTrue(written["is_partial"])
+        self.assertEqual(written["run_status"], "DEADLINE_EXHAUSTED")
+        self.assertTrue(written["deadline_exhausted"])
+        self.assertTrue(scp.run_status_lacks_success(str(written["run_status"]).lower()))
+
+    def test_budget_exhaustion_produces_partial_nonsuccess_envelope(self):
+        written = self._run_main_with_stub({
+            "results": [], "pages_done": 0, "had_error": True,
+            "error_msg": "request budget exhausted",
+            "retry_count": 0, "retried_pages": [], "retry_errors": [],
+            "deadline_exhausted": False, "budget_exhausted": True,
+        })
+        self.assertTrue(written["is_partial"])
+        self.assertEqual(written["run_status"], "REQUEST_BUDGET_EXHAUSTED")
+        self.assertTrue(written["budget_exhausted"])
+        self.assertTrue(scp.run_status_lacks_success(str(written["run_status"]).lower()))
+
+
+class RunLiveHardTimeoutTests(unittest.TestCase):
+    """Stage A Sec E.2/E.4: run_live()'s hard subprocess-timeout layer must
+    fail closed before any candidate consumption, and must share exactly one
+    GLOBAL_DEADLINE_S value with the --global-deadline flag passed to the
+    bounded fetcher subprocess. subprocess.run itself is mocked to raise
+    subprocess.TimeoutExpired without ever spawning a real process; no
+    network, no real filesystem writes outside a temp TMP_DIR redirect."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self._saved_tmp_dir = sfm.TMP_DIR
+        sfm.TMP_DIR = self.tmp
+
+    def tearDown(self):
+        sfm.TMP_DIR = self._saved_tmp_dir
+        self._tmp.cleanup()
+
+    def _args(self):
+        return types.SimpleNamespace(
+            allow_production_write=True,
+            internal_state_path=str(self.tmp / "unreadable-should-never-be-opened.json"),
+            link_checks_path=None,
+        )
+
+    def test_timeout_expired_fails_closed_before_any_candidate_consumption(self):
+        with mock.patch.object(
+                sfm.subprocess, "run",
+                side_effect=sfm.subprocess.TimeoutExpired(cmd="fetch_licitaciones.py", timeout=1.0)) as run_mock, \
+             mock.patch.object(sfm, "load_json") as load_json_mock, \
+             mock.patch.object(sfm, "load_internal_state") as load_state_mock, \
+             mock.patch.object(sfm, "canonicalize_and_project") as canon_mock, \
+             mock.patch.object(sfm, "write_json") as write_json_mock:
+            with self.assertRaises(SystemExit) as cm:
+                sfm.run_live(self._args())
+        self.assertIn("global acquisition deadline", str(cm.exception))
+        run_mock.assert_called_once()
+        load_json_mock.assert_not_called()
+        load_state_mock.assert_not_called()
+        canon_mock.assert_not_called()
+        write_json_mock.assert_not_called()
+
+    def test_subprocess_timeout_equals_cli_global_deadline_flag(self):
+        captured = {}
+
+        def _fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            captured["timeout"] = kwargs.get("timeout")
+            raise sfm.subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout"))
+
+        with mock.patch.object(sfm.subprocess, "run", side_effect=_fake_run):
+            with self.assertRaises(SystemExit):
+                sfm.run_live(self._args())
+        cmd = captured["cmd"]
+        self.assertIn("--bounded-mode", cmd)
+        idx = cmd.index("--global-deadline")
+        cli_deadline = float(cmd[idx + 1])
+        self.assertEqual(cli_deadline, captured["timeout"])
+        expected = fetch_bounds.compute_global_deadline_s(
+            active_source_count=len(sfm.pc.PUBLIC_SOURCES),
+            pages=fetch_bounds.DEFAULT_PAGES, retries=fetch_bounds.DEFAULT_RETRIES,
+            request_timeout_s=fetch_bounds.DEFAULT_REQUEST_TIMEOUT_S,
+            retry_delay=fetch_bounds.DEFAULT_RETRY_DELAY_S,
+            retry_backoff=fetch_bounds.DEFAULT_RETRY_BACKOFF,
+        )
+        self.assertAlmostEqual(cli_deadline, expected)
 
 
 # ---------------------------------------------------------------------------

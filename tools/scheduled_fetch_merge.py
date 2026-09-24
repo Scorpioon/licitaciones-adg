@@ -70,6 +70,15 @@ try:
 except ImportError:  # pragma: no cover - direct-run fallback
     import scheduled_candidate_policy as scp
 
+# Prompt 323 Stage B / WRKOPS t_20260923_adgops323: bounded-production
+# acquisition policy primitives (Stage A Sec E/F/H). run_live() is the one
+# call site that opts into bounded mode and shares its GLOBAL_DEADLINE_S
+# with fetch_licitaciones.py's own cooperative deadline -- see Sec below.
+try:
+    from tools import fetch_bounds
+except ImportError:  # pragma: no cover - direct-run fallback
+    import fetch_bounds
+
 # Canonicalization (Prompt 292, closed) and public-record projection
 # (Prompt 289, closed). Used only by --run-live (p294): the internal
 # continuity merge, canonicalization, and public projection are three
@@ -1035,17 +1044,58 @@ def run_live(args) -> None:
     except Exception:
         pass
 
-    print(f"[run-live] Fetching to: {candidate_path}")
-    result = subprocess.run(
-        [
-            sys.executable, str(FETCHER_SCRIPT),
-            "--output", str(candidate_path),
-            "--min-score", "20",
-            "--no-progress",
-        ],
-        capture_output=True,
-        text=True,
+    # Prompt 323 Stage B: the SAME GLOBAL_DEADLINE_S authority
+    # (tools/fetch_bounds.py::compute_global_deadline_s) sizes both
+    # enforcement layers -- the cooperative in-process deadline the
+    # fetcher subprocess enforces on itself (--global-deadline below) and
+    # this process's own hard subprocess timeout. Never two independently
+    # computed numbers. Evaluated over the authoritative source registry
+    # and the unchanged Stage A Sec C/D defaults (fetch_licitaciones.py's
+    # scheduled invocation below passes no --pages/--retries/--request-timeout
+    # override, so it runs at exactly these same default values).
+    active_source_count = len(pc.PUBLIC_SOURCES)
+    GLOBAL_DEADLINE_S = fetch_bounds.compute_global_deadline_s(
+        active_source_count=active_source_count,
+        pages=fetch_bounds.DEFAULT_PAGES,
+        retries=fetch_bounds.DEFAULT_RETRIES,
+        request_timeout_s=fetch_bounds.DEFAULT_REQUEST_TIMEOUT_S,
+        retry_delay=fetch_bounds.DEFAULT_RETRY_DELAY_S,
+        retry_backoff=fetch_bounds.DEFAULT_RETRY_BACKOFF,
     )
+
+    print(f"[run-live] Fetching to: {candidate_path}")
+    print(f"[run-live] bounded-mode: global deadline={GLOBAL_DEADLINE_S}s "
+          f"(sources={active_source_count}, hard subprocess timeout=same value)")
+    try:
+        result = subprocess.run(
+            [
+                sys.executable, str(FETCHER_SCRIPT),
+                "--output", str(candidate_path),
+                "--min-score", "20",
+                "--no-progress",
+                "--bounded-mode",
+                "--global-deadline", str(GLOBAL_DEADLINE_S),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=GLOBAL_DEADLINE_S,
+        )
+    except subprocess.TimeoutExpired:
+        # Hard acquisition-process ceiling (Stage A Sec E.2/E.4): fires only if
+        # the cooperative in-process deadline above failed to return control in
+        # time. Never reads or otherwise consumes candidate_path -- the
+        # exception propagates from this except block via sys.exit() before any
+        # downstream load_json()/merge/canonicalize/write call could run, so a
+        # killed, possibly partially-written candidate file is never treated as
+        # a valid acquisition. No candidate salvage/cleanup is attempted here
+        # (deliberately -- see Stage A report Sec E.4); each run computes a
+        # fresh timestamp-suffixed candidate_path, so an orphaned file is never
+        # read by a later run either.
+        sys.exit(
+            f"[ERROR] Fetcher subprocess exceeded the global acquisition "
+            f"deadline ({GLOBAL_DEADLINE_S}s); aborting bounded acquisition. "
+            f"No candidate consumed."
+        )
     if result.stdout:
         print(result.stdout[-3000:])
     if result.returncode != 0:
