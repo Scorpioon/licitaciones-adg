@@ -62,6 +62,7 @@ import tools.canonical_tender_merge as ctm  # noqa: E402
 import tools.link_check_resolver as lcr  # noqa: E402
 import tools.fetch_bounds as fetch_bounds  # noqa: E402 - Prompt 323 Stage B
 import fetch_licitaciones as fl  # noqa: E402 - Prompt 323 Stage B
+import tools.run_receipt as run_receipt  # noqa: E402 - Prompt 324 Stage B
 
 AUTOMATION_ID = "ADGOPS_AUTO_FETCHER1_SCHEDULED"
 
@@ -759,6 +760,327 @@ class L2ClassifierTests(unittest.TestCase):
         summary = step_summary.read_text(encoding="utf-8")
         self.assertIn("Scheduled Fetcher — Operational Summary", summary)
         self.assertIn("SUCCESS_REAL_FETCH_WRITE", summary)
+
+
+# ---------------------------------------------------------------------------
+# Prompt 324 Stage B (WRKOPS t_20260924_adgops324) -- durable V2 receipt.
+# Offline only: no network, and every publication-identity test passes an
+# explicit `production_path` fixture rather than touching the real
+# data/licitaciones.json (build_receipt_v2()/finalize_v2_receipt() only fall
+# back to the real repo path when no production_path is given AND
+# DATA_CHANGED=='true', which none of these table-driven envs set without
+# also supplying a fixture path).
+# ---------------------------------------------------------------------------
+
+def _run_started_at_iso():
+    return "2026-09-24T08:00:00+00:00"
+
+
+class V2ReceiptTests(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def write_candidate(self, fixture_name=None, payload=None):
+        dst = self.tmp / "scheduled_live_candidate_20260924T080000Z.json"
+        if payload is not None:
+            dst.write_text(json.dumps(payload), encoding="utf-8")
+        else:
+            shutil.copyfile(FIXTURES_DIR / fixture_name, dst)
+        return dst
+
+    def write_production_fixture(self, generation_id="gen-20260924T080000Z-abc123def456",
+                                  dataset_sha256="a" * 64, record_count=2):
+        path = self.tmp / "production.json"
+        payload = {
+            "meta": {
+                "generation_id": generation_id,
+                "dataset_sha256": dataset_sha256,
+                "counts": {"records": record_count},
+            },
+            "data": [{"id": "x"}] * record_count,
+        }
+        path.write_bytes(json.dumps(payload).encode("utf-8"))
+        return path
+
+    def classify(self, env, helper_log=None):
+        return src.classify(env, tmp_dir=self.tmp, helper_log=helper_log)
+
+    def receipt(self, env, helper_log=None, production_path=None):
+        result = self.classify(env, helper_log=helper_log)
+        return src.build_receipt_v2(env, result,
+                                     helper_log=result.get("helper_log"),
+                                     production_path=production_path), result
+
+    # --- schema / shape per state -------------------------------------
+
+    def test_schema_identity(self):
+        receipt, _ = self.receipt(base_env(RUN_FETCH="skip"))
+        self.assertEqual(receipt["schema"], "ADGOPS_SCHEDULED_RUN_REPORT_V2")
+        self.assertEqual(receipt["schema_version"], "2.0")
+
+    def test_success_shape_includes_publication_and_commit(self):
+        self.write_candidate("cand_full_success.json")
+        prod = self.write_production_fixture()
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="success", PRIVACYREPORT_OUTCOME="success",
+                       COMMIT_OUTCOME="success", DATA_CHANGED="true",
+                       PUSH_OUTCOME="success", COMMIT_SHA="deadbeef" * 5,
+                       GH_RUN_ATTEMPT="1", BASELINE_HEAD="cafebabe" * 5,
+                       RUN_STARTED_AT=_run_started_at_iso())
+        receipt, result = self.receipt(env, production_path=prod)
+        self.assertEqual(result["status"], "SUCCESS_REAL_FETCH_WRITE")
+        self.assertEqual(receipt["terminal"]["operational_status"], "SUCCESS_REAL_FETCH_WRITE")
+        self.assertIsNone(receipt["terminal"]["refusal_reason"])
+        self.assertIsNotNone(receipt["publication"])
+        self.assertEqual(receipt["publication"]["generation_id"], "gen-20260924T080000Z-abc123def456")
+        self.assertEqual(receipt["commit"]["decision"], "created")
+        self.assertEqual(receipt["commit"]["sha"], "deadbeef" * 5)
+        self.assertEqual(receipt["run_identity"]["run_attempt"], "1")
+        self.assertEqual(receipt["run_identity"]["baseline_head"], "cafebabe" * 5)
+        self.assertIsNotNone(receipt["run_identity"]["elapsed_s"])
+        self.assertIsNotNone(receipt["bounded_policy_snapshot"])
+        self.assertGreater(receipt["bounded_policy_snapshot"]["active_source_count"], 0)
+        self.assertEqual(receipt["candidate"]["sha256"],
+                          hashlib.sha256((FIXTURES_DIR / "cand_full_success.json").read_bytes()).hexdigest())
+        self.assertNotIn("path", receipt["candidate"])
+        self.assertEqual(receipt["candidate"]["filename"],
+                          "scheduled_live_candidate_20260924T080000Z.json")
+
+    def test_no_change_shape_omits_publication(self):
+        self.write_candidate("cand_empty_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="false", MONOLITH_CHANGED="false", PUSH_OUTCOME="skipped")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "SUCCESS_REAL_FETCH_NO_CHANGES")
+        self.assertIsNone(receipt["publication"])
+        self.assertEqual(receipt["commit"]["decision"], "not_created")
+        self.assertIsNone(receipt["commit"]["sha"])
+
+    def test_fail_closed_shape_omits_publication_and_commit_na(self):
+        env = base_env(HELPER_OUTCOME="failure")
+        receipt, result = self.receipt(env, helper_log="some unrelated traceback")
+        self.assertEqual(result["status"], "FAIL_CLOSED")
+        self.assertIsNone(receipt["publication"])
+        self.assertEqual(receipt["commit"]["decision"], "n/a")
+        self.assertEqual(receipt["terminal"]["refusal_reason"], "FAIL_CLOSED")
+        self.assertIn("FAIL_CLOSED", receipt["sanitized_error_categories"])
+
+    # --- exact-byte identity / self-hash / naming ----------------------
+
+    def test_receipt_bytes_match_sidecar_digest_and_no_self_hash(self):
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="skipped",
+                       DATA_CHANGED="", MONOLITH_CHANGED="false", PUSH_OUTCOME="skipped")
+        self.write_candidate("cand_empty_success.json")
+        result = self.classify(env)
+        info = src.finalize_v2_receipt(env, result, tmp_dir=self.tmp, helper_log=result.get("helper_log"))
+        self.assertIsNotNone(info)
+        self.assertTrue(Path(info["receipt_path"]).exists())
+        self.assertTrue(Path(info["sidecar_path"]).exists())
+        self.assertTrue(run_receipt.verify_receipt(info["receipt_path"], info["sidecar_path"]))
+        raw = Path(info["receipt_path"]).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), info["sha256"])
+        self.assertNotIn(info["sha256"].encode("ascii"), raw)
+
+    def test_one_byte_corruption_detected(self):
+        env = base_env(RUN_FETCH="skip")
+        result = self.classify(env)
+        info = src.finalize_v2_receipt(env, result, tmp_dir=self.tmp, helper_log=result.get("helper_log"))
+        path = Path(info["receipt_path"])
+        raw = bytearray(path.read_bytes())
+        raw[0] = raw[0] ^ 0xFF
+        path.write_bytes(bytes(raw))
+        self.assertFalse(run_receipt.verify_receipt(info["receipt_path"], info["sidecar_path"]))
+
+    def test_naming_includes_run_number_and_attempt_no_secret(self):
+        env = base_env(RUN_FETCH="skip", GH_RUN_NUMBER="777", GH_RUN_ATTEMPT="2")
+        result = self.classify(env)
+        info = src.finalize_v2_receipt(env, result, tmp_dir=self.tmp, helper_log=result.get("helper_log"))
+        self.assertIn("777-2-", info["filename"])
+        self.assertNotIn("secret", info["filename"].lower())
+
+    def test_run_number_and_attempt_prevent_filename_collision(self):
+        env_a = base_env(RUN_FETCH="skip", GH_RUN_NUMBER="777", GH_RUN_ATTEMPT="1")
+        env_b = base_env(RUN_FETCH="skip", GH_RUN_NUMBER="777", GH_RUN_ATTEMPT="2")
+        result_a = self.classify(env_a)
+        result_b = self.classify(env_b)
+        info_a = src.finalize_v2_receipt(env_a, result_a, tmp_dir=self.tmp, helper_log=None)
+        info_b = src.finalize_v2_receipt(env_b, result_b, tmp_dir=self.tmp, helper_log=None)
+        self.assertNotEqual(info_a["filename"], info_b["filename"])
+        self.assertTrue(Path(info_a["receipt_path"]).exists())
+        self.assertTrue(Path(info_b["receipt_path"]).exists())
+
+    # --- sanitization / disclosure boundary -----------------------------
+
+    def test_no_tmp_or_absolute_path_in_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success")
+        receipt, _ = self.receipt(env)
+        blob = json.dumps(receipt)
+        self.assertNotIn("_tmp", blob)
+        self.assertNotIn(str(self.tmp), blob)
+
+    def test_no_raw_source_errors_or_candidate_records_leak(self):
+        long_err = "SECRET-UPSTREAM-DETAIL " + ("x" * 900)
+        self.write_candidate(payload={
+            "meta": {"run_status": "EMPTY_FAILURE", "is_partial": True,
+                     "failed_sources": ["PLACSP-643"],
+                     "source_errors": {"PLACSP-643": long_err}},
+            "data": [{"raw_field": "should-never-appear-in-receipt"}],
+        })
+        env = base_env(HELPER_OUTCOME="success")
+        receipt, _ = self.receipt(env)
+        blob = json.dumps(receipt)
+        self.assertNotIn(long_err, blob)
+        self.assertNotIn("SECRET-UPSTREAM-DETAIL", blob)
+        self.assertNotIn("should-never-appear-in-receipt", blob)
+        self.assertNotIn("source_errors", receipt["candidate"])
+        self.assertNotIn("data", receipt)
+
+    def test_continuity_boolean_only_no_private_state_content(self):
+        self.write_candidate("cand_full_success.json")
+        log = "[run-live] Internal state persisted: /some/path (3 records)\n"
+        env = base_env(HELPER_OUTCOME="success")
+        receipt, _ = self.receipt(env, helper_log=log)
+        self.assertIs(receipt["continuity"]["state_written"], True)
+        blob = json.dumps(receipt)
+        self.assertNotIn("/some/path", blob)
+
+        log_unchanged = "[run-live] Internal state unchanged, not rewritten: /x\n"
+        receipt2, _ = self.receipt(base_env(HELPER_OUTCOME="success"), helper_log=log_unchanged)
+        # candidate not rewritten between calls -- reuse same tmp candidate
+        self.assertIs(receipt2["continuity"]["state_written"], False)
+
+    # --- failure-path coverage -------------------------------------------
+
+    def test_hard_subprocess_timeout_still_classifies_and_receipts(self):
+        # No candidate file written at all (mirrors run_live()'s hard-timeout
+        # except block, which exits before any candidate consumption).
+        log = ("[ERROR] Fetcher subprocess exceeded the global acquisition "
+               "deadline (123.4s); aborting bounded acquisition. No candidate consumed.")
+        env = base_env(HELPER_OUTCOME="failure")
+        receipt, result = self.receipt(env, helper_log=log)
+        self.assertEqual(result["status"], "FAIL_CLOSED")
+        self.assertIn("DEADLINE_EXCEEDED_HARD_TIMEOUT", receipt["sanitized_error_categories"])
+        self.assertIsNone(receipt["candidate"]["filename"])
+        self.assertIsNotNone(receipt["bounded_policy_snapshot"])
+
+    def test_mocked_shard_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_SHARD_BUILD")
+        self.assertEqual(receipt["gates"]["shard_build"], "failure")
+        self.assertIsNone(receipt["publication"])
+
+    def test_mocked_public_contract_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_PUBLIC_CONTRACT")
+        self.assertEqual(receipt["gates"]["public_contract"], "failure")
+
+    def test_mocked_privacy_failure_gate_recorded(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="success", PRIVACYREPORT_OUTCOME="failure",
+                       COMMIT_OUTCOME="skipped")
+        receipt, _result = self.receipt(env)
+        self.assertEqual(receipt["gates"]["privacy"], "failure")
+        self.assertIsNone(receipt["publication"])
+
+    def test_mocked_commit_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_GIT_COMMIT")
+        self.assertEqual(receipt["gates"]["commit"], "failure")
+        self.assertEqual(receipt["commit"]["decision"], "not_created")
+
+    def test_mocked_push_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_GIT_PUSH")
+        self.assertEqual(receipt["gates"]["push"], "failure")
+
+    # --- receipt-write failure is not a publication gate ------------------
+
+    def test_receipt_write_failure_never_raises_and_v1_unaffected(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="success")
+        result = self.classify(env)
+        step_summary = self.tmp / "step_summary.md"
+        github_env = self.tmp / "github_env.txt"
+        with mock.patch.object(src.rr, "write_receipt", side_effect=OSError("disk full")):
+            src.write_outputs(result, tmp_dir=self.tmp, github_step_summary=str(step_summary),
+                              github_env=str(github_env), env=env)
+        report_path = self.tmp / "scheduled_run_report_999.json"
+        self.assertTrue(report_path.exists())
+        self.assertIn("OPERATIONAL_STATUS=SUCCESS_REAL_FETCH_WRITE",
+                      github_env.read_text(encoding="utf-8"))
+        self.assertNotIn("RECEIPT_PATH", github_env.read_text(encoding="utf-8"))
+
+    def test_write_outputs_without_env_skips_v2_receipt(self):
+        # Existing direct callers that omit `env` (as the pre-Stage-B tests
+        # above already do) must keep the exact prior V1-only behaviour.
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="success")
+        result = self.classify(env)
+        src.write_outputs(result, tmp_dir=self.tmp,
+                          github_step_summary=str(self.tmp / "s.md"),
+                          github_env=str(self.tmp / "e.txt"))
+        receipts = list(self.tmp.glob("adgops_run_receipt_*.json"))
+        self.assertEqual(receipts, [])
+
+
+class RunReceiptHelperTests(unittest.TestCase):
+    """Pure tools/run_receipt.py coverage, independent of the classifier."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_write_receipt_creates_matching_digest(self):
+        receipt = {"schema": "TEST", "value": 1}
+        filename = run_receipt.receipt_filename("42", "1", "20260924T000000Z")
+        self.assertEqual(filename, "adgops_run_receipt_42-1-20260924T000000Z.json")
+        info = run_receipt.write_receipt(receipt, self.tmp, filename)
+        raw = (self.tmp / filename).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), info["sha256"])
+        sidecar = (self.tmp / f"{filename}.sha256").read_text(encoding="utf-8")
+        self.assertIn(info["sha256"], sidecar)
+        self.assertTrue(run_receipt.verify_receipt(info["receipt_path"], info["sidecar_path"]))
+
+    def test_canonical_json_bytes_uses_binary_safe_newline(self):
+        data = run_receipt.canonical_json_bytes({"a": 1})
+        self.assertNotIn(b"\r\n", data)
+        self.assertTrue(data.endswith(b"\n"))
+
+    def test_receipt_filename_defaults_when_missing(self):
+        name = run_receipt.receipt_filename(None, None, "20260924T000000Z")
+        self.assertEqual(name, "adgops_run_receipt_unknown-unknown-20260924T000000Z.json")
 
 
 # ---------------------------------------------------------------------------
@@ -2192,20 +2514,27 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
     def test_p267_c10_operational_summary_env_block_unchanged_p265_contract(self):
         text = self._workflow_text()
         i = text.index("Operational summary")
-        # F-04: the former "Upload fail-closed diagnostics" step that used to
-        # bound this block was removed (no upload-artifact step remains), so
-        # "Operational summary" is now the workflow's last step.
-        j = len(text)
+        # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B): the "Upload run
+        # receipt (evidence)" step now follows "Operational summary", so the
+        # scan window is bounded to this step's own YAML (up to the next
+        # step) rather than "to end of file".
+        j = text.index("\n      - name:", i)
         opsummary_block = text[i:j]
         for key in ("HELPER_OUTCOME", "DRYRUN_OUTCOME", "VALIDATE_OUTCOME",
                     "DIFFSUMMARY_OUTCOME", "SHARDS_OUTCOME",
-                    "SHARDVALIDATE_OUTCOME", "COMMIT_OUTCOME", "PUSH_OUTCOME"):
+                    "SHARDVALIDATE_OUTCOME", "COMMIT_OUTCOME", "PUSH_OUTCOME",
+                    "GH_RUN_ATTEMPT", "BASELINE_HEAD"):
             self.assertIn(key, opsummary_block)
-        # No environment-key assignment (any `NAME:` env mapping key) may
-        # contain PRIVACY in any spelling/casing pattern.
+        # p265 originally locked this block to carry no PRIVACY-named env
+        # key. WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §2.9)
+        # supersedes that specifically to add PRIVACYREPORT_OUTCOME (a
+        # bounded step-outcome string -- success/failure/skipped/cancelled,
+        # never validator findings content -- the V2 receipt's gates.privacy
+        # field needs). Every OTHER env-key assignment in this block must
+        # still carry no PRIVACY substring, in any spelling/casing.
         env_keys = re.findall(r"^\s*([A-Za-z0-9_]+):", opsummary_block, re.MULTILINE)
-        for key in env_keys:
-            self.assertNotIn("PRIVACY", key.upper())
+        privacy_keys = [k for k in env_keys if "PRIVACY" in k.upper()]
+        self.assertEqual(privacy_keys, ["PRIVACYREPORT_OUTCOME"])
 
     def test_p267_c11_existing_step_order_preserved(self):
         text = self._workflow_text()
@@ -2240,7 +2569,15 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
             if line.strip() and not line.lstrip().startswith("#")
         ]
         active_text = "\n".join(active_lines)
-        self.assertNotIn("actions/upload-artifact", active_text)
+        # WRKOPS t_20260924_adgops324 (Prompt 324 Stage A/R1/B): a single,
+        # narrowly-scoped actions/upload-artifact step IS now authorized --
+        # "Upload run receipt (evidence)", uploading only the sanitized V2
+        # receipt + its .sha256 sidecar. This is NOT a revival of the F-04
+        # diagnostics upload removed below (that step uploaded raw
+        # internal-ephemeral material wholesale); assert its shape directly
+        # rather than merely asserting the mechanism's absence.
+        self.assertEqual(active_text.count("actions/upload-artifact"), 1)
+        self.assertIn("Upload run receipt (evidence)", active_text)
         self.assertNotIn("actions/download-artifact", active_text)
         self.assertNotIn("Upload fail-closed diagnostics", active_text)
         forbidden_fragments = (
@@ -2253,6 +2590,73 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         )
         for fragment in forbidden_fragments:
             self.assertNotIn(fragment, active_text)
+
+    def test_p324_receipt_upload_step_allowlists_exactly_receipt_and_sidecar(self):
+        """WRKOPS t_20260924_adgops324 Stage B §6.2: the artifact-upload
+        step's `path:` must be an exact allowlist of the V2 receipt and its
+        sidecar via RECEIPT_PATH / RECEIPT_SIDECAR_PATH env references --
+        never a wildcard, never a literal _tmp path, never retention-days."""
+        text = self._workflow_text()
+        i = text.index("Upload run receipt (evidence)")
+        f04_idx = text.index("# F-04", i)
+        step_block = text[i:f04_idx]
+        self.assertIn("${{ env.RECEIPT_PATH }}", step_block)
+        self.assertIn("${{ env.RECEIPT_SIDECAR_PATH }}", step_block)
+        self.assertIn("if-no-files-found: error", step_block)
+        self.assertIn("if: always()", step_block)
+        self.assertNotIn("_tmp/**", step_block)
+        self.assertNotIn("retention-days", step_block)
+
+    def test_p324_r1_upload_artifact_pinned_to_exact_immutable_sha(self):
+        """WRKOPS t_20260924_adgops324 Stage B R1 §B: the upload-artifact
+        `uses:` reference must be the Companion-verified exact commit SHA for
+        v7.0.1, matching this file's existing exact-commit-pin convention --
+        never a mutable major-version tag, and never left as a TODO."""
+        text = self._workflow_text()
+        i = text.index("Upload run receipt (evidence)")
+        f04_idx = text.index("# F-04", i)
+        step_block = text[i:f04_idx]
+        self.assertIn(
+            "uses: actions/upload-artifact@"
+            "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
+            step_block)
+        self.assertNotIn("actions/upload-artifact@v4", step_block)
+        self.assertNotIn("TODO(operator)", step_block)
+
+    def test_p324_r1_no_actions_write_permission_added(self):
+        """WRKOPS t_20260924_adgops324 Stage B R1 §B: Companion review of
+        official GitHub documentation found no requirement to expand
+        GITHUB_TOKEN to `actions: write` for the ordinary same-run
+        upload-artifact operation used here -- the permissions block must
+        remain exactly `contents: write`, least privilege preserved."""
+        text = self._workflow_text()
+        i = text.index("permissions:")
+        j = text.index("env:", i)
+        permissions_block = text[i:j]
+        self.assertIn("contents: write", permissions_block)
+        self.assertNotIn("actions:", permissions_block)
+
+    def test_p324_guard_step_writes_run_started_at(self):
+        """WRKOPS t_20260924_adgops324 Stage B §2.2: the V2 receipt's
+        run_identity.started_at_utc is sourced from RUN_STARTED_AT, written
+        by the earliest step that runs regardless of guard/dry-run outcome."""
+        text = self._workflow_text()
+        i = text.index("id: time_guard")
+        j = text.index("id: statecheckout")
+        self.assertIn("RUN_STARTED_AT=", text[i:j])
+
+    def test_p324_commit_step_captures_commit_sha(self):
+        """WRKOPS t_20260924_adgops324 Stage B §2.10: the resulting commit
+        SHA is captured only inside the commit-creation branch, immediately
+        after `git commit`."""
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        j = text.index("id: push")
+        step_block = text[i:j]
+        self.assertIn("COMMIT_SHA=$(git rev-parse HEAD)", step_block)
+        commit_idx = step_block.index('git commit -m "$COMMIT_SUBJECT"')
+        sha_idx = step_block.index("COMMIT_SHA=")
+        self.assertLess(commit_idx, sha_idx)
 
     def test_fetch_workflow_contains_no_unicode_replacement_character(self):
         """R1 (Prompt 288 operator validation): the operator run transcript
@@ -2702,6 +3106,122 @@ class P298F14MonolithContentGateTests(unittest.TestCase):
             _exit_code, _env, _out, _err, calls = _run_diffsummary(
                 tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_A))
             self.assertEqual(calls, [["git", "show", "HEAD:data/licitaciones.json"]])
+
+    # --- R1 (WRKOPS t_20260924_adgops324 Stage B R1 §A): honest DATA_CHANGED
+    # plumbing on the genuine no-material-change path. These execute the
+    # ACTUAL diffsummary heredoc (via _run_diffsummary), never a
+    # reimplementation, proving the real workflow contract rather than only
+    # a hand-supplied classify() fixture. -----------------------------------
+
+    def test_r1_diffsummary_emits_data_changed_false_on_no_material_change(self):
+        current = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-24T08:00:00Z",
+                                               "generation_id": "gen-NEW"})
+        committed = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-01T00:00:00Z",
+                                                 "generation_id": "gen-OLD"})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current, committed_text=committed)
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=false", env_text)
+            self.assertIn("DATA_CHANGED=false", env_text)
+
+    def test_r1_diffsummary_does_not_emit_data_changed_on_real_change(self):
+        # A hash-changed run must NOT have diffsummary claim any DATA_CHANGED
+        # value -- DATA_CHANGED=true remains exclusively the commit step's
+        # commit-creation branch, set only after a commit actually exists.
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_B))
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=true", env_text)
+            self.assertNotIn("DATA_CHANGED", env_text)
+
+    def test_r1_diffsummary_fail_closed_paths_never_emit_data_changed(self):
+        # Every diffsummary fail-closed exit already proven in
+        # test_f14_*_fails_closed above must also never emit DATA_CHANGED --
+        # a failure/skip path must never be falsely represented as a
+        # successful no-change run.
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current_text=None, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("DATA_CHANGED", env_text)
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text="",
+                git_returncode=128, git_stderr="fatal: bad object HEAD")
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("DATA_CHANGED", env_text)
+
+    def test_r1_data_changed_written_exactly_once_true_and_once_false(self):
+        """Static shape lock: across the workflow's active (non-comment)
+        text, DATA_CHANGED=true appears exactly once (inside id: commit's
+        commit-creation branch) and DATA_CHANGED=false appears exactly once
+        (inside id: diffsummary's no-material-change branch) -- no other
+        location may ever assign either value."""
+        text = self._workflow_text()
+        active_lines = [
+            line for line in text.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        active_text = "\n".join(active_lines)
+        self.assertEqual(active_text.count("DATA_CHANGED=true"), 1)
+        self.assertEqual(active_text.count("DATA_CHANGED=false"), 1)
+
+        i = active_text.index("id: commit")
+        j = active_text.index("id: push", i)
+        commit_block = active_text[i:j]
+        self.assertIn("DATA_CHANGED=true", commit_block)
+        self.assertNotIn("DATA_CHANGED=false", commit_block)
+
+        i2 = active_text.index("id: diffsummary")
+        j2 = active_text.index("id: shards", i2)
+        diffsummary_block = active_text[i2:j2]
+        self.assertIn("DATA_CHANGED=false", diffsummary_block)
+        self.assertNotIn("DATA_CHANGED=true", diffsummary_block)
+
+    def test_r1_integration_real_no_change_env_classifies_success_no_changes(self):
+        """End-to-end R1 proof (Stage B R1 §A items 1/4/5): the exact env the
+        REAL diffsummary heredoc emits on a genuine no-material-change run,
+        fed unmodified through the real classify()/build_receipt_v2() in
+        tools/scheduled_run_classify.py -- never a hand-authored
+        DATA_CHANGED='false' fixture -- must classify as
+        SUCCESS_REAL_FETCH_NO_CHANGES and the V2 receipt must record it."""
+        current = self._dataset(self.HASH_A)
+        committed = self._dataset(self.HASH_A)
+        with tempfile.TemporaryDirectory() as diff_tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                diff_tmp, current, committed_text=committed)
+            self.assertIsNone(exit_code)
+        real_env_lines = dict(
+            line.split("=", 1) for line in env_text.splitlines() if "=" in line
+        )
+        self.assertEqual(real_env_lines.get("DATA_CHANGED"), "false")
+        self.assertEqual(real_env_lines.get("MONOLITH_CHANGED"), "false")
+
+        with tempfile.TemporaryDirectory() as classify_tmp:
+            shutil.copyfile(
+                FIXTURES_DIR / "cand_empty_success.json",
+                Path(classify_tmp) / "scheduled_live_candidate_20260924T080000Z.json")
+            env = base_env(
+                HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                DIFFSUMMARY_OUTCOME="success",
+                SHARDS_OUTCOME="skipped", SHARDVALIDATE_OUTCOME="skipped",
+                PRIVACYREPORT_OUTCOME="skipped",
+                COMMIT_OUTCOME="skipped", PUSH_OUTCOME="skipped",
+                DATA_CHANGED=real_env_lines["DATA_CHANGED"],
+                MONOLITH_CHANGED=real_env_lines["MONOLITH_CHANGED"],
+            )
+            result = src.classify(env, tmp_dir=Path(classify_tmp))
+            self.assertEqual(result["status"], "SUCCESS_REAL_FETCH_NO_CHANGES")
+
+            receipt = src.build_receipt_v2(
+                env, result, helper_log=result.get("helper_log"))
+            self.assertEqual(receipt["terminal"]["operational_status"],
+                              "SUCCESS_REAL_FETCH_NO_CHANGES")
+            self.assertIsNone(receipt["terminal"]["refusal_reason"])
+            self.assertIsNone(receipt["publication"])
+            self.assertEqual(receipt["commit"]["decision"], "not_created")
 
 
 # ---------------------------------------------------------------------------

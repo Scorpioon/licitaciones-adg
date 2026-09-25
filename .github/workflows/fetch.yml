@@ -123,6 +123,13 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a") as fh:
               fh.write(f"RUN_FETCH={run_fetch}\n")
               fh.write(f"DRY_RUN_MODE={'true' if dry_run else 'false'}\n")
+              # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B): this is the
+              # earliest step that runs regardless of RUN_FETCH/dry-run/guard
+              # outcome, so it is the honest run-start marker the V2 receipt's
+              # run_identity.started_at_utc / elapsed_s are derived from
+              # (Stage A/R1 report §19: "the time the guard step ran", not a
+              # literal job-scheduler start time).
+              fh.write(f"RUN_STARTED_AT={datetime.now(ZoneInfo('UTC')).isoformat()}\n")
               # Context for the operational summary step (single-line values).
               fh.write(f"GUARD_EVENT={event_name}\n")
               fh.write(f"GUARD_SCHEDULE={event_schedule}\n")
@@ -305,6 +312,17 @@ jobs:
           changed = "true" if current_hash != committed_hash else "false"
           with open(os.environ["GITHUB_ENV"], "a") as fh:
               fh.write(f"MONOLITH_CHANGED={changed}\n")
+              if changed == "false":
+                  # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B R1): this is
+                  # the one place a genuine no-material-change run is honestly
+                  # known -- dataset_sha256 validated equal above. Only this
+                  # branch may ever write DATA_CHANGED=false; DATA_CHANGED=true
+                  # remains written exclusively by the "Commit data if changed"
+                  # step's commit-creation branch, unchanged. This does not
+                  # alter material-change detection (`changed` itself) or any
+                  # downstream commit/push/shard/privacy condition, all of
+                  # which still gate on MONOLITH_CHANGED alone.
+                  fh.write("DATA_CHANGED=false\n")
           print(f"[diffsummary] current dataset_sha256={current_hash} "
                 f"committed dataset_sha256={committed_hash} MONOLITH_CHANGED={changed}")
           PYEOF
@@ -749,6 +767,10 @@ jobs:
           Guard-Reason: ${GUARD_REASON:-unknown}"
             git commit -m "$COMMIT_SUBJECT" -m "$COMMIT_TRAILERS"
             echo "DATA_CHANGED=true" >> "$GITHUB_ENV"
+            # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §2.10): the
+            # resulting commit SHA, for the V2 receipt's commit.sha field.
+            # Read-only; this is the commit that was just created above.
+            echo "COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           fi
 
       - name: Push
@@ -770,14 +792,66 @@ jobs:
           PUSH_OUTCOME:        ${{ steps.push.outcome }}
           GH_EVENT_NAME:       ${{ github.event_name }}
           GH_RUN_NUMBER:       ${{ github.run_number }}
+          # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §2.2/§2.9): the
+          # minimal additional run/gate identity the V2 durable receipt
+          # needs. PRIVACYREPORT_OUTCOME supersedes the p265
+          # no-PRIVACY-key convention locked by this workflow's own offline
+          # test (tools/fetcher_fixture_regression.py
+          # test_p267_c10_operational_summary_env_block_unchanged_p265_contract,
+          # updated in the same Stage B change to allowlist exactly this
+          # one key) -- the receipt's gates.privacy field requires it, and
+          # it is a bounded step-outcome string (success/failure/skipped/
+          # cancelled), never validator findings content.
+          GH_RUN_ATTEMPT:      ${{ github.run_attempt }}
+          BASELINE_HEAD:       ${{ github.sha }}
+          PRIVACYREPORT_OUTCOME: ${{ steps.privacyreport.outcome }}
         run: |
           mkdir -p _tmp
           # Operational-status classification, Step Summary, OPERATIONAL_STATUS env,
-          # and the p188 machine-readable run report are produced by the single
-          # source of truth in tools/scheduled_run_classify.py (extracted from the
-          # former inline heredoc in p190; behaviour-preserving). The same module is
-          # imported by the offline regression harness so workflow and tests agree.
+          # the p188 machine-readable V1 report, and (WRKOPS t_20260924_adgops324
+          # Prompt 324 Stage B) the durable V2 receipt + .sha256 sidecar are all
+          # produced by the single source of truth in tools/scheduled_run_classify.py
+          # (extracted from the former inline heredoc in p190; behaviour-preserving).
+          # The same module is imported by the offline regression harness so
+          # workflow and tests agree. A V2 receipt-write failure cannot affect the
+          # V1 outputs above it or any production publication step, all of which
+          # have already run by this point (Stage B prompt §1.6).
           python tools/scheduled_run_classify.py
+
+      # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §1.2/§6.2): the ONLY
+      # durable off-runner evidence surface this workflow uploads. Contents
+      # are EXACTLY the sanitized V2 receipt + its .sha256 sidecar written by
+      # the "Operational summary" step above (tools/scheduled_run_classify.py
+      # -- an explicit allowlist of two files, never a directory/glob over
+      # _tmp/**. This is NOT a revival of the F-04 diagnostic-artifact upload
+      # removed below: that step uploaded raw internal-ephemeral material
+      # wholesale; this one uploads only the purpose-built, already-sanitized
+      # receipt (Stage A/R1 report §8's disclosure boundary; Stage B §1.4
+      # treats this artifact as potentially public-readable). `retention-days`
+      # is deliberately OMITTED so the repository-configured Actions artifact
+      # retention setting applies (Stage A/R1 report §19.4, Stage B §1.3) --
+      # no numeric retention magnitude is authorized in this slice.
+      # if-no-files-found: error makes a receipt-write failure (env.RECEIPT_PATH
+      # unset -- see finalize_v2_receipt()'s try/except) visible as a failed
+      # step rather than silently ignored, without affecting anything already
+      # published by the steps above (Stage B prompt §1.6).
+      #
+      # SHA-pin (WRKOPS t_20260924_adgops324 Prompt 324 Stage B R1): pinned to
+      # the Companion-verified official actions/upload-artifact v7.0.1 commit,
+      # matching every other `uses:` step in this workflow (see
+      # actions/checkout, actions/setup-python above), which are all pinned to
+      # an exact upstream commit SHA rather than a mutable tag. The workflow
+      # remains externally disabled regardless (Prompt 324 does not authorize
+      # re-enable).
+      - name: Upload run receipt (evidence)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: adgops-run-receipt-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.RECEIPT_PATH }}
+            ${{ env.RECEIPT_SIDECAR_PATH }}
+          if-no-files-found: error
 
       # F-04 (ADGOPS_ROUTINE_PLATFORM_HEALTH_SECURITY_AUDIT_20260906_v0.1):
       # the diagnostic artifact upload step formerly here (actions/upload-
@@ -788,7 +862,9 @@ jobs:
       # the raw helper log, and the privacy validator's stderr — as a
       # downloadable GitHub Actions artifact from this public repository. No
       # already-contracted public-safe artifact existed to allowlist instead,
-      # so the step is removed rather than narrowed. Operator evidence
-      # remains available via the Step Summary written by the "Privacy
-      # report" and "Operational summary" steps above; nothing here is
-      # consumed by a later automated step.
+      # so the step was removed rather than narrowed. WRKOPS
+      # t_20260924_adgops324 (Prompt 324 Stage A/R1/B) is the authorized
+      # replacement: a purpose-built, sanitized V2 receipt + sidecar only
+      # (the "Upload run receipt (evidence)" step above) -- never _tmp/**
+      # wholesale, never the raw candidate/log/error content this removed
+      # step used to publish.
