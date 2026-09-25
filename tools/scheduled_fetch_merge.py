@@ -693,13 +693,20 @@ def run_validate_production(args) -> None:
         if not meta.get("dataset_sha256"):
             validation_errors.append("meta.dataset_sha256 missing")
 
+    # Prompt 325 (WRKOPS t_20260925_adgops325): lifecycle_category and
+    # active_opportunity_eligible are internal lifecycle-bookkeeping fields
+    # that the closed public-record projection contract (Prompt 289 STRIP)
+    # correctly removes from every canonical public record. Their absence
+    # here is the intended public-artifact shape, not corruption, so it must
+    # never be raised as a validation error -- doing so was validator/
+    # public-contract skew against the already-authoritative projection.
+    # These counts remain informational only (see report fields below).
+    # Internal lifecycle safety is unchanged: validate_lifecycle_integrity(),
+    # classify_lifecycle(), and resolve_overlap_lifecycle() keep enforcing
+    # the OPEN_WITH_AWARD_EVIDENCE safety rule on the internal continuity
+    # path (run_live()'s merged_rows, before projection strips them).
     missing_lc = sum(1 for r in rows if not r.get("lifecycle_category"))
-    if missing_lc:
-        validation_errors.append(f"{missing_lc} records missing lifecycle_category")
-
     missing_active = sum(1 for r in rows if "active_opportunity_eligible" not in r)
-    if missing_active:
-        validation_errors.append(f"{missing_active} records missing active_opportunity_eligible")
 
     if not lc_ok:
         validation_errors.extend(lc_issues)

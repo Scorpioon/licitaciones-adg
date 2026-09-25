@@ -258,6 +258,65 @@ class L1MergeHelperTests(unittest.TestCase):
         self.assertEqual(report["final_verdict"], "FAIL")
         self.assertTrue(any("generation_id" in e for e in report["validation_errors"]))
 
+    # --- Prompt 325 / WRKOPS t_20260925_adgops325: public-validator /
+    # public-contract alignment. The canonical public projection (Prompt 289
+    # STRIP) correctly omits internal lifecycle bookkeeping from every public
+    # record; the production validator must accept that shape rather than
+    # treating the intended absence as corruption. Internal lifecycle safety
+    # (validate_lifecycle_integrity / classify_lifecycle /
+    # resolve_overlap_lifecycle, exercised elsewhere in this suite) is
+    # untouched by this task and unaffected by these public-artifact cases.
+
+    def test_validate_production_stripped_lifecycle_fields_accepted(self):
+        # A canonical public artifact whose records correctly omit
+        # lifecycle_category / active_opportunity_eligible / lifecycle_
+        # review_required -- exactly what public_record_projection.py's
+        # STRIP contract produces -- must PASS when its public schema/meta/
+        # hash/shape are otherwise valid.
+        canonical = load_fixture("production_canonical_min.json")
+        for rec in canonical["data"]:
+            for field in ("lifecycle_category", "active_opportunity_eligible",
+                          "lifecycle_review_required"):
+                rec.pop(field, None)
+        self.prod_path.write_text(json.dumps(canonical, ensure_ascii=False), encoding="utf-8")
+        sfm.run_validate_production(types.SimpleNamespace())
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        self.assertEqual(report["final_verdict"], "PASS")
+        self.assertEqual(report["validation_errors"], [])
+
+    def test_validate_production_missing_lifecycle_fields_not_flagged(self):
+        # Absence of lifecycle_category / active_opportunity_eligible must
+        # never itself be raised as a public-validation error -- this is the
+        # exact validator/public-contract skew this task corrects.
+        canonical = load_fixture("production_canonical_min.json")
+        for rec in canonical["data"]:
+            rec.pop("lifecycle_category", None)
+            rec.pop("active_opportunity_eligible", None)
+        self.prod_path.write_text(json.dumps(canonical, ensure_ascii=False), encoding="utf-8")
+        sfm.run_validate_production(types.SimpleNamespace())
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        for err in report["validation_errors"]:
+            self.assertNotIn("missing lifecycle_category", err)
+            self.assertNotIn("missing active_opportunity_eligible", err)
+
+    def test_validate_production_still_rejects_broken_schema_with_stripped_fields(self):
+        # Existing fail-closed public schema/meta behaviour is not weakened
+        # by this change: an invalid schema is still rejected even when the
+        # records otherwise have the correctly-stripped public shape.
+        canonical = load_fixture("production_canonical_min.json")
+        canonical["meta"]["schema"] = "not.a.real.schema/0"
+        for rec in canonical["data"]:
+            for field in ("lifecycle_category", "active_opportunity_eligible",
+                          "lifecycle_review_required"):
+                rec.pop(field, None)
+        self.prod_path.write_text(json.dumps(canonical, ensure_ascii=False), encoding="utf-8")
+        with self.assertRaises(SystemExit) as cm:
+            sfm.run_validate_production(types.SimpleNamespace())
+        self.assertEqual(cm.exception.code, 1)
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        self.assertEqual(report["final_verdict"], "FAIL")
+        self.assertTrue(any("canonical public schema" in e for e in report["validation_errors"]))
+
     # --- p294 / WRKOPS t_20260910_adgops294: internal/public state split ---
     # load_internal_state / persist_internal_state / canonicalize_and_project
     # are the new --run-live glue this prompt adds. Coverage here is narrowly
