@@ -214,9 +214,18 @@ def load_json(path: Path) -> dict:
 
 
 def write_json(path: Path, data: object) -> None:
+    """Serialize `data` to deterministic UTF-8 JSON bytes with LF line
+    endings, independent of host OS (WRKOPS t_20260925_adgops327). Text-mode
+    file writes go through Python's universal-newline translation, which
+    turns every '\\n' the json module emits into '\\r\\n' on Windows; the
+    resulting on-disk bytes then disagree with the LF bytes Git normalizes
+    the tracked blob to. Serializing to a str and writing it as explicit
+    UTF-8 bytes bypasses that translation entirely, so the same bytes are
+    produced on every OS. No BOM; no trailing newline is added beyond
+    whatever json.dumps() itself emits (none, today)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
+    serialized = json.dumps(data, ensure_ascii=False, indent=2)
+    path.write_bytes(serialized.encode("utf-8"))
     print(f"  wrote: {path}")
 
 

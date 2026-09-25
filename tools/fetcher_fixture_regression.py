@@ -3999,6 +3999,54 @@ class RunLiveHardTimeoutTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Prompt 327 (WRKOPS t_20260925_adgops327): write_json() exact-byte contract.
+# Bounded and synthetic -- exercises tools.scheduled_fetch_merge.write_json()
+# directly (the real production implementation, not a duplicated serializer)
+# against a small in-memory payload written to a temp path. Never reads
+# data/licitaciones.json.
+# ---------------------------------------------------------------------------
+
+class WriteJsonByteDeterminismTests(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _payload(self):
+        return {"meta": {"a": 1, "b": "café ☃"}, "data": [{"x": 1}, {"y": [1, 2]}]}
+
+    def test_output_bytes_equal_deterministic_expected_serialization(self):
+        out = self.tmp / "out.json"
+        payload = self._payload()
+        sfm.write_json(out, payload)
+        expected = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+        self.assertEqual(out.read_bytes(), expected)
+
+    def test_line_separators_are_lf(self):
+        out = self.tmp / "out.json"
+        sfm.write_json(out, self._payload())
+        raw = out.read_bytes()
+        self.assertIn(b"\n", raw)
+        self.assertNotIn(b"\r\n", raw)
+
+    def test_no_bom(self):
+        out = self.tmp / "out.json"
+        sfm.write_json(out, self._payload())
+        raw = out.read_bytes()
+        self.assertFalse(raw.startswith(b"\xef\xbb\xbf"))
+
+    def test_json_remains_parseable_and_semantically_equivalent(self):
+        out = self.tmp / "out.json"
+        payload = self._payload()
+        sfm.write_json(out, payload)
+        reloaded = json.loads(out.read_bytes().decode("utf-8"))
+        self.assertEqual(reloaded, payload)
+
+
+# ---------------------------------------------------------------------------
 # Runner with production-file no-touch proof
 # ---------------------------------------------------------------------------
 
