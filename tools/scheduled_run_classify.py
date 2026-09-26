@@ -41,6 +41,7 @@ CLI (called from the workflow):
 """
 
 import glob
+import hashlib
 import json
 import os
 import sys
@@ -52,9 +53,54 @@ try:
 except ImportError:  # pragma: no cover - direct-run fallback
     import scheduled_candidate_policy as scp
 
+# Prompt 324 Stage B / WRKOPS t_20260924_adgops324 (Stage A/R1-authorized):
+# the V2 durable receipt reuses the same frozen bounded-acquisition policy
+# authority (tools/fetch_bounds.py) and the authoritative source registry
+# (tools/public_contract.py) already imported by run_live() -- never a
+# second, independently-derived copy of either. run_receipt.py is the pure
+# serialization/hash/sidecar helper (Stage A/R1 report §19.5): it owns no
+# classification logic.
+try:
+    from tools import fetch_bounds
+except ImportError:  # pragma: no cover - direct-run fallback
+    import fetch_bounds
+
+try:
+    from tools import public_contract as pc
+except ImportError:  # pragma: no cover - direct-run fallback
+    import public_contract as pc
+
+try:
+    from tools import run_receipt as rr
+except ImportError:  # pragma: no cover - direct-run fallback
+    import run_receipt as rr
+
 REPORT_SCHEMA = "ADGOPS_SCHEDULED_RUN_REPORT_V1"
 REPORT_VERSION = "1.0"
 WORKFLOW_NAME = "Fetch Licitaciones Scheduled Safe Merge"
+
+# Prompt 324 Stage B: the durable V2 receipt-of-record. Evolves REPORT_SCHEMA
+# above -- it is not an independent "adgops.run_receipt/1" status truth
+# (Stage A/R1 report §19.5, Stage B prompt §1.1). classify()/render_summary()/
+# write_outputs()'s existing V1 behaviour is unchanged by its presence.
+RECEIPT_SCHEMA_V2 = "ADGOPS_SCHEDULED_RUN_REPORT_V2"
+RECEIPT_VERSION_V2 = "2.0"
+
+# Terminal statuses that are NOT a refusal -- everything else already uses
+# the existing, unchanged fail-closed/UNKNOWN taxonomy as its own bounded
+# refusal-reason label (Stage B prompt §2.11).
+_NON_REFUSAL_STATUSES = frozenset({
+    "SUCCESS_REAL_FETCH_WRITE",
+    "SUCCESS_REAL_FETCH_NO_CHANGES",
+    "MANUAL_DRY_RUN_SUCCESS",
+    "SKIPPED_BY_GUARD",
+})
+
+# Production public artifact path, read-only, for publication identity
+# (generation_id / dataset_sha256 / monolith file SHA256) -- the same file
+# tools/scheduled_fetch_merge.py's run_live() and fetch.yml's shardvalidate
+# step already treat as the canonical public monolith. Never written here.
+PRODUCTION_PATH_V2 = Path("data/licitaciones.json")
 
 # Outcomes considered failures (GitHub step.outcome values).
 _FAILED_OUTCOMES = ("failure", "cancelled")
@@ -371,6 +417,9 @@ def classify(env: dict, tmp_dir="_tmp", helper_log: str | None = None) -> dict:
         "source_errors": source_errors,
         "run_number": env_get(env, "GH_RUN_NUMBER"),
         "report": report,
+        # Prompt 324 Stage B: carried through so write_outputs()/build_receipt_v2()
+        # never need to re-read _tmp/run_helper.log a second time.
+        "helper_log": helper_log,
     }
 
 
@@ -406,11 +455,19 @@ def render_summary(result: dict) -> str:
 
 
 def write_outputs(result: dict, tmp_dir="_tmp", github_step_summary: str | None = None,
-                  github_env: str | None = None) -> None:
+                  github_env: str | None = None, env: dict | None = None) -> None:
     """
     Write the markdown summary to $GITHUB_STEP_SUMMARY (if set), append
     OPERATIONAL_STATUS to $GITHUB_ENV (if set), and write the machine-readable
     report JSON to <tmp_dir>/scheduled_run_report_<run>.json.
+
+    Prompt 324 Stage B: when `env` is supplied (main() always supplies the
+    full run env; existing direct callers that omit it keep the exact prior
+    V1-only behaviour), also finalizes the durable V2 receipt + `.sha256`
+    sidecar in `tmp_dir` and appends RECEIPT_PATH/RECEIPT_SIDECAR_PATH to
+    $GITHUB_ENV (if set) for the workflow's artifact-upload step to consume.
+    A receipt-write failure never affects the V1 outputs above, which have
+    already been written by the time this is attempted.
     """
     out = render_summary(result)
     status = result["status"]
@@ -435,6 +492,286 @@ def write_outputs(result: dict, tmp_dir="_tmp", github_step_summary: str | None 
     except Exception as e:
         print(f"[report] WARNING: failed to write run report JSON: {e}")
 
+    if env is not None:
+        info = finalize_v2_receipt(env, result, tmp_dir=tmp_dir, helper_log=result.get("helper_log"))
+        if info and github_env:
+            with open(github_env, "a", encoding="utf-8") as fh:
+                fh.write(f"RECEIPT_PATH={info['receipt_path']}\n")
+                fh.write(f"RECEIPT_SIDECAR_PATH={info['sidecar_path']}\n")
+
+
+# ---------------------------------------------------------------------------
+# Prompt 324 Stage B (WRKOPS t_20260924_adgops324) -- V2 durable receipt.
+#
+# Single-authority evolution of the V1 report above (Stage A/R1 report
+# §19.5): every field below is either copied verbatim from `result["report"]`
+# (already computed by classify(), never reclassified) or derived from
+# evidence already available to THIS process in the same job/runner --
+# the candidate file classify() already located, the already-frozen
+# tools/fetch_bounds.py policy formulas, the already-persisted
+# data/licitaciones.json, and _tmp/run_helper.log's own printed lines. No
+# new ephemeral evidence fragment is required from tools/scheduled_fetch_merge.py
+# (Stage B prompt §3): every fact below is honestly obtainable at the
+# workflow-level finalizer alone.
+# ---------------------------------------------------------------------------
+
+def read_candidate_evidence(cand_path) -> dict | None:
+    """Exact-byte identity (bytes/SHA256) plus bounded, already-safe
+    acquisition-outcome fields read directly from the candidate file this
+    same job's helper step wrote earlier -- never the raw `source_errors`/
+    `retry_errors_by_source` text or the candidate's own `data` array."""
+    if not cand_path:
+        return None
+    try:
+        with open(cand_path, "rb") as fh:
+            raw = fh.read()
+        parsed = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return None
+    meta = parsed.get("meta") if isinstance(parsed.get("meta"), dict) else parsed
+    return {
+        "bytes": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "requested_sources": meta.get("requested_sources") or [],
+        "completed_sources": meta.get("completed_sources") or [],
+        "completed_pages_by_source": meta.get("completed_pages_by_source") or {},
+        "deadline_exhausted": meta.get("deadline_exhausted"),
+        "budget_exhausted": meta.get("budget_exhausted"),
+    }
+
+
+def bounded_policy_snapshot() -> dict:
+    """The actual bounded-acquisition policy in force for this run, copied
+    from tools/fetch_bounds.py's already-frozen Prompt-323 formulas and
+    defaults over the authoritative source registry -- never a second,
+    independently re-derived number (Stage A report §4/§11, Stage B prompt
+    §2.4). Redirect policy is a fixed bounded-mode constant
+    (fetch_licitaciones.py: `allow_redirects = not bounded`, i.e. disabled
+    whenever bounded mode is on) -- a literal fact, not a formula, and not
+    re-derived here."""
+    active_source_count = len(pc.PUBLIC_SOURCES)
+    pages = fetch_bounds.DEFAULT_PAGES
+    retries = fetch_bounds.DEFAULT_RETRIES
+    timeout_s = fetch_bounds.DEFAULT_REQUEST_TIMEOUT_S
+    return {
+        "active_source_count": active_source_count,
+        "pages": pages,
+        "retries": retries,
+        "max_attempts_per_request": fetch_bounds.max_attempts_per_request(retries),
+        "request_timeout_s": timeout_s,
+        "global_deadline_s": fetch_bounds.compute_global_deadline_s(
+            active_source_count=active_source_count,
+            pages=pages,
+            retries=retries,
+            request_timeout_s=timeout_s,
+            retry_delay=fetch_bounds.DEFAULT_RETRY_DELAY_S,
+            retry_backoff=fetch_bounds.DEFAULT_RETRY_BACKOFF,
+        ),
+        "max_total_requests": fetch_bounds.max_total_requests(active_source_count, pages, retries),
+        "redirect_policy": "disabled",
+    }
+
+
+def continuity_state_written(helper_log: str):
+    """Whether persist_internal_state() wrote/skipped the private
+    continuity state this run, read honestly from the two exact print()
+    lines run_live() already emits (scheduled_fetch_merge.py's own
+    "Internal state persisted"/"Internal state unchanged, not rewritten"
+    messages, captured into _tmp/run_helper.log) -- never the private
+    state's own contents. Returns True/False/None (unknown -- helper did
+    not reach that point, or did not run at all)."""
+    log = helper_log or ""
+    if "[run-live] Internal state persisted:" in log:
+        return True
+    if "[run-live] Internal state unchanged, not rewritten:" in log:
+        return False
+    return None
+
+
+def read_publication_identity(production_path=None) -> dict | None:
+    """Existing authoritative public identity (generation_id/dataset_sha256)
+    plus the exact-byte monolith file SHA256, read directly from the
+    already-written public artifact -- never a new competing content
+    identity (Stage B prompt §2.8). Read-only; this never writes
+    data/licitaciones.json."""
+    path = Path(production_path) if production_path else PRODUCTION_PATH_V2
+    try:
+        with open(path, "rb") as fh:
+            monolith_bytes = fh.read()
+        monolith = json.loads(monolith_bytes.decode("utf-8"))
+    except Exception:
+        return None
+    meta = monolith.get("meta") if isinstance(monolith.get("meta"), dict) else {}
+    counts = meta.get("counts") if isinstance(meta.get("counts"), dict) else {}
+    return {
+        "generation_id": meta.get("generation_id"),
+        "dataset_sha256": meta.get("dataset_sha256"),
+        "monolith_file_sha256": hashlib.sha256(monolith_bytes).hexdigest(),
+        "monolith_bytes": len(monolith_bytes),
+        "record_count": counts.get("records"),
+    }
+
+
+def sanitized_error_categories_for(status: str, helper_log: str) -> list:
+    """Bounded category labels only -- never raw error text, never a
+    traceback (Stage B prompt §2.5/§2.11). The terminal status itself is
+    already a bounded, closed-taxonomy label (classify()'s own FAIL_CLOSED*
+    vocabulary); the hard-subprocess-timeout case is detected via the same
+    already-established helper_log substring-matching mechanism
+    classify_source_failure() uses, without altering `status` itself."""
+    categories = []
+    if status and status != "UNKNOWN" and status not in _NON_REFUSAL_STATUSES:
+        categories.append(status)
+    if "exceeded the global acquisition deadline" in (helper_log or "").lower():
+        categories.append("DEADLINE_EXCEEDED_HARD_TIMEOUT")
+    return categories
+
+
+def build_receipt_v2(env: dict, result: dict, helper_log: str | None = None,
+                      production_path=None) -> dict:
+    """Assemble the V2 receipt from `result` (classify()'s already-computed
+    V1 output -- never reclassified) plus the additional Stage-B fields.
+    Every field is either copied from `result["report"]` or derived from
+    evidence already available to this process (Stage A/R1 report §19.5)."""
+    v1 = result["report"]
+    status = result["status"]
+    if helper_log is None:
+        helper_log = result.get("helper_log")
+
+    run_number = env_get(env, "GH_RUN_NUMBER") or None
+    run_attempt = env_get(env, "GH_RUN_ATTEMPT") or None
+    baseline_head = env_get(env, "BASELINE_HEAD") or None
+    started_at = env_get(env, "RUN_STARTED_AT") or None
+    finished_at = datetime.now(timezone.utc).isoformat()
+    elapsed_s = None
+    if started_at:
+        try:
+            start_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            finish_dt = datetime.fromisoformat(finished_at)
+            elapsed_s = round((finish_dt - start_dt).total_seconds(), 3)
+        except Exception:
+            elapsed_s = None
+
+    helper_ran = bool(v1["operational"]["helper_ran"])
+    cand_path = v1["candidate"]["path"] or None
+    cand_evidence = read_candidate_evidence(cand_path) if cand_path else None
+
+    data_changed = env_get(env, "DATA_CHANGED", "") or None
+    monolith_changed = env_get(env, "MONOLITH_CHANGED", "") or None
+
+    publication = None
+    if data_changed == "true":
+        publication = read_publication_identity(production_path)
+
+    gates = {
+        "helper": v1["outcomes"]["helper"],
+        "validate": v1["outcomes"]["validate"],
+        "diff_summary": v1["outcomes"]["diff_summary"],
+        "shard_build": v1["outcomes"]["shard_build"],
+        "public_contract": v1["outcomes"]["public_contract"],
+        "privacy": env_get(env, "PRIVACYREPORT_OUTCOME", "skipped"),
+        "commit": v1["outcomes"]["commit"],
+        "push": v1["outcomes"]["push"],
+    }
+
+    commit_sha = env_get(env, "COMMIT_SHA") or None
+    commit_out = v1["outcomes"]["commit"]
+    if data_changed == "true":
+        commit_decision = "created"
+    elif commit_out == "skipped" and monolith_changed != "false":
+        # Commit was never reached because an earlier gate (or the run
+        # itself) never got that far -- not the same as a legitimate
+        # no-material-change refusal to commit.
+        commit_decision = "n/a"
+    else:
+        commit_decision = "not_created"
+
+    receipt = {
+        "schema": RECEIPT_SCHEMA_V2,
+        "schema_version": RECEIPT_VERSION_V2,
+        "generated_at_utc": finished_at,
+        "run_identity": {
+            "workflow": v1["github"]["workflow"],
+            "event": v1["github"]["event"],
+            "run_number": run_number,
+            "run_attempt": run_attempt,
+            "baseline_head": baseline_head,
+            "started_at_utc": started_at,
+            "finished_at_utc": finished_at,
+            "elapsed_s": elapsed_s,
+        },
+        "automation": dict(v1["automation"]),
+        "guard": dict(v1["guard"]),
+        "bounded_policy_snapshot": bounded_policy_snapshot() if helper_ran else None,
+        "acquisition_outcome": {
+            "requested_sources": (cand_evidence or {}).get("requested_sources") or v1["automation"]["sources"],
+            "completed_sources": (cand_evidence or {}).get("completed_sources") or [],
+            "failed_sources": v1["candidate"]["failed_sources"],
+            "completed_pages_by_source": (cand_evidence or {}).get("completed_pages_by_source") or {},
+            "candidate_run_status": v1["candidate"]["run_status"] or None,
+            "candidate_partial": v1["candidate"]["partial"],
+            "deadline_exhausted": (cand_evidence or {}).get("deadline_exhausted"),
+            "budget_exhausted": (cand_evidence or {}).get("budget_exhausted"),
+            "total_real_http_attempts": None,
+        },
+        "candidate": {
+            "filename": Path(cand_path).name if cand_path else None,
+            "bytes": (cand_evidence or {}).get("bytes"),
+            "sha256": (cand_evidence or {}).get("sha256"),
+            "run_status": v1["candidate"]["run_status"] or None,
+            "is_partial": v1["candidate"]["partial"],
+            "identity_note": (
+                "run-time attestation only; raw candidate bytes are not retained "
+                "durably" if cand_evidence else None
+            ),
+        },
+        "continuity": {
+            "state_written": continuity_state_written(helper_log) if helper_ran else None,
+        },
+        "material_change": {
+            "monolith_changed": monolith_changed,
+            "data_changed": data_changed,
+        },
+        "publication": publication,
+        "gates": gates,
+        "commit": {
+            "decision": commit_decision,
+            "sha": commit_sha,
+            "push_outcome": v1["outcomes"]["push"],
+        },
+        "terminal": {
+            "operational_status": status,
+            "refusal_reason": None if status in _NON_REFUSAL_STATUSES else status,
+        },
+        "sanitized_error_categories": sanitized_error_categories_for(status, helper_log),
+    }
+    return receipt
+
+
+def finalize_v2_receipt(env: dict, result: dict, tmp_dir="_tmp", helper_log: str | None = None,
+                         production_path=None) -> dict | None:
+    """Build and durably write the V2 receipt + `.sha256` sidecar to
+    `tmp_dir` via tools/run_receipt.py's exact-byte pattern. Never raises:
+    a receipt-write failure must never affect anything else this script
+    does (mirrors write_outputs()'s existing V1-report try/except, Stage B
+    prompt §1.6). Returns run_receipt.write_receipt()'s info dict (plus
+    "filename") on success, or None on failure (a warning is printed, same
+    as the V1 report's own failure mode)."""
+    try:
+        receipt = build_receipt_v2(env, result, helper_log=helper_log,
+                                    production_path=production_path)
+        run_number = env_get(env, "GH_RUN_NUMBER") or "unknown"
+        run_attempt = env_get(env, "GH_RUN_ATTEMPT") or "unknown"
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        filename = rr.receipt_filename(run_number, run_attempt, ts)
+        info = rr.write_receipt(receipt, tmp_dir, filename)
+        info["filename"] = filename
+        print(f"[receipt] wrote {info['receipt_path']} (sha256={info['sha256'][:12]}...)")
+        return info
+    except Exception as e:
+        print(f"[receipt] WARNING: failed to write V2 receipt: {e}")
+        return None
+
 
 def main() -> int:
     env = dict(os.environ)
@@ -447,6 +784,7 @@ def main() -> int:
         tmp_dir=tmp_dir,
         github_step_summary=env.get("GITHUB_STEP_SUMMARY"),
         github_env=env.get("GITHUB_ENV"),
+        env=env,
     )
 
     print(render_summary(result))

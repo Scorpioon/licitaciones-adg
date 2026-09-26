@@ -10,6 +10,24 @@ Prompt 135. Hotfix: accept Fetcher 1 candidate envelopes with top-level metadata
  Source retrieval truth (A1 §7) and the flat sources/transformations shape read
  by the p248 consumer are corrected here. Retrieval/merge/backup semantics
  unchanged.)
+(v0.7.4r / p294: internal/public state split, WRKOPS t_20260910_adgops294.
+ --run-live now reads/writes the private internal-continuity state (an
+ explicit, required --internal-state-path — never data/licitaciones.json) as
+ its lifecycle-merge continuity input, persists the next raw/internal state
+ back to that same working copy, then canonicalizes the finalized merge
+ exactly once (tools.canonical_tender_merge.merge_canonical_tenders) and
+ projects it through the closed public-record contract
+ (tools.public_record_projection.project_public_records) before writing
+ data/licitaciones.json. data/licitaciones.json is therefore now a derived
+ public artifact only — it is never read as continuity input by this mode.
+ There is no runtime bootstrap: a missing/invalid internal-state file is
+ always fatal. --check/--validate-production/--merge-dry-run are unchanged;
+ they already operate on data/licitaciones.json in its public-artifact role.)
+(v0.7.4r / p294 R1: persist_internal_state() is material-change-driven — it
+ skips the write entirely when the finalized merge is unchanged from the
+ state it started from, so a genuine no-op run never forces a private-state
+ commit merely because a wall-clock bookkeeping field would otherwise have
+ changed on every call.)
 
 Usage:
   --check
@@ -23,10 +41,12 @@ Usage:
       Lifecycle-safe merge of production + candidate. Writes output only to
       provided path (must not be production path). No live fetch.
 
-  --run-live --allow-production-write
-      Live fetch → _tmp candidate → lifecycle-safe merge → validate → backup
-      → write data/licitaciones.json. Exits non-zero on any failure.
-      NOT to be executed in prompt 119.
+  --run-live --allow-production-write --internal-state-path <path>
+      Live fetch → _tmp candidate → lifecycle-safe merge against the private
+      internal-continuity state → persist next internal state → canonicalize
+      exactly once → public-record projection → validate → backup → write
+      data/licitaciones.json. Exits non-zero on any failure.
+      NOT to be executed in prompt 118.
 """
 
 import argparse
@@ -49,6 +69,43 @@ try:
     from tools import scheduled_candidate_policy as scp
 except ImportError:  # pragma: no cover - direct-run fallback
     import scheduled_candidate_policy as scp
+
+# Prompt 323 Stage B / WRKOPS t_20260923_adgops323: bounded-production
+# acquisition policy primitives (Stage A Sec E/F/H). run_live() is the one
+# call site that opts into bounded mode and shares its GLOBAL_DEADLINE_S
+# with fetch_licitaciones.py's own cooperative deadline -- see Sec below.
+try:
+    from tools import fetch_bounds
+except ImportError:  # pragma: no cover - direct-run fallback
+    import fetch_bounds
+
+# Canonicalization (Prompt 292, closed) and public-record projection
+# (Prompt 289, closed). Used only by --run-live (p294): the internal
+# continuity merge, canonicalization, and public projection are three
+# separate, already-closed contracts this module composes but does not
+# reimplement.
+try:
+    from tools import canonical_tender_merge as ctm
+except ImportError:  # pragma: no cover - direct-run fallback
+    import canonical_tender_merge as ctm
+
+try:
+    from tools import public_record_projection as prp
+except ImportError:  # pragma: no cover - direct-run fallback
+    import public_record_projection as prp
+
+# IB-5 Phase A (WRKOPS t_20260914_adgops306): optional offline link-checks
+# sidecar consumption path for --run-live. Both closed contracts this
+# composes, not reimplemented.
+try:
+    from tools import public_projection as pp
+except ImportError:  # pragma: no cover - direct-run fallback
+    import public_projection as pp
+
+try:
+    from tools import link_check_resolver as lcr
+except ImportError:  # pragma: no cover - direct-run fallback
+    import link_check_resolver as lcr
 
 PRODUCTION_PATH = Path("data/licitaciones.json")
 FETCHER_SCRIPT  = Path("fetch_licitaciones.py")
@@ -157,9 +214,18 @@ def load_json(path: Path) -> dict:
 
 
 def write_json(path: Path, data: object) -> None:
+    """Serialize `data` to deterministic UTF-8 JSON bytes with LF line
+    endings, independent of host OS (WRKOPS t_20260925_adgops327). Text-mode
+    file writes go through Python's universal-newline translation, which
+    turns every '\\n' the json module emits into '\\r\\n' on Windows; the
+    resulting on-disk bytes then disagree with the LF bytes Git normalizes
+    the tracked blob to. Serializing to a str and writing it as explicit
+    UTF-8 bytes bypasses that translation entirely, so the same bytes are
+    produced on every OS. No BOM; no trailing newline is added beyond
+    whatever json.dumps() itself emits (none, today)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
+    serialized = json.dumps(data, ensure_ascii=False, indent=2)
+    path.write_bytes(serialized.encode("utf-8"))
     print(f"  wrote: {path}")
 
 
@@ -636,13 +702,20 @@ def run_validate_production(args) -> None:
         if not meta.get("dataset_sha256"):
             validation_errors.append("meta.dataset_sha256 missing")
 
+    # Prompt 325 (WRKOPS t_20260925_adgops325): lifecycle_category and
+    # active_opportunity_eligible are internal lifecycle-bookkeeping fields
+    # that the closed public-record projection contract (Prompt 289 STRIP)
+    # correctly removes from every canonical public record. Their absence
+    # here is the intended public-artifact shape, not corruption, so it must
+    # never be raised as a validation error -- doing so was validator/
+    # public-contract skew against the already-authoritative projection.
+    # These counts remain informational only (see report fields below).
+    # Internal lifecycle safety is unchanged: validate_lifecycle_integrity(),
+    # classify_lifecycle(), and resolve_overlap_lifecycle() keep enforcing
+    # the OPEN_WITH_AWARD_EVIDENCE safety rule on the internal continuity
+    # path (run_live()'s merged_rows, before projection strips them).
     missing_lc = sum(1 for r in rows if not r.get("lifecycle_category"))
-    if missing_lc:
-        validation_errors.append(f"{missing_lc} records missing lifecycle_category")
-
     missing_active = sum(1 for r in rows if "active_opportunity_eligible" not in r)
-    if missing_active:
-        validation_errors.append(f"{missing_active} records missing active_opportunity_eligible")
 
     if not lc_ok:
         validation_errors.extend(lc_issues)
@@ -827,16 +900,139 @@ def run_merge_dry_run(args) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Internal/public state split (p294, WRKOPS t_20260910_adgops294) — used only
+# by --run-live. Three separate, narrow responsibilities: fail-closed load of
+# the private continuity input, write-back of the next internal state, and
+# exactly-once canonicalization + public-record projection.
+# ---------------------------------------------------------------------------
+
+def load_internal_state(path: Path) -> dict:
+    """Fail-closed load of the authoritative private internal-continuity
+    state (WRKOPS t_20260910_adgops294 §3). There is no runtime bootstrap:
+    a missing, unreadable, malformed, or structurally invalid file is always
+    fatal here, never treated as an empty first run and never a reason to
+    fall back to reading data/licitaciones.json."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+    except FileNotFoundError:
+        sys.exit(
+            f"[ERROR] Internal state missing at {path}: refusing to proceed. "
+            "There is no runtime bootstrap; the private state repo working "
+            "copy must already contain this file."
+        )
+    except OSError as exc:
+        sys.exit(f"[ERROR] Internal state unreadable at {path}: {exc}")
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        sys.exit(f"[ERROR] Internal state at {path} is not valid JSON: {exc}")
+
+    errs = validate_structure(data, "internal-state")
+    if errs:
+        sys.exit(f"[ERROR] Internal state at {path} has invalid shape: {errs}")
+    return data
+
+
+def persist_internal_state(path: Path, prior_meta: dict, prior_rows: list, rows: list) -> bool:
+    """Writes the finalized raw/internal next-state shape to the private
+    state working copy (handoff §2 step 4). Never mints public_id, never
+    STRIPs, never canonicalizes — `rows` are the full lifecycle-merged
+    raw/internal records, byte-for-byte the same shape the next scheduled
+    run will read back as its own continuity input via load_internal_state().
+
+    Material-change-driven (WRKOPS t_20260910_adgops294 R1 §4): if `rows` is
+    unchanged from `prior_rows` (the internal state this run started from),
+    the file is not rewritten at all. Bumping a wall-clock bookkeeping field
+    (e.g. an "updated_at" timestamp) on every call regardless of content
+    would make the file's bytes differ from the last commit on every run,
+    forcing the workflow's diff-guarded private commit to fire even when
+    nothing about the continuity state actually changed — violating the
+    handoff's "a no-change internal state ... must not require an empty
+    commit" contract. Skipping the write on a genuine no-op keeps the working
+    copy byte-identical to what is already committed, so the workflow's own
+    `git diff --cached --quiet` guard correctly produces no commit.
+
+    This function only writes the local working copy. The workflow (not this
+    process) commits/pushes that write to the private companion repository,
+    and must do so before any public commit/push (handoff §2 steps 10-11).
+
+    Returns True if the file was (re)written, False if the write was skipped
+    because `rows` was unchanged from `prior_rows`."""
+    if rows == prior_rows:
+        return False
+    meta = dict(prior_meta)
+    meta.update({
+        "internal_state_updated_at": ts_now(),
+        "internal_state_prompt": "294",
+        "internal_state_record_count": len(rows),
+    })
+    write_json(path, {"meta": meta, "data": rows})
+    return True
+
+
+def canonicalize_and_project(merged_rows: list) -> list:
+    """Canonicalizes the finalized raw/internal merged rows exactly once via
+    the closed Prompt 292 contract, then projects the result through the
+    closed Prompt 289 public-record contract (STRIP + public_id mint).
+
+    Fail-closed: a CanonicalTenderMergeError, or a projection rejection,
+    exits the process rather than ever publishing a partial/rejected result
+    (WRKOPS t_20260910_adgops294 §5A, §10 PHASE D)."""
+    try:
+        canonical_rows = ctm.merge_canonical_tenders(merged_rows)
+    except ctm.CanonicalTenderMergeError as exc:
+        sys.exit(f"[ERROR] Canonical tender merge failed ({exc.code}): {exc}")
+
+    projection = prp.project_public_records(canonical_rows)
+    if not projection["accepted"]:
+        sys.exit(
+            "[ERROR] Public record projection rejected canonical output: "
+            f"{projection['rejected_reason']}"
+        )
+    return projection["records"]
+
+
+def apply_link_checks_if_requested(public_records: list, link_checks_path) -> list:
+    """IB-5 Phase A (WRKOPS t_20260914_adgops306 §11): optional, offline-only
+    consumption of a reviewed `adgops.link_checks/1` sidecar.
+
+    Absent (the default): returns `public_records` unchanged -- behavior is
+    then byte-identical to before this task. When supplied, the sidecar is
+    strictly validated (tools.link_check_resolver.load_link_check_sidecar)
+    and the pure overlay (tools.public_projection.apply_link_check_overlay)
+    is applied. A missing or malformed sidecar fails closed via sys.exit
+    BEFORE any public write; this never derives or guesses a private-repo
+    path -- `link_checks_path` must be explicitly supplied by the caller."""
+    if not link_checks_path:
+        return public_records
+    try:
+        sidecar = lcr.load_link_check_sidecar(link_checks_path)
+    except lcr.LinkCheckContractError as exc:
+        sys.exit(f"[ERROR] --link-checks-path sidecar invalid ({exc.reason}): {link_checks_path}")
+    return pp.apply_link_check_overlay(public_records, sidecar["observations"])
+
+
+# ---------------------------------------------------------------------------
 # Mode: --run-live  (NOT executed in prompt 118)
 # ---------------------------------------------------------------------------
 
 def run_live(args) -> None:
     """
-    Live fetch → _tmp candidate → lifecycle-safe merge → validate → backup
-    → write data/licitaciones.json.
+    Live fetch → _tmp candidate → lifecycle-safe merge against the private
+    internal-continuity state → persist next internal state → canonicalize
+    exactly once → public-record projection → validate → backup → write
+    data/licitaciones.json.
 
-    Requires --allow-production-write. NOT to be executed in prompt 118.
-    Authorized only after operator review of prompt 119+ commit gate.
+    Requires --allow-production-write and --internal-state-path. NOT to be
+    executed in prompt 118. Authorized only after operator review of prompt
+    119+ commit gate.
+
+    (v0.7.4r / p294: data/licitaciones.json is written here only as the
+    derived, canonical+STRIPped public artifact. The private internal-state
+    file at --internal-state-path is the sole lifecycle-merge continuity
+    input; data/licitaciones.json is never read for that purpose.)
     """
     if not args.allow_production_write:
         sys.exit(
@@ -844,6 +1040,14 @@ def run_live(args) -> None:
             "This mode must NOT be executed in prompt 118.\n"
             "Authorized only in prompt 119+ after operator commit gate approval."
         )
+    if not args.internal_state_path:
+        sys.exit(
+            "[ERROR] --run-live requires --internal-state-path <path>.\n"
+            "There is no runtime bootstrap: the private internal-continuity "
+            "state must already exist at the given path "
+            "(WRKOPS t_20260910_adgops294 §3)."
+        )
+    internal_state_path = Path(args.internal_state_path)
 
     TMP_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -856,17 +1060,58 @@ def run_live(args) -> None:
     except Exception:
         pass
 
-    print(f"[run-live] Fetching to: {candidate_path}")
-    result = subprocess.run(
-        [
-            sys.executable, str(FETCHER_SCRIPT),
-            "--output", str(candidate_path),
-            "--min-score", "20",
-            "--no-progress",
-        ],
-        capture_output=True,
-        text=True,
+    # Prompt 323 Stage B: the SAME GLOBAL_DEADLINE_S authority
+    # (tools/fetch_bounds.py::compute_global_deadline_s) sizes both
+    # enforcement layers -- the cooperative in-process deadline the
+    # fetcher subprocess enforces on itself (--global-deadline below) and
+    # this process's own hard subprocess timeout. Never two independently
+    # computed numbers. Evaluated over the authoritative source registry
+    # and the unchanged Stage A Sec C/D defaults (fetch_licitaciones.py's
+    # scheduled invocation below passes no --pages/--retries/--request-timeout
+    # override, so it runs at exactly these same default values).
+    active_source_count = len(pc.PUBLIC_SOURCES)
+    GLOBAL_DEADLINE_S = fetch_bounds.compute_global_deadline_s(
+        active_source_count=active_source_count,
+        pages=fetch_bounds.DEFAULT_PAGES,
+        retries=fetch_bounds.DEFAULT_RETRIES,
+        request_timeout_s=fetch_bounds.DEFAULT_REQUEST_TIMEOUT_S,
+        retry_delay=fetch_bounds.DEFAULT_RETRY_DELAY_S,
+        retry_backoff=fetch_bounds.DEFAULT_RETRY_BACKOFF,
     )
+
+    print(f"[run-live] Fetching to: {candidate_path}")
+    print(f"[run-live] bounded-mode: global deadline={GLOBAL_DEADLINE_S}s "
+          f"(sources={active_source_count}, hard subprocess timeout=same value)")
+    try:
+        result = subprocess.run(
+            [
+                sys.executable, str(FETCHER_SCRIPT),
+                "--output", str(candidate_path),
+                "--min-score", "20",
+                "--no-progress",
+                "--bounded-mode",
+                "--global-deadline", str(GLOBAL_DEADLINE_S),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=GLOBAL_DEADLINE_S,
+        )
+    except subprocess.TimeoutExpired:
+        # Hard acquisition-process ceiling (Stage A Sec E.2/E.4): fires only if
+        # the cooperative in-process deadline above failed to return control in
+        # time. Never reads or otherwise consumes candidate_path -- the
+        # exception propagates from this except block via sys.exit() before any
+        # downstream load_json()/merge/canonicalize/write call could run, so a
+        # killed, possibly partially-written candidate file is never treated as
+        # a valid acquisition. No candidate salvage/cleanup is attempted here
+        # (deliberately -- see Stage A report Sec E.4); each run computes a
+        # fresh timestamp-suffixed candidate_path, so an orphaned file is never
+        # read by a later run either.
+        sys.exit(
+            f"[ERROR] Fetcher subprocess exceeded the global acquisition "
+            f"deadline ({GLOBAL_DEADLINE_S}s); aborting bounded acquisition. "
+            f"No candidate consumed."
+        )
     if result.stdout:
         print(result.stdout[-3000:])
     if result.returncode != 0:
@@ -903,23 +1148,21 @@ def run_live(args) -> None:
                 "Investigate fetcher output before re-running."
             )
 
-    # Load production.
-    prod_data = load_json(PRODUCTION_PATH)
-    errs = validate_structure(prod_data, "production")
-    if errs:
-        sys.exit(f"[ERROR] Production invalid: {errs}")
-
-    prod_rows  = prod_data["data"]
-    cand_rows  = cand_data["data"]
-    prod_index = build_index(prod_rows)
-    cand_index = build_index(cand_rows)
+    # Load the authoritative private internal-continuity state (never
+    # data/licitaciones.json — that is now derived output, not input).
+    state_data = load_internal_state(internal_state_path)
+    state_rows = state_data["data"]
+    state_meta = state_data.get("meta", {})
+    cand_rows   = cand_data["data"]
+    state_index = build_index(state_rows)
+    cand_index  = build_index(cand_rows)
 
     merged_rows: list = []
     all_conflicts: list = []
     overlap_keys: list = []
     candidate_only_keys: list = []
 
-    for rec in prod_rows:
+    for rec in state_rows:
         key = get_merge_key(rec)
         if key and key in cand_index:
             merged_rec, conflicts = merge_overlap(rec, cand_index[key])
@@ -932,7 +1175,7 @@ def run_live(args) -> None:
 
     for cand_rec in cand_rows:
         key = get_merge_key(cand_rec)
-        if not key or key not in prod_index:
+        if not key or key not in state_index:
             merged_rows.append(build_candidate_record(cand_rec))
             candidate_only_keys.append(key)
 
@@ -940,21 +1183,43 @@ def run_live(args) -> None:
     if not lc_ok:
         sys.exit(f"[ERROR] Lifecycle integrity failed before write: {lc_issues[:3]}")
 
-    # Backup production before write.
+    # Persist the finalized raw/internal next-state to the private-state
+    # working copy BEFORE canonicalization/public derivation (handoff §2
+    # step 4). The workflow commits/pushes this file to the private
+    # companion repo before any public commit/push (handoff §2 steps 10-11).
+    state_written = persist_internal_state(internal_state_path, state_meta, state_rows, merged_rows)
+    if state_written:
+        print(f"[run-live] Internal state persisted: {internal_state_path} ({len(merged_rows)} records)")
+    else:
+        print(f"[run-live] Internal state unchanged, not rewritten: {internal_state_path}")
+
+    # Canonicalize the finalized merge exactly once, then apply the closed
+    # public-record projection contract (STRIP + public_id mint). Fail-closed
+    # on either step; never publish a partial/rejected result.
+    public_records = canonicalize_and_project(merged_rows)
+
+    # IB-5 Phase A (WRKOPS t_20260914_adgops306 §3/§11): optional offline
+    # link-checks overlay, absent by default (no behavior change). Must run
+    # AFTER canonicalization/STRIP projection and BEFORE the public
+    # backup/write block below.
+    public_records = apply_link_checks_if_requested(public_records, args.link_checks_path)
+
+    # Backup the current public artifact before overwriting it. This is a
+    # defensive byte copy only — never read back into merge/lifecycle logic.
     backup_dir = Path("data/_backup")
     backup_dir.mkdir(parents=True, exist_ok=True)
     backup_path = backup_dir / f"licitaciones_{ts}_pre_scheduled.json"
     shutil.copy2(PRODUCTION_PATH, backup_path)
     print(f"[run-live] Backup: {backup_path}")
 
-    # Write production.
+    # Write the derived public artifact.
     # The previous meta block is deliberately NOT carried forward: that
     # append-only carry-forward is what kept the p113 dry-run vocabulary alive
-    # on live public data. The canonical contract is built from the merged
-    # records and the candidate envelope only.
-    public_meta = build_public_meta(merged_rows, cand_meta)
-    write_json(PRODUCTION_PATH, {"meta": public_meta, "data": merged_rows})
-    print(f"[run-live] Written: {PRODUCTION_PATH} ({len(merged_rows)} records)")
+    # on live public data. The canonical contract is built from the
+    # canonical+STRIPped public records and the candidate envelope only.
+    public_meta = build_public_meta(public_records, cand_meta)
+    write_json(PRODUCTION_PATH, {"meta": public_meta, "data": public_records})
+    print(f"[run-live] Written: {PRODUCTION_PATH} ({len(public_records)} canonical public records)")
     print(
         f"[run-live] generation_id={public_meta['generation_id']} "
         f"dataset_sha256={public_meta['dataset_sha256'][:12]}... "
@@ -966,7 +1231,7 @@ def run_live(args) -> None:
     print(
         f"[run-live] internal: backup={backup_path} mode=run-live "
         f"helper={VERSION}/p{PROMPT_NUM} overlap={len(overlap_keys)} "
-        f"added={len(candidate_only_keys)}"
+        f"added={len(candidate_only_keys)} internal_state_records={len(merged_rows)}"
     )
 
     if all_conflicts:
@@ -1003,7 +1268,8 @@ def main() -> None:
             "  python tools/scheduled_fetch_merge.py --validate-production\n"
             "  python tools/scheduled_fetch_merge.py --merge-dry-run "
             "--candidate _tmp/fixture.json --output _tmp/out.json\n"
-            "  python tools/scheduled_fetch_merge.py --run-live --allow-production-write\n"
+            "  python tools/scheduled_fetch_merge.py --run-live --allow-production-write "
+            "--internal-state-path /path/to/adgops-state/state/licitaciones.json\n"
         ),
     )
     ap.add_argument("--check",                  action="store_true",
@@ -1020,6 +1286,17 @@ def main() -> None:
                     help="Output path for merged JSON (--merge-dry-run).")
     ap.add_argument("--allow-production-write", action="store_true", dest="allow_production_write",
                     help="Required flag for --run-live to permit production write.")
+    ap.add_argument("--internal-state-path",    metavar="PATH", dest="internal_state_path",
+                    help="Path to the authoritative private internal-continuity "
+                         "state file (the private companion repo's working "
+                         "copy of state/licitaciones.json). Required for "
+                         "--run-live; there is no runtime bootstrap.")
+    ap.add_argument("--link-checks-path",       metavar="PATH", dest="link_checks_path",
+                    default=None,
+                    help="IB-5 Phase A (WRKOPS t_20260914_adgops306): optional path to a "
+                         "reviewed adgops.link_checks/1 sidecar to overlay onto "
+                         "--run-live's public output. Absent by default (no behavior "
+                         "change). Never derived/guessed -- must be explicit.")
 
     args = ap.parse_args()
 

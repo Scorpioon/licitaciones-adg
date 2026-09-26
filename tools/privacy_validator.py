@@ -56,6 +56,28 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import urlsplit
 
+# IB-4 (p273 v0.3 §14.4): the record-scope contract (path-scope predicates)
+# lives in tools/public_contract.py; the closed DocIntel grammar (schema
+# string, top-level keys, field/evidence shapes, state/reason/type closed
+# sets, CPV pattern, doc_ref shape, string cap, cardinalities) is authored
+# once in tools/public_projection.py (closed IB-3 implementation) and reused
+# here rather than re-invented, per p273 v0.3 §14.5/§18 IB-4. One-way
+# dependency only (this module is never imported by either): no import
+# cycle. tools/public_projection.py is READ for its constants only — this
+# task does not modify it and this module never calls its candidate-mutating
+# functions (build_doc_intel / validate_doc_intel are producer-side and
+# raise-on-first-violation; this validator instead enumerates every distinct
+# violation via the Finding model, consistent with the rest of this file).
+try:
+    from tools import public_contract as pc
+except ImportError:
+    import public_contract as pc
+
+try:
+    from tools import public_projection as pp
+except ImportError:
+    import public_projection as pp
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------------------
@@ -127,6 +149,19 @@ PUBLIC_HARD = {
     "RAW_PAYLOAD_CARRIER",
     "DANGEROUS_URL_SCHEME",
     "UNSAFE_URL_HOST",
+    # IB-4 (p273 v0.3 §14.2): DocIntel structural/content ERROR classes.
+    # Same severity shape as the rest of PUBLIC_HARD — ERROR on the
+    # publication surfaces, suppressed on internal-ephemeral (a candidate
+    # mid-construction, pre-PublicProjection, is not held to the published
+    # DocIntel contract).
+    "DOCINTEL_UNKNOWN_KEY",
+    "DOCINTEL_FREE_TEXT",
+    "DOCINTEL_STRING_TOO_LONG",
+    "DOCINTEL_URL_FORBIDDEN",
+    "DOCINTEL_ENUM",
+    "DOCINTEL_CARDINALITY",
+    "DOCINTEL_SCHEMA",
+    "DOCINTEL_INTERNAL_FIELD",
 }
 HYGIENE_WARN = {
     "RELATIVE_TMP_PATH",
@@ -943,7 +978,7 @@ def _emit(findings, rule_id, ctx, pointer, value):
     findings.append(Finding(rule_id, sev, ctx.surface, ctx.source, pointer, value))
 
 
-def scan_key(pointer, key, value, findings, ctx):
+def scan_key(pointer, key, value, findings, ctx, path=()):
     rule = classify_key(key)
     if rule is not None:
         if rule in _POPULATED_GATED:
@@ -955,15 +990,26 @@ def scan_key(pointer, key, value, findings, ctx):
 
     if ctx.production:
         nkey = normalize_key(key)
+        if nkey == "docref" and pc.is_document_doc_ref_path(path):
+            # documents[].doc_ref (IB-4, p273 v0.3 §14.3.3): a path-scoped
+            # document sibling, recognized ONLY at this exact structural
+            # position — never added to KNOWN_PUBLIC_KEYS globally. The same
+            # key name anywhere else still falls through to the normal
+            # SCHEMA_UNKNOWN check below.
+            return
         if nkey and nkey not in KNOWN_PUBLIC_KEYS:
             _emit(findings, "SCHEMA_UNKNOWN", ctx, pointer, value)
 
 
-def scan_value(pointer, value, findings, ctx, key_hint=None):
-    if not isinstance(value, str) or value == "":
-        return
-
-    # Hard private-data value patterns (any surface).
+def _scan_hard_and_path_leaks(pointer, value, findings, ctx):
+    """Hard private-data value patterns (any surface) plus path leakage
+    (public surfaces). Factored out of scan_value() (IB-4, p273 v0.3 §14.2)
+    so the DocIntel subtree scanner can apply the SAME unconditional hard
+    rules ("local path, private/non-HTTPS URL, credential, e-mail, phone,
+    DNI/NIE, populated NIF ... anywhere in the file") without duplicating
+    the detectors, while its own URL/hygiene handling stays separate (the
+    DocIntel gate treats every URL as forbidden, which already subsumes the
+    URI-safety scan below for that subtree)."""
     if PRIVATE_KEY_RE.search(value):
         _emit(findings, "PRIVATE_KEY_BLOCK", ctx, pointer, value)
     for rx in CREDENTIAL_VALUE_RES:
@@ -977,13 +1023,19 @@ def scan_value(pointer, value, findings, ctx, key_hint=None):
     if _looks_like_dni_nie(value) or _looks_like_labeled_dni_nie(value):
         _emit(findings, "PERSONAL_ID_VALUE", ctx, pointer, value)
 
-    # Path leakage (public surfaces).
     if WINDOWS_ABS_RE.search(value):
         _emit(findings, "WINDOWS_ABS_PATH", ctx, pointer, value)
     if UNC_RE.search(value):
         _emit(findings, "UNC_PATH", ctx, pointer, value)
     if UNIX_HOME_RE.search(value):
         _emit(findings, "UNIX_HOME_PATH", ctx, pointer, value)
+
+
+def scan_value(pointer, value, findings, ctx, key_hint=None):
+    if not isinstance(value, str) or value == "":
+        return
+
+    _scan_hard_and_path_leaks(pointer, value, findings, ctx)
 
     # URI safety (public surfaces; P246 corr F4 context-aware inspection).
     _scan_uri(pointer, value, findings, ctx, url_like=_is_url_like_key(key_hint))
@@ -1052,16 +1104,190 @@ class _Ctx:
         self.source = source
 
 
-def walk(node, pointer, findings, ctx, key_hint=None):
+# ---------------------------------------------------------------------------
+# DocIntel subtree scanner (IB-4, p273 v0.3 §14.2-§14.3)
+#
+# `documents[].doc_intel` and its descendants are governed EXCLUSIVELY by
+# this closed-grammar scanner, dispatched once from walk() at the doc_intel
+# root and never re-entered by the generic scan_key()/scan_value() path — so
+# the DocIntel value vocabulary (schema, state, fields, key, type, value,
+# evidence, page, link_checked_at, analysed_at, reason) never reaches
+# KNOWN_PUBLIC_KEYS / classify_key() and can never be legalised outside its
+# own allowlist (p273 v0.3 §14.3.2). The pre-existing HARD_ALL/PUBLIC_HARD
+# value rules (credentials, e-mail, phone, DNI/NIE, local paths — "anywhere
+# in the file", §14.2) still apply to every string leaf via
+# _scan_hard_and_path_leaks(); DocIntel's own DOCINTEL_URL_FORBIDDEN
+# ("any URL of any kind") is stricter than and subsumes the generic
+# dangerous-scheme/private-host URI scan, so that scan is not duplicated
+# here. Grammar authority (schema string, top-level/field/evidence key
+# sets, closed state/reason/type sets, CPV pattern, doc_ref shape, string
+# cap, cardinalities) is the closed IB-3 implementation
+# (tools/public_projection.py), imported as `pp` — never re-derived here.
+# ---------------------------------------------------------------------------
+
+_DOCINTEL_INTERNAL_NAMES = frozenset({
+    "doc_sha256", "excerpt", "heading", "extractor", "extraction_method",
+    "field_status", "text_quality", "display_options", "final_url",
+})
+
+_DOCINTEL_URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.\-]*://")
+
+_DOCINTEL_DOC_REF_VALUE_RE = re.compile(
+    "^" + re.escape(pp.DOC_REF_PREFIX) + "[0-9a-f]{%d}$" % pp.DOC_REF_HEX_LEN
+)
+
+
+def _docintel_rel_shape(rel):
+    """Normalize a relative path tuple (from the doc_intel root) to a shape
+    key: list indices collapse to '#' so every fields[i]/evidence[j] item
+    shares one shape regardless of index."""
+    return tuple("#" if isinstance(x, int) else x for x in rel)
+
+
+def _docintel_legal_keys_at(path):
+    """Legal key set for the dict currently being enumerated, given its OWN
+    path (ending at the dict itself, not at a child). Anything outside the
+    three known DocIntel container shapes is an empty allowlist — fail
+    closed rather than guess at an unrecognized nesting."""
+    root_len = pc.doc_intel_root_prefix_len(path)
+    if root_len is None:
+        return ()
+    shape = _docintel_rel_shape(path[root_len:])
+    if shape == ():
+        return pp.DOC_INTEL_TOP_KEYS
+    if shape == ("fields", "#"):
+        return pp.FIELD_KEYS
+    if shape == ("fields", "#", "evidence", "#"):
+        return pp.EVIDENCE_KEYS
+    return ()
+
+
+def _docintel_key_rule(key):
+    """DOCINTEL_INTERNAL_FIELD for a named producer/internal key (checked
+    independent of structural position — these names are ERROR anywhere
+    under doc_intel), else None (legality is decided by the caller against
+    _docintel_legal_keys_at())."""
+    if isinstance(key, str) and (key in _DOCINTEL_INTERNAL_NAMES
+                                  or key.startswith("error_")):
+        return "DOCINTEL_INTERNAL_FIELD"
+    return None
+
+
+def _classify_docintel_leaf(rel_shape, value):
+    """Closed-enum / closed-pattern conformance for one DocIntel string leaf,
+    given its shape relative to the doc_intel root. Returns a DOCINTEL_*
+    rule id, or None if the value is legal for its position. `schema` is
+    the one root-relative shape this function must NOT classify: schema
+    validity (missing / wrong / present-and-correct) is owned exclusively
+    by `_scan_doc_intel_root()`, which has already run by the time
+    `_walk_doc_intel()` recurses into this same string leaf (Companion R2)
+    — reclassifying it here as arbitrary free text would be a duplicate,
+    misleading finding for an already-owned position, so this function
+    always defers with no finding regardless of the schema string's
+    correctness."""
+    if rel_shape == ("schema",):
+        return None
+    if rel_shape == ("state",):
+        return None if value in pp.VALID_STATES else "DOCINTEL_ENUM"
+    if rel_shape == ("reason",):
+        return None if value in pp.VALID_REASONS else "DOCINTEL_ENUM"
+    if rel_shape in (("analysed_at",), ("link_checked_at",)):
+        return None if pc.is_rfc3339_z(value) else "DOCINTEL_FREE_TEXT"
+    if rel_shape == ("fields", "#", "key"):
+        return None if value == "cpv" else "DOCINTEL_FREE_TEXT"
+    if rel_shape == ("fields", "#", "type"):
+        return None if value in pp.VALID_FIELD_TYPES else "DOCINTEL_ENUM"
+    if rel_shape == ("fields", "#", "value", "#"):
+        return None if pp.CPV_CODE_RE.match(value) else "DOCINTEL_FREE_TEXT"
+    if rel_shape == ("fields", "#", "evidence", "#", "doc_ref"):
+        return (None if _DOCINTEL_DOC_REF_VALUE_RE.match(value)
+                else "DOCINTEL_FREE_TEXT")
+    # Any other position (including "page", which must be an int and is
+    # therefore never a legal string; and any unrecognized position, already
+    # flagged at the key level by DOCINTEL_UNKNOWN_KEY/INTERNAL_FIELD) has no
+    # legal closed pattern for a string value.
+    return "DOCINTEL_FREE_TEXT"
+
+
+def _scan_docintel_string_leaf(pointer, path, value, findings, ctx):
+    _scan_hard_and_path_leaks(pointer, value, findings, ctx)
+    if len(value) > pp.MAX_STRING_LEN:
+        _emit(findings, "DOCINTEL_STRING_TOO_LONG", ctx, pointer, value)
+    if _DOCINTEL_URL_RE.search(value):
+        _emit(findings, "DOCINTEL_URL_FORBIDDEN", ctx, pointer, value)
+    root_len = pc.doc_intel_root_prefix_len(path)
+    rel_shape = _docintel_rel_shape(path[root_len:]) if root_len is not None else ()
+    rule = _classify_docintel_leaf(rel_shape, value)
+    if rule is not None:
+        _emit(findings, rule, ctx, pointer, value)
+
+
+def _walk_doc_intel(pointer, path, node, findings, ctx):
+    """Recursive closed-grammar scan of one documents[].doc_intel subtree.
+    Never calls scan_key()/scan_value()/classify_key() — this subtree has
+    its own complete, independent ruleset (p273 v0.3 §14.3.2)."""
+    if isinstance(node, dict):
+        legal_keys = _docintel_legal_keys_at(path)
+        for i, (k, v) in enumerate(node.items()):
+            child_pointer = f"{pointer}/{_safe_key_token(k, i)}"
+            child_path = path + (k,)
+            rule = _docintel_key_rule(k)
+            if rule is None and k not in legal_keys:
+                rule = "DOCINTEL_UNKNOWN_KEY"
+            if rule is not None:
+                _emit(findings, rule, ctx, child_pointer, v)
+            _walk_doc_intel(child_pointer, child_path, v, findings, ctx)
+    elif isinstance(node, list):
+        parent_key = path[-1] if path else None
+        if parent_key == "fields" and len(node) > pp.MAX_FIELDS:
+            _emit(findings, "DOCINTEL_CARDINALITY", ctx, pointer, node)
+        if parent_key == "evidence" and not (pp.MIN_EVIDENCE <= len(node) <= pp.MAX_EVIDENCE):
+            _emit(findings, "DOCINTEL_CARDINALITY", ctx, pointer, node)
+        for i, item in enumerate(node):
+            _walk_doc_intel(f"{pointer}[{i}]", path + (i,), item, findings, ctx)
+    elif isinstance(node, str):
+        _scan_docintel_string_leaf(pointer, path, node, findings, ctx)
+    # Other scalar leaves (int/bool/None) carry no DocIntel content risk this
+    # gate targets; full type-shape re-validation is PublicProjection's job
+    # at write time, not this publication-time privacy/content gate's.
+
+
+def _scan_doc_intel_root(pointer, path, doc_intel_obj, findings, ctx):
+    """Entry point for one documents[].doc_intel value. `path` ends at
+    "doc_intel" itself (the value's own position) — this function is only
+    ever dispatched when the `doc_intel` key is actually PRESENT on the
+    document (walk() only visits keys that exist in the enumerated dict);
+    an absent key never reaches here and is therefore already the valid
+    default with no finding, per p273 v0.3's canonical absence semantics
+    (Companion correction R1). A PRESENT `doc_intel: null` is NOT the same
+    thing as absence — p273 v0.3 requires the key be omitted entirely for
+    "not yet analysed" / rejected / withheld intelligence, so a present
+    `null` (or any other non-object present value) is a malformed present
+    value and must fail closed via DOCINTEL_SCHEMA, exactly like any other
+    non-object value."""
+    schema_val = doc_intel_obj.get("schema") if isinstance(doc_intel_obj, dict) else None
+    if schema_val != pp.DOC_INTEL_SCHEMA:
+        _emit(findings, "DOCINTEL_SCHEMA", ctx, f"{pointer}/schema", schema_val)
+    _walk_doc_intel(pointer, path, doc_intel_obj, findings, ctx)
+
+
+def walk(node, pointer, findings, ctx, key_hint=None, path=()):
+    if pc.is_document_doc_intel_root_path(path):
+        # Dispatched regardless of node's type: a malformed (non-object)
+        # doc_intel value must still fail closed via DOCINTEL_SCHEMA rather
+        # than silently falling through to generic hygiene scanning.
+        _scan_doc_intel_root(pointer, path, node, findings, ctx)
+        return
     if isinstance(node, dict):
         for i, (k, v) in enumerate(node.items()):
             child = f"{pointer}/{_safe_key_token(k, i)}"
-            scan_key(child, k, v, findings, ctx)
+            child_path = path + (k,)
+            scan_key(child, k, v, findings, ctx, path=child_path)
             _scan_key_as_value(child, k, findings, ctx)
-            walk(v, child, findings, ctx, key_hint=k)
+            walk(v, child, findings, ctx, key_hint=k, path=child_path)
     elif isinstance(node, list):
         for i, item in enumerate(node):
-            walk(item, f"{pointer}[{i}]", findings, ctx, key_hint=key_hint)
+            walk(item, f"{pointer}[{i}]", findings, ctx, key_hint=key_hint, path=path + (i,))
     elif isinstance(node, str):
         scan_value(pointer, node, findings, ctx, key_hint=key_hint)
 

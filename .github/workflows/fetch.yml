@@ -43,6 +43,10 @@ on:
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: fetch-licitaciones-${{ inputs.dry_run == 'true' && 'diagnostic' || 'production' }}
+      cancel-in-progress: ${{ inputs.dry_run == 'true' }}
     permissions:
       contents: write
     env:
@@ -53,12 +57,12 @@ jobs:
 
     steps:
       - name: Checkout repo (main)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: main
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version-file: '.python-version'
 
@@ -119,6 +123,13 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a") as fh:
               fh.write(f"RUN_FETCH={run_fetch}\n")
               fh.write(f"DRY_RUN_MODE={'true' if dry_run else 'false'}\n")
+              # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B): this is the
+              # earliest step that runs regardless of RUN_FETCH/dry-run/guard
+              # outcome, so it is the honest run-start marker the V2 receipt's
+              # run_identity.started_at_utc / elapsed_s are derived from
+              # (Stage A/R1 report §19: "the time the guard step ran", not a
+              # literal job-scheduler start time).
+              fh.write(f"RUN_STARTED_AT={datetime.now(ZoneInfo('UTC')).isoformat()}\n")
               # Context for the operational summary step (single-line values).
               fh.write(f"GUARD_EVENT={event_name}\n")
               fh.write(f"GUARD_SCHEDULE={event_schedule}\n")
@@ -133,17 +144,84 @@ jobs:
           INPUT_DRY_RUN:   ${{ inputs.dry_run   || 'false' }}
           EVENT_SCHEDULE:  ${{ github.event.schedule || '' }}
 
+      - name: Checkout private internal-state repo
+        id: statecheckout
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: Scorpioon/licitaciones-adg-state
+          ref: main
+          # ADGOPS_STATE_SSH_KEY is a secret of THIS (public, workflow-owning)
+          # repository, Scorpioon/licitaciones-adg — secrets.* always resolves
+          # against the repo running the workflow, never the checkout target.
+          # Its PUBLIC half is a deploy key granted READ+WRITE on the PRIVATE
+          # target repo, Scorpioon/licitaciones-adg-state, only.
+          ssh-key: ${{ secrets.ADGOPS_STATE_SSH_KEY }}
+          # actions/checkout@v4's `path` is always resolved under, and
+          # validated to remain under, $GITHUB_WORKSPACE — it rejects any
+          # resolved path outside it (an earlier draft of this workflow
+          # incorrectly assumed an absolute ${{ runner.temp }} path would
+          # escape $GITHUB_WORKSPACE; it would not have, and the checkout
+          # would have failed outright). `_tmp/` is already fully gitignored
+          # in this repo's own .gitignore (`_tmp/` / `/_tmp/`) and is already
+          # this workflow's own ephemeral-material directory (every other
+          # step below that needs a scratch path uses `mkdir -p _tmp`), so
+          # nesting the private checkout at `_tmp/adgops-state` never appears
+          # in this repo's `git status` and is never reachable by "Commit
+          # data if changed" below, which `git add`s an explicit public-file
+          # list only — never `git add -A`/`.`.
+          path: _tmp/adgops-state
+          persist-credentials: true
+
       - name: Run scheduled helper (live fetch + lifecycle-safe merge)
         id: helper
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        timeout-minutes: 10
         shell: bash
+        env:
+          # WRKOPS t_20260910_adgops294 (R1-corrected): the private companion
+          # repo's working copy, checked out above at `_tmp/adgops-state`
+          # (relative to $GITHUB_WORKSPACE, per actions/checkout@v4's real
+          # path contract). `_tmp/` is already gitignored in this repo, so
+          # this never appears as an untracked path in this repo's git
+          # status, and "Commit data if changed" below can never stage it
+          # (it `git add`s an explicit public-file list only).
+          ADGOPS_INTERNAL_STATE_PATH: _tmp/adgops-state/state/licitaciones.json
         run: |
           set -euo pipefail
           mkdir -p _tmp
           # set -o pipefail: the helper's exit code propagates through tee, so a
-          # fail-closed refusal (EMPTY_FAILURE / partial candidate) fails the step
-          # instead of being masked by tee's own exit 0.
-          python tools/scheduled_fetch_merge.py --run-live --allow-production-write 2>&1 | tee _tmp/run_helper.log
+          # fail-closed refusal (EMPTY_FAILURE / partial candidate / missing or
+          # invalid internal state) fails the step instead of being masked by
+          # tee's own exit 0.
+          python tools/scheduled_fetch_merge.py --run-live --allow-production-write \
+            --internal-state-path "$ADGOPS_INTERNAL_STATE_PATH" 2>&1 | tee _tmp/run_helper.log
+
+      - name: Commit and push private internal state
+        id: statepush
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        shell: bash
+        working-directory: _tmp/adgops-state
+        run: |
+          # Must succeed before any public commit/push (handoff §2 steps
+          # 10-11, §5B): this step runs before "Commit data if changed" /
+          # "Push" below, and (like those steps' own plain `if:`) relies on
+          # GitHub Actions' default behaviour that a later step does not run
+          # once an earlier step in this job has failed. A failure here
+          # (auth, network, push rejected) therefore fails the whole run
+          # closed before the public artifact is ever committed or pushed.
+          # Diff-guarded: a no-change internal state produces no empty commit.
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/licitaciones.json
+          if git diff --cached --quiet; then
+            echo "no internal-state changes to commit"
+          else
+            git commit -m "state(auto/fetcher1-scheduled): update internal continuity state [run #${{ github.run_number }}]" \
+                        -m "Automation-ID: ${AUTOMATION_ID}"
+            git push
+          fi
 
       - name: Diagnostic only (dry_run=true)
         id: dryrun
@@ -170,11 +248,84 @@ jobs:
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
         run: |
           git diff --stat
-          if git diff --quiet -- data/licitaciones.json; then
-            echo "MONOLITH_CHANGED=false" >> "$GITHUB_ENV"
-          else
-            echo "MONOLITH_CHANGED=true" >> "$GITHUB_ENV"
-          fi
+          # F-14 (WRKOPS t_20260912_adgops298): MONOLITH_CHANGED means the
+          # canonical public dataset CONTENT changed, authorized exclusively
+          # by meta.dataset_sha256 -- never raw serialized file bytes, and
+          # never volatile metadata (dataset_generated_at, generation_id,
+          # source_retrieved_at) or Git working-tree dirtiness alone. Both
+          # the current and committed hash authorities are validated
+          # strictly; any missing/malformed/unreadable authority fails this
+          # step (and therefore the whole run, via the runner's default
+          # `set -e`) closed -- it is never silently converted to 'false'.
+          python - <<'PYEOF'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+
+          HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+
+          def fail(msg):
+              print(f"::error::[diffsummary] {msg}", file=sys.stderr)
+              sys.exit(1)
+
+          def extract_hash(label, payload):
+              if not isinstance(payload, dict):
+                  fail(f"{label}: top-level JSON is not an object")
+              meta = payload.get("meta")
+              if not isinstance(meta, dict):
+                  fail(f"{label}: missing 'meta' object")
+              value = meta.get("dataset_sha256")
+              if not isinstance(value, str) or not HEX64_RE.fullmatch(value):
+                  fail(f"{label}: meta.dataset_sha256 missing, non-string, or not a "
+                       f"64-hex-character SHA-256 digest")
+              return value
+
+          try:
+              with open("data/licitaciones.json", "r", encoding="utf-8") as fh:
+                  current_raw = fh.read()
+          except OSError as exc:
+              fail(f"failed to read working-tree data/licitaciones.json: {exc}")
+
+          try:
+              current_payload = json.loads(current_raw)
+          except ValueError as exc:
+              fail(f"working-tree data/licitaciones.json is not valid JSON: {exc}")
+
+          proc = subprocess.run(
+              ["git", "show", "HEAD:data/licitaciones.json"],
+              capture_output=True, text=True,
+          )
+          if proc.returncode != 0:
+              fail("failed to retrieve committed data/licitaciones.json via "
+                   "'git show HEAD:data/licitaciones.json': " + proc.stderr.strip())
+
+          try:
+              committed_payload = json.loads(proc.stdout)
+          except ValueError as exc:
+              fail(f"committed data/licitaciones.json (HEAD) is not valid JSON: {exc}")
+
+          current_hash = extract_hash("current working-tree dataset", current_payload)
+          committed_hash = extract_hash("committed (HEAD) dataset", committed_payload)
+
+          changed = "true" if current_hash != committed_hash else "false"
+          with open(os.environ["GITHUB_ENV"], "a") as fh:
+              fh.write(f"MONOLITH_CHANGED={changed}\n")
+              if changed == "false":
+                  # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B R1): this is
+                  # the one place a genuine no-material-change run is honestly
+                  # known -- dataset_sha256 validated equal above. Only this
+                  # branch may ever write DATA_CHANGED=false; DATA_CHANGED=true
+                  # remains written exclusively by the "Commit data if changed"
+                  # step's commit-creation branch, unchanged. This does not
+                  # alter material-change detection (`changed` itself) or any
+                  # downstream commit/push/shard/privacy condition, all of
+                  # which still gate on MONOLITH_CHANGED alone.
+                  fh.write("DATA_CHANGED=false\n")
+          print(f"[diffsummary] current dataset_sha256={current_hash} "
+                f"committed dataset_sha256={committed_hash} MONOLITH_CHANGED={changed}")
+          PYEOF
 
       - name: Build data shards (freshness sync)
         id: shards
@@ -400,18 +551,23 @@ jobs:
                 % (gen, len(records), expected_canonical, len(shards), shard_total))
           PYEOF
 
-      - name: Privacy report (record-level, report-only)
+      - name: Privacy report (record-level, blocking)
         id: privacyreport
         if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
         shell: bash
         run: |
-          # p267 / v0.7.1t (D-03): record-level privacy validator, wired as a
-          # report-only step. Invokes the UNMODIFIED tools/privacy_validator.py
-          # over all 11 tracked public surfaces. This step always exits 0 — a
-          # privacy finding or a validator execution failure is surfaced via
-          # $GITHUB_STEP_SUMMARY and a workflow annotation, never by failing
-          # the step or altering MONOLITH_CHANGED / DATA_CHANGED / any other
-          # step outcome. No blocking gate is introduced here.
+          # IB-4 (p273 v0.3 §14.1, WRKOPS t_20260906_adgops286): record-level
+          # privacy/DocIntel gate, now BLOCKING. Invokes
+          # tools/privacy_validator.py over all 11 tracked public surfaces.
+          # rc=0 (no ERROR) lets the step pass; rc=2 (>=1 ERROR finding) and
+          # rc=1 (execution/parse/structural failure) both fail this step —
+          # publication is blocked because this step sits before "Commit
+          # data if changed" and "Push", and those steps' plain `if:`
+          # conditions are implicitly gated on no prior step having failed.
+          # `set +e` below exists ONLY so this script can capture the
+          # validator's exit code itself before deciding the step's own
+          # fate; the trailing `exit` at the end of this script is the
+          # actual pass/fail decision — never an unconditional exit 0.
           set +e
           mkdir -p _tmp
           SUMMARY_FILE="_tmp/privacy_summary_${GITHUB_RUN_NUMBER}.json"
@@ -549,7 +705,7 @@ jobs:
 
           {
             echo ""
-            echo "### Privacy validator (record-level, report-only)"
+            echo "### Privacy validator (record-level, blocking)"
             echo ""
             echo "| Field | Value |"
             echo "| --- | --- |"
@@ -560,28 +716,40 @@ jobs:
             echo "| distinct findings | $DISTINCT_COUNT |"
             echo "| groups | $GROUP_COUNT |"
             echo "| surfaces scanned | 11 |"
-            echo "| blocking | no (report-only) |"
+            echo "| blocking | yes |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$RESULT" = "ERROR_FINDINGS" ]; then
-            echo "::warning::Privacy validator reported ERROR findings in report-only mode; publication is not blocked."
+            echo "::error::Privacy validator reported ERROR findings; publication blocked."
           elif [ "$RESULT" = "EXECUTION_FAILURE" ]; then
-            echo "::error::Privacy validator could not produce trustworthy evidence in report-only mode (exit code $PRIVACY_EXIT); publication is not blocked."
+            echo "::error::Privacy validator could not produce trustworthy evidence (exit code $PRIVACY_EXIT); publication blocked."
           fi
 
-          exit 0
+          if [ "$RESULT" = "NO_ERRORS" ]; then
+            exit 0
+          elif [ "$RESULT" = "ERROR_FINDINGS" ]; then
+            exit 2
+          else
+            exit 1
+          fi
 
       - name: Commit data if changed
         id: commit
-        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true'
         shell: bash
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/licitaciones.json data/licitaciones_manifest.json data/licitaciones_2026.json data/licitaciones_2025.json data/licitaciones_2024.json data/licitaciones_archive.json
           if git diff --cached --quiet; then
-            echo "no data changes to commit"
-            echo "DATA_CHANGED=false" >> "$GITHUB_ENV"
+            # F-14 (WRKOPS t_20260912_adgops298): this step now runs only
+            # when MONOLITH_CHANGED == 'true' (canonical dataset CONTENT
+            # changed per meta.dataset_sha256), so an empty staged diff here
+            # contradicts the content gate that authorized the step to run
+            # at all -- fail closed as an invariant violation rather than
+            # the pre-F-14 behaviour of succeeding with DATA_CHANGED=false.
+            echo "::error::[commit] MONOLITH_CHANGED=true but the six-file public staging surface is empty (invariant violation)"
+            exit 1
           else
             # A commit is created only when the helper succeeded, validation passed and
             # data changed — so the commit-time operational status is, by construction,
@@ -599,11 +767,15 @@ jobs:
           Guard-Reason: ${GUARD_REASON:-unknown}"
             git commit -m "$COMMIT_SUBJECT" -m "$COMMIT_TRAILERS"
             echo "DATA_CHANGED=true" >> "$GITHUB_ENV"
+            # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §2.10): the
+            # resulting commit SHA, for the V2 receipt's commit.sha field.
+            # Read-only; this is the commit that was just created above.
+            echo "COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           fi
 
       - name: Push
         id: push
-        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.DATA_CHANGED == 'true'
+        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && env.MONOLITH_CHANGED == 'true' && env.DATA_CHANGED == 'true'
         run: |
           git push
 
@@ -620,26 +792,79 @@ jobs:
           PUSH_OUTCOME:        ${{ steps.push.outcome }}
           GH_EVENT_NAME:       ${{ github.event_name }}
           GH_RUN_NUMBER:       ${{ github.run_number }}
+          # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §2.2/§2.9): the
+          # minimal additional run/gate identity the V2 durable receipt
+          # needs. PRIVACYREPORT_OUTCOME supersedes the p265
+          # no-PRIVACY-key convention locked by this workflow's own offline
+          # test (tools/fetcher_fixture_regression.py
+          # test_p267_c10_operational_summary_env_block_unchanged_p265_contract,
+          # updated in the same Stage B change to allowlist exactly this
+          # one key) -- the receipt's gates.privacy field requires it, and
+          # it is a bounded step-outcome string (success/failure/skipped/
+          # cancelled), never validator findings content.
+          GH_RUN_ATTEMPT:      ${{ github.run_attempt }}
+          BASELINE_HEAD:       ${{ github.sha }}
+          PRIVACYREPORT_OUTCOME: ${{ steps.privacyreport.outcome }}
         run: |
           mkdir -p _tmp
           # Operational-status classification, Step Summary, OPERATIONAL_STATUS env,
-          # and the p188 machine-readable run report are produced by the single
-          # source of truth in tools/scheduled_run_classify.py (extracted from the
-          # former inline heredoc in p190; behaviour-preserving). The same module is
-          # imported by the offline regression harness so workflow and tests agree.
+          # the p188 machine-readable V1 report, and (WRKOPS t_20260924_adgops324
+          # Prompt 324 Stage B) the durable V2 receipt + .sha256 sidecar are all
+          # produced by the single source of truth in tools/scheduled_run_classify.py
+          # (extracted from the former inline heredoc in p190; behaviour-preserving).
+          # The same module is imported by the offline regression harness so
+          # workflow and tests agree. A V2 receipt-write failure cannot affect the
+          # V1 outputs above it or any production publication step, all of which
+          # have already run by this point (Stage B prompt §1.6).
           python tools/scheduled_run_classify.py
 
-      - name: Upload fail-closed diagnostics
+      # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §1.2/§6.2): the ONLY
+      # durable off-runner evidence surface this workflow uploads. Contents
+      # are EXACTLY the sanitized V2 receipt + its .sha256 sidecar written by
+      # the "Operational summary" step above (tools/scheduled_run_classify.py
+      # -- an explicit allowlist of two files, never a directory/glob over
+      # _tmp/**. This is NOT a revival of the F-04 diagnostic-artifact upload
+      # removed below: that step uploaded raw internal-ephemeral material
+      # wholesale; this one uploads only the purpose-built, already-sanitized
+      # receipt (Stage A/R1 report §8's disclosure boundary; Stage B §1.4
+      # treats this artifact as potentially public-readable). `retention-days`
+      # is deliberately OMITTED so the repository-configured Actions artifact
+      # retention setting applies (Stage A/R1 report §19.4, Stage B §1.3) --
+      # no numeric retention magnitude is authorized in this slice.
+      # if-no-files-found: error makes a receipt-write failure (env.RECEIPT_PATH
+      # unset -- see finalize_v2_receipt()'s try/except) visible as a failed
+      # step rather than silently ignored, without affecting anything already
+      # published by the steps above (Stage B prompt §1.6).
+      #
+      # SHA-pin (WRKOPS t_20260924_adgops324 Prompt 324 Stage B R1): pinned to
+      # the Companion-verified official actions/upload-artifact v7.0.1 commit,
+      # matching every other `uses:` step in this workflow (see
+      # actions/checkout, actions/setup-python above), which are all pinned to
+      # an exact upstream commit SHA rather than a mutable tag. The workflow
+      # remains externally disabled regardless (Prompt 324 does not authorize
+      # re-enable).
+      - name: Upload run receipt (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: adgops-auto-fetcher1-scheduled-diagnostics-${{ github.run_number }}
+          name: adgops-run-receipt-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
-            _tmp/scheduled_live_candidate_*.json
-            _tmp/scheduled_merge_conflicts_live_*.json
-            _tmp/scheduled_run_report_*.json
-            _tmp/run_helper.log
-            _tmp/privacy_summary_*.json
-            _tmp/privacy_stderr_*.log
-          retention-days: 7
-          if-no-files-found: ignore
+            ${{ env.RECEIPT_PATH }}
+            ${{ env.RECEIPT_SIDECAR_PATH }}
+          if-no-files-found: error
+
+      # F-04 (ADGOPS_ROUTINE_PLATFORM_HEALTH_SECURITY_AUDIT_20260906_v0.1):
+      # the diagnostic artifact upload step formerly here (actions/upload-
+      # artifact@v4, name adgops-auto-fetcher1-scheduled-diagnostics-*)
+      # published _tmp/** internal-ephemeral material — raw live-candidate
+      # JSON, raw merge-conflict diagnostics, the machine-readable run report
+      # (embeds a local _tmp path and raw per-source upstream error text),
+      # the raw helper log, and the privacy validator's stderr — as a
+      # downloadable GitHub Actions artifact from this public repository. No
+      # already-contracted public-safe artifact existed to allowlist instead,
+      # so the step was removed rather than narrowed. WRKOPS
+      # t_20260924_adgops324 (Prompt 324 Stage A/R1/B) is the authorized
+      # replacement: a purpose-built, sanitized V2 receipt + sidecar only
+      # (the "Upload run receipt (evidence)" step above) -- never _tmp/**
+      # wholesale, never the raw candidate/log/error content this removed
+      # step used to publish.

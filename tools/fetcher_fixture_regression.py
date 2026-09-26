@@ -32,14 +32,19 @@ not touched. Final line:
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import types
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
+
+import requests
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -53,6 +58,11 @@ import tools.scheduled_fetch_merge as sfm  # noqa: E402
 import tools.scheduled_run_classify as src  # noqa: E402
 import tools.scheduled_candidate_policy as scp  # noqa: E402
 import tools.privacy_validator as pv  # noqa: E402
+import tools.canonical_tender_merge as ctm  # noqa: E402
+import tools.link_check_resolver as lcr  # noqa: E402
+import tools.fetch_bounds as fetch_bounds  # noqa: E402 - Prompt 323 Stage B
+import fetch_licitaciones as fl  # noqa: E402 - Prompt 323 Stage B
+import tools.run_receipt as run_receipt  # noqa: E402 - Prompt 324 Stage B
 
 AUTOMATION_ID = "ADGOPS_AUTO_FETCHER1_SCHEDULED"
 
@@ -247,6 +257,280 @@ class L1MergeHelperTests(unittest.TestCase):
         report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
         self.assertEqual(report["final_verdict"], "FAIL")
         self.assertTrue(any("generation_id" in e for e in report["validation_errors"]))
+
+    # --- Prompt 325 / WRKOPS t_20260925_adgops325: public-validator /
+    # public-contract alignment. The canonical public projection (Prompt 289
+    # STRIP) correctly omits internal lifecycle bookkeeping from every public
+    # record; the production validator must accept that shape rather than
+    # treating the intended absence as corruption. Internal lifecycle safety
+    # (validate_lifecycle_integrity / classify_lifecycle /
+    # resolve_overlap_lifecycle, exercised elsewhere in this suite) is
+    # untouched by this task and unaffected by these public-artifact cases.
+
+    def test_validate_production_stripped_lifecycle_fields_accepted(self):
+        # A canonical public artifact whose records correctly omit
+        # lifecycle_category / active_opportunity_eligible / lifecycle_
+        # review_required -- exactly what public_record_projection.py's
+        # STRIP contract produces -- must PASS when its public schema/meta/
+        # hash/shape are otherwise valid.
+        canonical = load_fixture("production_canonical_min.json")
+        for rec in canonical["data"]:
+            for field in ("lifecycle_category", "active_opportunity_eligible",
+                          "lifecycle_review_required"):
+                rec.pop(field, None)
+        self.prod_path.write_text(json.dumps(canonical, ensure_ascii=False), encoding="utf-8")
+        sfm.run_validate_production(types.SimpleNamespace())
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        self.assertEqual(report["final_verdict"], "PASS")
+        self.assertEqual(report["validation_errors"], [])
+
+    def test_validate_production_missing_lifecycle_fields_not_flagged(self):
+        # Absence of lifecycle_category / active_opportunity_eligible must
+        # never itself be raised as a public-validation error -- this is the
+        # exact validator/public-contract skew this task corrects.
+        canonical = load_fixture("production_canonical_min.json")
+        for rec in canonical["data"]:
+            rec.pop("lifecycle_category", None)
+            rec.pop("active_opportunity_eligible", None)
+        self.prod_path.write_text(json.dumps(canonical, ensure_ascii=False), encoding="utf-8")
+        sfm.run_validate_production(types.SimpleNamespace())
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        for err in report["validation_errors"]:
+            self.assertNotIn("missing lifecycle_category", err)
+            self.assertNotIn("missing active_opportunity_eligible", err)
+
+    def test_validate_production_still_rejects_broken_schema_with_stripped_fields(self):
+        # Existing fail-closed public schema/meta behaviour is not weakened
+        # by this change: an invalid schema is still rejected even when the
+        # records otherwise have the correctly-stripped public shape.
+        canonical = load_fixture("production_canonical_min.json")
+        canonical["meta"]["schema"] = "not.a.real.schema/0"
+        for rec in canonical["data"]:
+            for field in ("lifecycle_category", "active_opportunity_eligible",
+                          "lifecycle_review_required"):
+                rec.pop(field, None)
+        self.prod_path.write_text(json.dumps(canonical, ensure_ascii=False), encoding="utf-8")
+        with self.assertRaises(SystemExit) as cm:
+            sfm.run_validate_production(types.SimpleNamespace())
+        self.assertEqual(cm.exception.code, 1)
+        report = json.loads(sfm.REPORT_VALIDATE.read_text(encoding="utf-8"))
+        self.assertEqual(report["final_verdict"], "FAIL")
+        self.assertTrue(any("canonical public schema" in e for e in report["validation_errors"]))
+
+    # --- p294 / WRKOPS t_20260910_adgops294: internal/public state split ---
+    # load_internal_state / persist_internal_state / canonicalize_and_project
+    # are the new --run-live glue this prompt adds. Coverage here is narrowly
+    # scoped to that new glue, not a re-test of the already-closed
+    # tools.canonical_tender_merge / tools.public_record_projection
+    # contracts (69/69 and their own suites already own that).
+
+    def test_load_internal_state_missing_file_fails_closed(self):
+        missing = self.tmp / "does_not_exist.json"
+        with self.assertRaises(SystemExit):
+            sfm.load_internal_state(missing)
+
+    def test_load_internal_state_malformed_json_fails_closed(self):
+        bad = self.tmp / "bad_internal_state.json"
+        bad.write_text("{ not valid json,,, ", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            sfm.load_internal_state(bad)
+
+    def test_load_internal_state_invalid_shape_fails_closed(self):
+        bad = self.tmp / "no_data_key_internal_state.json"
+        bad.write_text(json.dumps({"meta": {}}), encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            sfm.load_internal_state(bad)
+
+    def test_load_internal_state_valid_file_round_trips(self):
+        valid = self.tmp / "internal_state.json"
+        payload = load_fixture("production_min.json")
+        valid.write_text(json.dumps(payload), encoding="utf-8")
+        loaded = sfm.load_internal_state(valid)
+        self.assertEqual(loaded["data"], payload["data"])
+        self.assertEqual(loaded["meta"], payload["meta"])
+
+    def test_persist_internal_state_writes_rows_and_bookkeeping(self):
+        out = self.tmp / "internal_state_out.json"
+        prior_meta = {"note": "prior-internal-meta"}
+        rows = [{"id": "X1", "enrichment_version": "v1"}]
+        wrote = sfm.persist_internal_state(out, prior_meta, [], rows)
+        self.assertTrue(wrote)
+        written = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(written["data"], rows)
+        self.assertEqual(written["meta"]["note"], "prior-internal-meta")
+        self.assertIn("internal_state_updated_at", written["meta"])
+        self.assertEqual(written["meta"]["internal_state_prompt"], "294")
+        self.assertEqual(written["meta"]["internal_state_record_count"], 1)
+
+    def test_persist_internal_state_skips_write_when_unchanged(self):
+        # p294 R1 §4: a semantically no-op run must not rewrite the file —
+        # rewriting on every call (even with byte-identical `rows`) would
+        # bump the wall-clock `internal_state_updated_at` field every time,
+        # forcing the workflow's diff-guarded private commit to fire on every
+        # run regardless of content, which the handoff explicitly forbids.
+        out = self.tmp / "internal_state_noop.json"
+        rows = [{"id": "X1", "enrichment_version": "v1"}]
+        wrote_first = sfm.persist_internal_state(out, {"note": "prior"}, [], rows)
+        self.assertTrue(wrote_first)
+        first_bytes = out.read_bytes()
+
+        wrote_second = sfm.persist_internal_state(out, {"note": "prior"}, rows, rows)
+        self.assertFalse(wrote_second)
+        self.assertEqual(out.read_bytes(), first_bytes)
+
+    def test_canonicalize_and_project_happy_path_strips_bookkeeping(self):
+        rows = [dict(r) for r in load_fixture("production_min.json")["data"]]
+        result = sfm.canonicalize_and_project(rows)
+        self.assertEqual(len(result), len(rows))
+        self.assertEqual({r["id"] for r in result}, {r["id"] for r in rows})
+        for pub in result:
+            self.assertIn("public_id", pub)
+            for bookkeeping in ("enrichment_version", "lifecycle_category",
+                                "active_opportunity_eligible",
+                                "lifecycle_review_required",
+                                "source_merge_class"):
+                self.assertNotIn(bookkeeping, pub)
+
+    def test_canonicalize_and_project_fails_closed_on_merge_error(self):
+        class _StubMergeError(Exception):
+            def __init__(self):
+                super().__init__("invalid_id: stub")
+                self.code = "invalid_id"
+
+        class _StubCtm:
+            CanonicalTenderMergeError = _StubMergeError
+
+            @staticmethod
+            def merge_canonical_tenders(rows):
+                raise _StubMergeError()
+
+        saved = sfm.ctm
+        sfm.ctm = _StubCtm
+        try:
+            with self.assertRaises(SystemExit):
+                sfm.canonicalize_and_project([])
+        finally:
+            sfm.ctm = saved
+
+    def test_canonicalize_and_project_fails_closed_on_rejected_projection(self):
+        class _StubPrp:
+            @staticmethod
+            def project_public_records(rows):
+                return {"accepted": False, "rejected_reason": "duplicate_public_id", "records": []}
+
+        saved = sfm.prp
+        sfm.prp = _StubPrp
+        try:
+            rows = [dict(r) for r in load_fixture("production_min.json")["data"]]
+            with self.assertRaises(SystemExit):
+                sfm.canonicalize_and_project(rows)
+        finally:
+            sfm.prp = saved
+
+    def test_run_live_requires_internal_state_path(self):
+        # Must fail closed before any network/subprocess fetch is attempted.
+        args = types.SimpleNamespace(allow_production_write=True, internal_state_path=None)
+        with self.assertRaises(SystemExit):
+            sfm.run_live(args)
+
+    def test_run_live_requires_allow_production_write(self):
+        args = types.SimpleNamespace(allow_production_write=False, internal_state_path="ignored")
+        with self.assertRaises(SystemExit):
+            sfm.run_live(args)
+
+
+# ---------------------------------------------------------------------------
+# IB-5 Phase A (WRKOPS t_20260914_adgops306 §11/§12.D): offline regression
+# for scheduled_fetch_merge.py's optional --link-checks-path consumption
+# path. No network. sfm.run_live() itself is not invoked here (it requires a
+# live fetch subprocess) -- this exercises the exact two functions run_live()
+# composes at its insertion point: canonicalize_and_project() then
+# apply_link_checks_if_requested(), proving the offline overlay path without
+# any real HTTP resolution.
+# ---------------------------------------------------------------------------
+
+class L1LinkChecksOfflineOverlayTests(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _rows_with_one_document(self):
+        return [{
+            "id": "FIX-LC-001",
+            "titol": "Synthetic link-check tender",
+            "organisme": "Ajuntament Fixticia",
+            "estat": "vigent",
+            "adjudicatari": "",
+            "pressupost": 10000,
+            "data_pub": "2026-05-01",
+            "url": "https://example.invalid/fixture/lc-001",
+            "historial": [],
+            "award_results": [],
+            "documents": [{
+                "title": "Doc", "url": "https://example.invalid/fixture/lc-001.pdf",
+                "document_type": "generic_doc", "notice_id": "N1", "notice_type": "PUB",
+            }],
+        }]
+
+    def test_absent_path_preserves_baseline_behavior(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        result = sfm.apply_link_checks_if_requested(public_records, None)
+        self.assertEqual(result, public_records)
+        self.assertIs(result, public_records)  # no-op: same object, not even a copy
+
+    def test_valid_sidecar_overlays_expected_document(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        doc = public_records[0]["documents"][0]
+        obs = {
+            "public_id": public_records[0]["public_id"],
+            "record_id": public_records[0]["id"],
+            "document_key": list(ctm.document_identity_key(doc)),
+            "requested_url": doc["url"],
+            "observed_at": "2026-06-01T00:00:00Z",
+            "resolver_method": "HEAD",
+            "http_status": 200,
+            "classification": "REACHABLE",
+        }
+        sidecar = {
+            "schema": lcr.SCHEMA,
+            "run_id": "run-1",
+            "started_at": "2026-06-01T00:00:00Z",
+            "completed_at": "2026-06-01T00:00:05Z",
+            "resolver_policy": {"limit": 50},
+            "counts": {"candidates_attempted": 1},
+            "observations": [obs],
+        }
+        sidecar_path = self.tmp / "link_checks.json"
+        sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+        result = sfm.apply_link_checks_if_requested(public_records, str(sidecar_path))
+        result_doc = result[0]["documents"][0]
+        self.assertIn("doc_intel", result_doc)
+        self.assertEqual(result_doc["doc_intel"]["state"], "link_checked")
+        # Original public_records list/dicts untouched.
+        self.assertNotIn("doc_intel", public_records[0]["documents"][0])
+
+    def test_malformed_sidecar_fails_before_public_write(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        bad_path = self.tmp / "bad_link_checks.json"
+        # Missing required run-level keys -- strict schema rejects it.
+        bad_path.write_text(json.dumps({"schema": lcr.SCHEMA}), encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            sfm.apply_link_checks_if_requested(public_records, str(bad_path))
+
+    def test_missing_explicit_path_fails_closed(self):
+        rows = self._rows_with_one_document()
+        public_records = sfm.canonicalize_and_project(rows)
+        missing = self.tmp / "does_not_exist.json"
+        with self.assertRaises(SystemExit):
+            sfm.apply_link_checks_if_requested(public_records, str(missing))
 
 
 # ---------------------------------------------------------------------------
@@ -535,6 +819,327 @@ class L2ClassifierTests(unittest.TestCase):
         summary = step_summary.read_text(encoding="utf-8")
         self.assertIn("Scheduled Fetcher — Operational Summary", summary)
         self.assertIn("SUCCESS_REAL_FETCH_WRITE", summary)
+
+
+# ---------------------------------------------------------------------------
+# Prompt 324 Stage B (WRKOPS t_20260924_adgops324) -- durable V2 receipt.
+# Offline only: no network, and every publication-identity test passes an
+# explicit `production_path` fixture rather than touching the real
+# data/licitaciones.json (build_receipt_v2()/finalize_v2_receipt() only fall
+# back to the real repo path when no production_path is given AND
+# DATA_CHANGED=='true', which none of these table-driven envs set without
+# also supplying a fixture path).
+# ---------------------------------------------------------------------------
+
+def _run_started_at_iso():
+    return "2026-09-24T08:00:00+00:00"
+
+
+class V2ReceiptTests(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def write_candidate(self, fixture_name=None, payload=None):
+        dst = self.tmp / "scheduled_live_candidate_20260924T080000Z.json"
+        if payload is not None:
+            dst.write_text(json.dumps(payload), encoding="utf-8")
+        else:
+            shutil.copyfile(FIXTURES_DIR / fixture_name, dst)
+        return dst
+
+    def write_production_fixture(self, generation_id="gen-20260924T080000Z-abc123def456",
+                                  dataset_sha256="a" * 64, record_count=2):
+        path = self.tmp / "production.json"
+        payload = {
+            "meta": {
+                "generation_id": generation_id,
+                "dataset_sha256": dataset_sha256,
+                "counts": {"records": record_count},
+            },
+            "data": [{"id": "x"}] * record_count,
+        }
+        path.write_bytes(json.dumps(payload).encode("utf-8"))
+        return path
+
+    def classify(self, env, helper_log=None):
+        return src.classify(env, tmp_dir=self.tmp, helper_log=helper_log)
+
+    def receipt(self, env, helper_log=None, production_path=None):
+        result = self.classify(env, helper_log=helper_log)
+        return src.build_receipt_v2(env, result,
+                                     helper_log=result.get("helper_log"),
+                                     production_path=production_path), result
+
+    # --- schema / shape per state -------------------------------------
+
+    def test_schema_identity(self):
+        receipt, _ = self.receipt(base_env(RUN_FETCH="skip"))
+        self.assertEqual(receipt["schema"], "ADGOPS_SCHEDULED_RUN_REPORT_V2")
+        self.assertEqual(receipt["schema_version"], "2.0")
+
+    def test_success_shape_includes_publication_and_commit(self):
+        self.write_candidate("cand_full_success.json")
+        prod = self.write_production_fixture()
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="success", PRIVACYREPORT_OUTCOME="success",
+                       COMMIT_OUTCOME="success", DATA_CHANGED="true",
+                       PUSH_OUTCOME="success", COMMIT_SHA="deadbeef" * 5,
+                       GH_RUN_ATTEMPT="1", BASELINE_HEAD="cafebabe" * 5,
+                       RUN_STARTED_AT=_run_started_at_iso())
+        receipt, result = self.receipt(env, production_path=prod)
+        self.assertEqual(result["status"], "SUCCESS_REAL_FETCH_WRITE")
+        self.assertEqual(receipt["terminal"]["operational_status"], "SUCCESS_REAL_FETCH_WRITE")
+        self.assertIsNone(receipt["terminal"]["refusal_reason"])
+        self.assertIsNotNone(receipt["publication"])
+        self.assertEqual(receipt["publication"]["generation_id"], "gen-20260924T080000Z-abc123def456")
+        self.assertEqual(receipt["commit"]["decision"], "created")
+        self.assertEqual(receipt["commit"]["sha"], "deadbeef" * 5)
+        self.assertEqual(receipt["run_identity"]["run_attempt"], "1")
+        self.assertEqual(receipt["run_identity"]["baseline_head"], "cafebabe" * 5)
+        self.assertIsNotNone(receipt["run_identity"]["elapsed_s"])
+        self.assertIsNotNone(receipt["bounded_policy_snapshot"])
+        self.assertGreater(receipt["bounded_policy_snapshot"]["active_source_count"], 0)
+        self.assertEqual(receipt["candidate"]["sha256"],
+                          hashlib.sha256((FIXTURES_DIR / "cand_full_success.json").read_bytes()).hexdigest())
+        self.assertNotIn("path", receipt["candidate"])
+        self.assertEqual(receipt["candidate"]["filename"],
+                          "scheduled_live_candidate_20260924T080000Z.json")
+
+    def test_no_change_shape_omits_publication(self):
+        self.write_candidate("cand_empty_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="false", MONOLITH_CHANGED="false", PUSH_OUTCOME="skipped")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "SUCCESS_REAL_FETCH_NO_CHANGES")
+        self.assertIsNone(receipt["publication"])
+        self.assertEqual(receipt["commit"]["decision"], "not_created")
+        self.assertIsNone(receipt["commit"]["sha"])
+
+    def test_fail_closed_shape_omits_publication_and_commit_na(self):
+        env = base_env(HELPER_OUTCOME="failure")
+        receipt, result = self.receipt(env, helper_log="some unrelated traceback")
+        self.assertEqual(result["status"], "FAIL_CLOSED")
+        self.assertIsNone(receipt["publication"])
+        self.assertEqual(receipt["commit"]["decision"], "n/a")
+        self.assertEqual(receipt["terminal"]["refusal_reason"], "FAIL_CLOSED")
+        self.assertIn("FAIL_CLOSED", receipt["sanitized_error_categories"])
+
+    # --- exact-byte identity / self-hash / naming ----------------------
+
+    def test_receipt_bytes_match_sidecar_digest_and_no_self_hash(self):
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="skipped",
+                       DATA_CHANGED="", MONOLITH_CHANGED="false", PUSH_OUTCOME="skipped")
+        self.write_candidate("cand_empty_success.json")
+        result = self.classify(env)
+        info = src.finalize_v2_receipt(env, result, tmp_dir=self.tmp, helper_log=result.get("helper_log"))
+        self.assertIsNotNone(info)
+        self.assertTrue(Path(info["receipt_path"]).exists())
+        self.assertTrue(Path(info["sidecar_path"]).exists())
+        self.assertTrue(run_receipt.verify_receipt(info["receipt_path"], info["sidecar_path"]))
+        raw = Path(info["receipt_path"]).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), info["sha256"])
+        self.assertNotIn(info["sha256"].encode("ascii"), raw)
+
+    def test_one_byte_corruption_detected(self):
+        env = base_env(RUN_FETCH="skip")
+        result = self.classify(env)
+        info = src.finalize_v2_receipt(env, result, tmp_dir=self.tmp, helper_log=result.get("helper_log"))
+        path = Path(info["receipt_path"])
+        raw = bytearray(path.read_bytes())
+        raw[0] = raw[0] ^ 0xFF
+        path.write_bytes(bytes(raw))
+        self.assertFalse(run_receipt.verify_receipt(info["receipt_path"], info["sidecar_path"]))
+
+    def test_naming_includes_run_number_and_attempt_no_secret(self):
+        env = base_env(RUN_FETCH="skip", GH_RUN_NUMBER="777", GH_RUN_ATTEMPT="2")
+        result = self.classify(env)
+        info = src.finalize_v2_receipt(env, result, tmp_dir=self.tmp, helper_log=result.get("helper_log"))
+        self.assertIn("777-2-", info["filename"])
+        self.assertNotIn("secret", info["filename"].lower())
+
+    def test_run_number_and_attempt_prevent_filename_collision(self):
+        env_a = base_env(RUN_FETCH="skip", GH_RUN_NUMBER="777", GH_RUN_ATTEMPT="1")
+        env_b = base_env(RUN_FETCH="skip", GH_RUN_NUMBER="777", GH_RUN_ATTEMPT="2")
+        result_a = self.classify(env_a)
+        result_b = self.classify(env_b)
+        info_a = src.finalize_v2_receipt(env_a, result_a, tmp_dir=self.tmp, helper_log=None)
+        info_b = src.finalize_v2_receipt(env_b, result_b, tmp_dir=self.tmp, helper_log=None)
+        self.assertNotEqual(info_a["filename"], info_b["filename"])
+        self.assertTrue(Path(info_a["receipt_path"]).exists())
+        self.assertTrue(Path(info_b["receipt_path"]).exists())
+
+    # --- sanitization / disclosure boundary -----------------------------
+
+    def test_no_tmp_or_absolute_path_in_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success")
+        receipt, _ = self.receipt(env)
+        blob = json.dumps(receipt)
+        self.assertNotIn("_tmp", blob)
+        self.assertNotIn(str(self.tmp), blob)
+
+    def test_no_raw_source_errors_or_candidate_records_leak(self):
+        long_err = "SECRET-UPSTREAM-DETAIL " + ("x" * 900)
+        self.write_candidate(payload={
+            "meta": {"run_status": "EMPTY_FAILURE", "is_partial": True,
+                     "failed_sources": ["PLACSP-643"],
+                     "source_errors": {"PLACSP-643": long_err}},
+            "data": [{"raw_field": "should-never-appear-in-receipt"}],
+        })
+        env = base_env(HELPER_OUTCOME="success")
+        receipt, _ = self.receipt(env)
+        blob = json.dumps(receipt)
+        self.assertNotIn(long_err, blob)
+        self.assertNotIn("SECRET-UPSTREAM-DETAIL", blob)
+        self.assertNotIn("should-never-appear-in-receipt", blob)
+        self.assertNotIn("source_errors", receipt["candidate"])
+        self.assertNotIn("data", receipt)
+
+    def test_continuity_boolean_only_no_private_state_content(self):
+        self.write_candidate("cand_full_success.json")
+        log = "[run-live] Internal state persisted: /some/path (3 records)\n"
+        env = base_env(HELPER_OUTCOME="success")
+        receipt, _ = self.receipt(env, helper_log=log)
+        self.assertIs(receipt["continuity"]["state_written"], True)
+        blob = json.dumps(receipt)
+        self.assertNotIn("/some/path", blob)
+
+        log_unchanged = "[run-live] Internal state unchanged, not rewritten: /x\n"
+        receipt2, _ = self.receipt(base_env(HELPER_OUTCOME="success"), helper_log=log_unchanged)
+        # candidate not rewritten between calls -- reuse same tmp candidate
+        self.assertIs(receipt2["continuity"]["state_written"], False)
+
+    # --- failure-path coverage -------------------------------------------
+
+    def test_hard_subprocess_timeout_still_classifies_and_receipts(self):
+        # No candidate file written at all (mirrors run_live()'s hard-timeout
+        # except block, which exits before any candidate consumption).
+        log = ("[ERROR] Fetcher subprocess exceeded the global acquisition "
+               "deadline (123.4s); aborting bounded acquisition. No candidate consumed.")
+        env = base_env(HELPER_OUTCOME="failure")
+        receipt, result = self.receipt(env, helper_log=log)
+        self.assertEqual(result["status"], "FAIL_CLOSED")
+        self.assertIn("DEADLINE_EXCEEDED_HARD_TIMEOUT", receipt["sanitized_error_categories"])
+        self.assertIsNone(receipt["candidate"]["filename"])
+        self.assertIsNotNone(receipt["bounded_policy_snapshot"])
+
+    def test_mocked_shard_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_SHARD_BUILD")
+        self.assertEqual(receipt["gates"]["shard_build"], "failure")
+        self.assertIsNone(receipt["publication"])
+
+    def test_mocked_public_contract_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_PUBLIC_CONTRACT")
+        self.assertEqual(receipt["gates"]["public_contract"], "failure")
+
+    def test_mocked_privacy_failure_gate_recorded(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", SHARDS_OUTCOME="success",
+                       SHARDVALIDATE_OUTCOME="success", PRIVACYREPORT_OUTCOME="failure",
+                       COMMIT_OUTCOME="skipped")
+        receipt, _result = self.receipt(env)
+        self.assertEqual(receipt["gates"]["privacy"], "failure")
+        self.assertIsNone(receipt["publication"])
+
+    def test_mocked_commit_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_GIT_COMMIT")
+        self.assertEqual(receipt["gates"]["commit"], "failure")
+        self.assertEqual(receipt["commit"]["decision"], "not_created")
+
+    def test_mocked_push_failure_finalizes_receipt(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="failure")
+        receipt, result = self.receipt(env)
+        self.assertEqual(result["status"], "FAIL_CLOSED_GIT_PUSH")
+        self.assertEqual(receipt["gates"]["push"], "failure")
+
+    # --- receipt-write failure is not a publication gate ------------------
+
+    def test_receipt_write_failure_never_raises_and_v1_unaffected(self):
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="success")
+        result = self.classify(env)
+        step_summary = self.tmp / "step_summary.md"
+        github_env = self.tmp / "github_env.txt"
+        with mock.patch.object(src.rr, "write_receipt", side_effect=OSError("disk full")):
+            src.write_outputs(result, tmp_dir=self.tmp, github_step_summary=str(step_summary),
+                              github_env=str(github_env), env=env)
+        report_path = self.tmp / "scheduled_run_report_999.json"
+        self.assertTrue(report_path.exists())
+        self.assertIn("OPERATIONAL_STATUS=SUCCESS_REAL_FETCH_WRITE",
+                      github_env.read_text(encoding="utf-8"))
+        self.assertNotIn("RECEIPT_PATH", github_env.read_text(encoding="utf-8"))
+
+    def test_write_outputs_without_env_skips_v2_receipt(self):
+        # Existing direct callers that omit `env` (as the pre-Stage-B tests
+        # above already do) must keep the exact prior V1-only behaviour.
+        self.write_candidate("cand_full_success.json")
+        env = base_env(HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                       DIFFSUMMARY_OUTCOME="success", COMMIT_OUTCOME="success",
+                       DATA_CHANGED="true", PUSH_OUTCOME="success")
+        result = self.classify(env)
+        src.write_outputs(result, tmp_dir=self.tmp,
+                          github_step_summary=str(self.tmp / "s.md"),
+                          github_env=str(self.tmp / "e.txt"))
+        receipts = list(self.tmp.glob("adgops_run_receipt_*.json"))
+        self.assertEqual(receipts, [])
+
+
+class RunReceiptHelperTests(unittest.TestCase):
+    """Pure tools/run_receipt.py coverage, independent of the classifier."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_write_receipt_creates_matching_digest(self):
+        receipt = {"schema": "TEST", "value": 1}
+        filename = run_receipt.receipt_filename("42", "1", "20260924T000000Z")
+        self.assertEqual(filename, "adgops_run_receipt_42-1-20260924T000000Z.json")
+        info = run_receipt.write_receipt(receipt, self.tmp, filename)
+        raw = (self.tmp / filename).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), info["sha256"])
+        sidecar = (self.tmp / f"{filename}.sha256").read_text(encoding="utf-8")
+        self.assertIn(info["sha256"], sidecar)
+        self.assertTrue(run_receipt.verify_receipt(info["receipt_path"], info["sidecar_path"]))
+
+    def test_canonical_json_bytes_uses_binary_safe_newline(self):
+        data = run_receipt.canonical_json_bytes({"a": 1})
+        self.assertNotIn(b"\r\n", data)
+        self.assertTrue(data.endswith(b"\n"))
+
+    def test_receipt_filename_defaults_when_missing(self):
+        name = run_receipt.receipt_filename(None, None, "20260924T000000Z")
+        self.assertEqual(name, "adgops_run_receipt_unknown-unknown-20260924T000000Z.json")
 
 
 # ---------------------------------------------------------------------------
@@ -1903,10 +2508,10 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         step_block = self._privacyreport_step_block(self._workflow_text())
         self.assertNotIn("continue-on-error", step_block)
 
-    def test_p267_c7_step_contains_explicit_final_exit_zero(self):
-        # Prove exit 0 is the LAST non-blank command in the step's own run
-        # body (not merely present somewhere in the block, which would also
-        # match text belonging to the following step).
+    def test_p267_c7_step_ends_with_result_based_exit_not_unconditional_zero(self):
+        # IB-4 (p273 v0.3 §14.1): the step's own final exit must be
+        # RESULT-derived (blocking), never an unconditional "exit 0" as the
+        # literal last command — that was the pre-IB-4 report-only shape.
         text = self._workflow_text()
         i = text.index("id: privacyreport")
         run_start = text.index("run: |", i) + len("run: |")
@@ -1914,7 +2519,17 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         run_body = text[run_start:next_step]
         lines = [ln.strip() for ln in run_body.splitlines() if ln.strip()]
         self.assertTrue(lines, "privacyreport run body must not be empty")
-        self.assertEqual(lines[-1], "exit 0")
+        self.assertNotEqual(lines[-1], "exit 0",
+                             "step must not end on an unconditional exit 0")
+        self.assertEqual(lines[-7:], [
+            'if [ "$RESULT" = "NO_ERRORS" ]; then',
+            "exit 0",
+            'elif [ "$RESULT" = "ERROR_FINDINGS" ]; then',
+            "exit 2",
+            "else",
+            "exit 1",
+            "fi",
+        ])
 
     def test_p267_c13_step_contains_broad_except_exception_boundary(self):
         step_block = self._privacyreport_step_block(self._workflow_text())
@@ -1958,17 +2573,27 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
     def test_p267_c10_operational_summary_env_block_unchanged_p265_contract(self):
         text = self._workflow_text()
         i = text.index("Operational summary")
-        j = text.index("Upload fail-closed diagnostics")
+        # WRKOPS t_20260924_adgops324 (Prompt 324 Stage B): the "Upload run
+        # receipt (evidence)" step now follows "Operational summary", so the
+        # scan window is bounded to this step's own YAML (up to the next
+        # step) rather than "to end of file".
+        j = text.index("\n      - name:", i)
         opsummary_block = text[i:j]
         for key in ("HELPER_OUTCOME", "DRYRUN_OUTCOME", "VALIDATE_OUTCOME",
                     "DIFFSUMMARY_OUTCOME", "SHARDS_OUTCOME",
-                    "SHARDVALIDATE_OUTCOME", "COMMIT_OUTCOME", "PUSH_OUTCOME"):
+                    "SHARDVALIDATE_OUTCOME", "COMMIT_OUTCOME", "PUSH_OUTCOME",
+                    "GH_RUN_ATTEMPT", "BASELINE_HEAD"):
             self.assertIn(key, opsummary_block)
-        # No environment-key assignment (any `NAME:` env mapping key) may
-        # contain PRIVACY in any spelling/casing pattern.
+        # p265 originally locked this block to carry no PRIVACY-named env
+        # key. WRKOPS t_20260924_adgops324 (Prompt 324 Stage B §2.9)
+        # supersedes that specifically to add PRIVACYREPORT_OUTCOME (a
+        # bounded step-outcome string -- success/failure/skipped/cancelled,
+        # never validator findings content -- the V2 receipt's gates.privacy
+        # field needs). Every OTHER env-key assignment in this block must
+        # still carry no PRIVACY substring, in any spelling/casing.
         env_keys = re.findall(r"^\s*([A-Za-z0-9_]+):", opsummary_block, re.MULTILINE)
-        for key in env_keys:
-            self.assertNotIn("PRIVACY", key.upper())
+        privacy_keys = [k for k in env_keys if "PRIVACY" in k.upper()]
+        self.assertEqual(privacy_keys, ["PRIVACYREPORT_OUTCOME"])
 
     def test_p267_c11_existing_step_order_preserved(self):
         text = self._workflow_text()
@@ -1978,12 +2603,129 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         positions = [text.index(step_id) for step_id in ids]
         self.assertEqual(positions, sorted(positions))
 
-    def test_p267_c12_upload_step_includes_both_privacy_globs(self):
+    def test_p267_c12_f04_no_internal_ephemeral_artifact_publication(self):
+        """F-04 (ADGOPS_ROUTINE_PLATFORM_HEALTH_SECURITY_AUDIT_20260906_v0.1):
+        internal/ephemeral _tmp/** diagnostics (raw live-candidate JSON, raw
+        merge-conflict diagnostics, the run report, and the privacy
+        validator's bounded summary/stderr) must never again be published as
+        a downloadable GitHub Actions artifact from this public repository.
+        The prior "Upload fail-closed diagnostics" step is removed outright
+        (no already-contracted public-safe artifact existed to allowlist
+        instead), so this also locks the invariant generically: neither the
+        upload mechanism nor any of its former forbidden globs may silently
+        reappear.
+
+        R1 correction: the scan runs against an ACTIVE-YAML projection (full-
+        line comments -- lines whose first non-whitespace character is "#" --
+        excluded), not the raw workflow text. A non-executable explanatory
+        comment that merely narrates the removed _tmp/** publication surface
+        is prose, not executable artifact configuration, and must not itself
+        trip this test; the mechanism and every former forbidden glob must
+        still be absent from what actually executes."""
         text = self._workflow_text()
-        i = text.index("Upload fail-closed diagnostics")
-        upload_block = text[i:]
-        self.assertIn("_tmp/privacy_summary_*.json", upload_block)
-        self.assertIn("_tmp/privacy_stderr_*.log", upload_block)
+        active_lines = [
+            line for line in text.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        active_text = "\n".join(active_lines)
+        # WRKOPS t_20260924_adgops324 (Prompt 324 Stage A/R1/B): a single,
+        # narrowly-scoped actions/upload-artifact step IS now authorized --
+        # "Upload run receipt (evidence)", uploading only the sanitized V2
+        # receipt + its .sha256 sidecar. This is NOT a revival of the F-04
+        # diagnostics upload removed below (that step uploaded raw
+        # internal-ephemeral material wholesale); assert its shape directly
+        # rather than merely asserting the mechanism's absence.
+        self.assertEqual(active_text.count("actions/upload-artifact"), 1)
+        self.assertIn("Upload run receipt (evidence)", active_text)
+        self.assertNotIn("actions/download-artifact", active_text)
+        self.assertNotIn("Upload fail-closed diagnostics", active_text)
+        forbidden_fragments = (
+            "_tmp/scheduled_live_candidate_*.json",
+            "_tmp/scheduled_merge_conflicts_live_*.json",
+            "_tmp/scheduled_run_report_*.json",
+            "_tmp/privacy_summary_*.json",
+            "_tmp/privacy_stderr_*.log",
+            "_tmp/**",
+        )
+        for fragment in forbidden_fragments:
+            self.assertNotIn(fragment, active_text)
+
+    def test_p324_receipt_upload_step_allowlists_exactly_receipt_and_sidecar(self):
+        """WRKOPS t_20260924_adgops324 Stage B §6.2: the artifact-upload
+        step's `path:` must be an exact allowlist of the V2 receipt and its
+        sidecar via RECEIPT_PATH / RECEIPT_SIDECAR_PATH env references --
+        never a wildcard, never a literal _tmp path, never retention-days."""
+        text = self._workflow_text()
+        i = text.index("Upload run receipt (evidence)")
+        f04_idx = text.index("# F-04", i)
+        step_block = text[i:f04_idx]
+        self.assertIn("${{ env.RECEIPT_PATH }}", step_block)
+        self.assertIn("${{ env.RECEIPT_SIDECAR_PATH }}", step_block)
+        self.assertIn("if-no-files-found: error", step_block)
+        self.assertIn("if: always()", step_block)
+        self.assertNotIn("_tmp/**", step_block)
+        self.assertNotIn("retention-days", step_block)
+
+    def test_p324_r1_upload_artifact_pinned_to_exact_immutable_sha(self):
+        """WRKOPS t_20260924_adgops324 Stage B R1 §B: the upload-artifact
+        `uses:` reference must be the Companion-verified exact commit SHA for
+        v7.0.1, matching this file's existing exact-commit-pin convention --
+        never a mutable major-version tag, and never left as a TODO."""
+        text = self._workflow_text()
+        i = text.index("Upload run receipt (evidence)")
+        f04_idx = text.index("# F-04", i)
+        step_block = text[i:f04_idx]
+        self.assertIn(
+            "uses: actions/upload-artifact@"
+            "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
+            step_block)
+        self.assertNotIn("actions/upload-artifact@v4", step_block)
+        self.assertNotIn("TODO(operator)", step_block)
+
+    def test_p324_r1_no_actions_write_permission_added(self):
+        """WRKOPS t_20260924_adgops324 Stage B R1 §B: Companion review of
+        official GitHub documentation found no requirement to expand
+        GITHUB_TOKEN to `actions: write` for the ordinary same-run
+        upload-artifact operation used here -- the permissions block must
+        remain exactly `contents: write`, least privilege preserved."""
+        text = self._workflow_text()
+        i = text.index("permissions:")
+        j = text.index("env:", i)
+        permissions_block = text[i:j]
+        self.assertIn("contents: write", permissions_block)
+        self.assertNotIn("actions:", permissions_block)
+
+    def test_p324_guard_step_writes_run_started_at(self):
+        """WRKOPS t_20260924_adgops324 Stage B §2.2: the V2 receipt's
+        run_identity.started_at_utc is sourced from RUN_STARTED_AT, written
+        by the earliest step that runs regardless of guard/dry-run outcome."""
+        text = self._workflow_text()
+        i = text.index("id: time_guard")
+        j = text.index("id: statecheckout")
+        self.assertIn("RUN_STARTED_AT=", text[i:j])
+
+    def test_p324_commit_step_captures_commit_sha(self):
+        """WRKOPS t_20260924_adgops324 Stage B §2.10: the resulting commit
+        SHA is captured only inside the commit-creation branch, immediately
+        after `git commit`."""
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        j = text.index("id: push")
+        step_block = text[i:j]
+        self.assertIn("COMMIT_SHA=$(git rev-parse HEAD)", step_block)
+        commit_idx = step_block.index('git commit -m "$COMMIT_SUBJECT"')
+        sha_idx = step_block.index("COMMIT_SHA=")
+        self.assertLess(commit_idx, sha_idx)
+
+    def test_fetch_workflow_contains_no_unicode_replacement_character(self):
+        """R1 (Prompt 288 operator validation): the operator run transcript
+        reported literal U+FFFD replacement characters in fetch.yml prose
+        while other Unicode in the same terminal rendered correctly. This is
+        a source-hygiene invariant only -- it forbids the replacement
+        character specifically and does not restrict legitimate Unicode
+        (e.g. em dashes, section signs) elsewhere in the workflow."""
+        text = self._workflow_text()
+        self.assertNotIn("�", text)
 
     def test_p267_c17_strict_scalar_gate_replaces_read_trust_path(self):
         step_block = self._privacyreport_step_block(self._workflow_text())
@@ -2039,6 +2781,61 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
             step_block)
         self.assertNotIn(
             r'"${PARSER_LINES[0]}" =~ ^VALID', step_block)
+
+    # =========================================================================
+    # IB-4 (p273 v0.3 §14, WRKOPS t_20260906_adgops286): privacyreport step
+    # becomes blocking. Additive per §9.2 — does not loosen any test above.
+    # =========================================================================
+
+    def test_ib4_summary_row_says_blocking_yes(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn('echo "| blocking | yes |"', step_block)
+        self.assertNotIn("no (report-only)", step_block)
+
+    def test_ib4_annotations_say_publication_blocked(self):
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        self.assertIn(
+            '::error::Privacy validator reported ERROR findings; '
+            'publication blocked.', step_block)
+        self.assertIn(
+            '::error::Privacy validator could not produce trustworthy '
+            'evidence (exit code $PRIVACY_EXIT); publication blocked.',
+            step_block)
+        self.assertNotIn("not blocked", step_block)
+        self.assertNotIn("::warning::", step_block)
+
+    def test_ib4_result_and_exit_code_stay_distinguishable(self):
+        # Execution failure and a real privacy finding must map to different
+        # exit codes so the two failure modes remain distinguishable even
+        # though both now block the step (proven precisely, line-by-line, by
+        # test_p267_c7 above; this is a lighter substring-level guard).
+        step_block = self._privacyreport_step_block(self._workflow_text())
+        i_elif = step_block.index('elif [ "$RESULT" = "ERROR_FINDINGS" ]; then')
+        i_else = step_block.index("\n          else\n", i_elif)
+        i_fi = step_block.index("\n          fi", i_else)
+        self.assertIn("exit 2", step_block[i_elif:i_else])
+        self.assertIn("exit 1", step_block[i_else:i_fi])
+        self.assertNotIn("exit 2", step_block[i_else:i_fi])
+
+    def test_ib4_no_producer_or_publicprojection_step_added(self):
+        text = self._workflow_text()
+        self.assertNotIn("public_projection", text)
+        self.assertNotIn("PublicProjection", text)
+
+    def test_ib4_dependency_install_step_unchanged(self):
+        text = self._workflow_text()
+        self.assertIn(
+            "python -m pip install -r requirements.txt -c constraints.txt",
+            text)
+
+    def test_ib4_privacyreport_still_before_commit_and_push(self):
+        text = self._workflow_text()
+        step_block = self._privacyreport_step_block(text)
+        i_privacyreport = text.index("id: privacyreport")
+        i_commit = text.index("id: commit")
+        i_push = text.index("id: push")
+        self.assertLess(i_privacyreport, i_commit)
+        self.assertLess(i_commit, i_push)
         # Counters populated only from the validated BASH_REMATCH captures.
         for idx, var in enumerate(
                 ("ERROR_COUNT", "WARN_COUNT", "DISTINCT_COUNT", "GROUP_COUNT"), start=1):
@@ -2046,6 +2843,1207 @@ class P267D03ReportOnlyProductionBaselineTests(unittest.TestCase):
         # Both prior trust paths are fully removed.
         self.assertNotIn("read -r TAG", step_block)
         self.assertNotIn('PARSED="$(python', step_block)
+
+
+# =============================================================================
+# F-14 (WRKOPS t_20260912_adgops298): monolith content-change publication
+# gate. Locks the meta.dataset_sha256-based MONOLITH_CHANGED authority that
+# replaced the removed raw `git diff --quiet -- data/licitaciones.json`
+# byte-diff, its fail-closed hash validation, and the commit/push gate
+# predicates that now consume it (Prompt 297 R1 / F14_MONOLITH_COMMIT_GATE_V1).
+#
+# Static text-level checks (below) lock the workflow shape, following the
+# p267/D-03 pattern above. The functional checks execute the ACTUAL
+# diffsummary inline script extracted from fetch.yml -- not a
+# reimplementation -- with `git show` replaced by a deterministic stub
+# (tools/scheduled_fetch_merge.py is intentionally left untouched; this is a
+# test-local harness only, per the task's guidance to prefer that over a new
+# production module).
+# =============================================================================
+
+DIFFSUMMARY_HEREDOC_MARKER = "<<'PYEOF'\n"
+DIFFSUMMARY_INDENT = " " * 10
+
+
+def _load_diffsummary_source():
+    """Extracts and de-indents the actual inline Python source of the F-14
+    diffsummary classifier from fetch.yml, between id: diffsummary's
+    <<'PYEOF' heredoc markers. Raises if a line isn't indented the way this
+    workflow file's YAML block scalar requires, so a shape drift fails loudly
+    instead of silently extracting the wrong text."""
+    text = FETCH_YML_PATH.read_text(encoding="utf-8")
+    i = text.index("id: diffsummary")
+    marker_pos = text.index(DIFFSUMMARY_HEREDOC_MARKER, i)
+    start = marker_pos + len(DIFFSUMMARY_HEREDOC_MARKER)
+    end = text.index("\n" + DIFFSUMMARY_INDENT + "PYEOF", start)
+    block = text[start:end]
+    dedented = []
+    for line in block.split("\n"):
+        if line == "":
+            dedented.append("")
+        elif line.startswith(DIFFSUMMARY_INDENT):
+            dedented.append(line[len(DIFFSUMMARY_INDENT):])
+        else:
+            raise AssertionError(f"diffsummary heredoc line under-indented: {line!r}")
+    return "\n".join(dedented) + "\n"
+
+
+class _StubCompletedProcess:
+    def __init__(self, returncode, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def _run_diffsummary(tmp_dir, current_text, committed_text=None,
+                      git_returncode=0, git_stderr=""):
+    """Executes the real diffsummary source (see _load_diffsummary_source)
+    against a synthetic working-tree data/licitaciones.json, with the
+    script's own `subprocess.run(["git", "show", ...])` call replaced by a
+    deterministic stub so this never shells out to a real git process or
+    touches the real repository. `current_text=None` leaves the working-tree
+    file unwritten, to exercise the missing/unreadable-file path.
+
+    Returns (exit_code_or_None, github_env_text, stdout_text, stderr_text,
+    git_calls)."""
+    source = _load_diffsummary_source()
+    tmp_path = Path(tmp_dir)
+    (tmp_path / "data").mkdir(exist_ok=True)
+    if current_text is not None:
+        (tmp_path / "data" / "licitaciones.json").write_text(current_text, encoding="utf-8")
+    github_env_path = tmp_path / "github_env.txt"
+    github_env_path.write_text("", encoding="utf-8")
+
+    calls = []
+
+    def fake_run(argv, capture_output=None, text=None):
+        calls.append(list(argv))
+        return _StubCompletedProcess(
+            git_returncode,
+            stdout=committed_text if committed_text is not None else "",
+            stderr=git_stderr,
+        )
+
+    original_run = subprocess.run
+    original_cwd = os.getcwd()
+    original_github_env = os.environ.get("GITHUB_ENV")
+    subprocess.run = fake_run
+    os.chdir(tmp_path)
+    os.environ["GITHUB_ENV"] = str(github_env_path)
+    out, err = io.StringIO(), io.StringIO()
+    exit_code = None
+    try:
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                exec(compile(source, "<diffsummary>", "exec"),
+                     {"__name__": "__diffsummary_under_test__"})
+            except SystemExit as exc:
+                exit_code = exc.code
+    finally:
+        subprocess.run = original_run
+        os.chdir(original_cwd)
+        if original_github_env is None:
+            os.environ.pop("GITHUB_ENV", None)
+        else:
+            os.environ["GITHUB_ENV"] = original_github_env
+
+    return exit_code, github_env_path.read_text(encoding="utf-8"), out.getvalue(), err.getvalue(), calls
+
+
+class P298F14MonolithContentGateTests(unittest.TestCase):
+    """F-14 / WRKOPS t_20260912_adgops298 content-change publication gate."""
+
+    HASH_A = "a" * 64
+    HASH_B = "b" * 64
+
+    @staticmethod
+    def _workflow_text():
+        return FETCH_YML_PATH.read_text(encoding="utf-8")
+
+    @staticmethod
+    def _dataset(dataset_sha256, extra_meta=None, records=None):
+        meta = {"dataset_sha256": dataset_sha256}
+        if extra_meta:
+            meta.update(extra_meta)
+        return json.dumps({"meta": meta, "data": records if records is not None else []})
+
+    # --- static workflow-shape invariants -----------------------------------
+
+    def test_f14_raw_byte_diff_removed_as_semantic_authority(self):
+        self.assertNotIn(
+            "git diff --quiet -- data/licitaciones.json", self._workflow_text())
+
+    def test_f14_diffsummary_classifies_by_dataset_sha256(self):
+        text = self._workflow_text()
+        i = text.index("id: diffsummary")
+        j = text.index("id: shards", i)
+        step_block = text[i:j]
+        self.assertIn("dataset_sha256", step_block)
+        self.assertIn("git diff --stat", step_block)  # kept per §3
+        self.assertIn('os.environ["GITHUB_ENV"]', step_block)
+
+    def test_f14_commit_requires_monolith_changed(self):
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        if_start = text.index("if:", i)
+        if_line = text[if_start:text.index("\n", if_start)]
+        self.assertIn("env.MONOLITH_CHANGED == 'true'", if_line)
+        self.assertIn("env.RUN_FETCH == 'true'", if_line)
+        self.assertIn("env.DRY_RUN_MODE == 'false'", if_line)
+
+    def test_f14_push_requires_monolith_and_data_changed(self):
+        text = self._workflow_text()
+        i = text.index("id: push")
+        if_start = text.index("if:", i)
+        if_line = text[if_start:text.index("\n", if_start)]
+        self.assertIn("env.MONOLITH_CHANGED == 'true'", if_line)
+        self.assertIn("env.DATA_CHANGED == 'true'", if_line)
+        self.assertIn("env.RUN_FETCH == 'true'", if_line)
+        self.assertIn("env.DRY_RUN_MODE == 'false'", if_line)
+
+    def test_f14_push_command_unchanged_no_force(self):
+        text = self._workflow_text()
+        i = text.index("id: push")
+        step_block = text[i:i + 400]
+        self.assertIn("git push", step_block)
+        self.assertNotIn("--force", step_block)
+        self.assertNotIn("-f ", step_block)
+
+    def test_f14_six_file_staging_surface_unchanged(self):
+        self.assertIn(
+            "git add data/licitaciones.json data/licitaciones_manifest.json "
+            "data/licitaciones_2026.json data/licitaciones_2025.json "
+            "data/licitaciones_2024.json data/licitaciones_archive.json",
+            self._workflow_text())
+
+    def test_f14_no_broad_git_staging_introduced(self):
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        j = text.index("id: push", i)
+        step_block = text[i:j]
+        self.assertNotIn("git add -A", step_block)
+        self.assertNotIn("git add .", step_block)
+        self.assertNotIn("git add --all", step_block)
+
+    def test_f14_empty_staged_diff_fails_closed_not_datachanged_false(self):
+        text = self._workflow_text()
+        i = text.index("id: commit")
+        j = text.index("id: push", i)
+        step_block = text[i:j]
+        # The forbidden-executable scan runs against a comment-aware
+        # projection (blank lines and lines whose first non-whitespace
+        # character is "#" excluded), not against the raw step_block text,
+        # so an explanatory comment that merely *names* the pre-F-14
+        # behaviour (e.g. "...succeeding with DATA_CHANGED=false.") cannot
+        # itself trip the check -- only an executable assignment can.
+        executable_lines = [
+            line for line in step_block.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        executable_step_block = "\n".join(executable_lines)
+        self.assertNotIn("DATA_CHANGED=false", executable_step_block)
+        self.assertIn("exit 1", executable_step_block)
+
+    def test_f14_derivative_gates_still_monolith_gated(self):
+        text = self._workflow_text()
+        for step_id in ("id: shards", "id: shardvalidate", "id: privacyreport"):
+            i = text.index(step_id)
+            if_start = text.index("if:", i)
+            if_line = text[if_start:text.index("\n", if_start)]
+            self.assertIn("env.MONOLITH_CHANGED == 'true'", if_line)
+
+    def test_f14_transaction_order_unchanged(self):
+        text = self._workflow_text()
+        ids = ["id: time_guard", "id: statecheckout", "id: helper", "id: statepush",
+               "id: validate", "id: diffsummary", "id: shards", "id: shardvalidate",
+               "id: privacyreport", "id: commit", "id: push"]
+        positions = [text.index(step_id) for step_id in ids]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_f14_f07_concurrency_and_timeout_contract_unchanged(self):
+        text = self._workflow_text()
+        self.assertIn("timeout-minutes: 20", text)
+        self.assertIn("timeout-minutes: 10", text)
+        self.assertIn(
+            "group: fetch-licitaciones-${{ inputs.dry_run == 'true' && "
+            "'diagnostic' || 'production' }}",
+            text)
+        self.assertIn(
+            "cancel-in-progress: ${{ inputs.dry_run == 'true' }}", text)
+
+    # --- functional: executes the actual embedded classifier source --------
+
+    def test_f14_identical_hash_different_volatile_metadata_is_unchanged(self):
+        current = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-12T00:00:00Z",
+                                               "generation_id": "gen-X"})
+        committed = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-01T00:00:00Z",
+                                                 "generation_id": "gen-Y"})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current, committed_text=committed)
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=false", env_text)
+
+    def test_f14_different_hash_classifies_changed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_B))
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=true", env_text)
+
+    def test_f14_missing_current_hash_fails_closed(self):
+        current = json.dumps({"meta": {}, "data": []})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, current, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("current working-tree dataset", err)
+
+    def test_f14_missing_committed_hash_fails_closed(self):
+        committed = json.dumps({"meta": {}, "data": []})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=committed)
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("committed (HEAD) dataset", err)
+
+    def test_f14_malformed_current_hash_wrong_length_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset("short"), committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+
+    def test_f14_malformed_current_hash_non_hex_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset("z" * 64), committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+
+    def test_f14_current_hash_non_string_fails_closed(self):
+        current = json.dumps({"meta": {"dataset_sha256": 12345}, "data": []})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+
+    def test_f14_malformed_current_json_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, err, _calls = _run_diffsummary(
+                tmp, "{ not valid json,,,", committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertIn("not valid JSON", err)
+
+    def test_f14_malformed_committed_json_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, _env_text, _out, err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text="{ not valid json,,,")
+            self.assertEqual(exit_code, 1)
+            self.assertIn("HEAD", err)
+
+    def test_f14_missing_current_file_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, current_text=None, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("failed to read working-tree data/licitaciones.json", err)
+
+    def test_f14_git_show_failure_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text="",
+                git_returncode=128, git_stderr="fatal: bad object HEAD")
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("MONOLITH_CHANGED", env_text)
+            self.assertIn("git show HEAD:data/licitaciones.json", err)
+
+    def test_f14_git_show_invocation_targets_head(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _exit_code, _env, _out, _err, calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(calls, [["git", "show", "HEAD:data/licitaciones.json"]])
+
+    # --- R1 (WRKOPS t_20260924_adgops324 Stage B R1 §A): honest DATA_CHANGED
+    # plumbing on the genuine no-material-change path. These execute the
+    # ACTUAL diffsummary heredoc (via _run_diffsummary), never a
+    # reimplementation, proving the real workflow contract rather than only
+    # a hand-supplied classify() fixture. -----------------------------------
+
+    def test_r1_diffsummary_emits_data_changed_false_on_no_material_change(self):
+        current = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-24T08:00:00Z",
+                                               "generation_id": "gen-NEW"})
+        committed = self._dataset(self.HASH_A, {"dataset_generated_at": "2026-09-01T00:00:00Z",
+                                                 "generation_id": "gen-OLD"})
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current, committed_text=committed)
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=false", env_text)
+            self.assertIn("DATA_CHANGED=false", env_text)
+
+    def test_r1_diffsummary_does_not_emit_data_changed_on_real_change(self):
+        # A hash-changed run must NOT have diffsummary claim any DATA_CHANGED
+        # value -- DATA_CHANGED=true remains exclusively the commit step's
+        # commit-creation branch, set only after a commit actually exists.
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text=self._dataset(self.HASH_B))
+            self.assertIsNone(exit_code)
+            self.assertIn("MONOLITH_CHANGED=true", env_text)
+            self.assertNotIn("DATA_CHANGED", env_text)
+
+    def test_r1_diffsummary_fail_closed_paths_never_emit_data_changed(self):
+        # Every diffsummary fail-closed exit already proven in
+        # test_f14_*_fails_closed above must also never emit DATA_CHANGED --
+        # a failure/skip path must never be falsely represented as a
+        # successful no-change run.
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, current_text=None, committed_text=self._dataset(self.HASH_A))
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("DATA_CHANGED", env_text)
+        with tempfile.TemporaryDirectory() as tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                tmp, self._dataset(self.HASH_A), committed_text="",
+                git_returncode=128, git_stderr="fatal: bad object HEAD")
+            self.assertEqual(exit_code, 1)
+            self.assertNotIn("DATA_CHANGED", env_text)
+
+    def test_r1_data_changed_written_exactly_once_true_and_once_false(self):
+        """Static shape lock: across the workflow's active (non-comment)
+        text, DATA_CHANGED=true appears exactly once (inside id: commit's
+        commit-creation branch) and DATA_CHANGED=false appears exactly once
+        (inside id: diffsummary's no-material-change branch) -- no other
+        location may ever assign either value."""
+        text = self._workflow_text()
+        active_lines = [
+            line for line in text.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        active_text = "\n".join(active_lines)
+        self.assertEqual(active_text.count("DATA_CHANGED=true"), 1)
+        self.assertEqual(active_text.count("DATA_CHANGED=false"), 1)
+
+        i = active_text.index("id: commit")
+        j = active_text.index("id: push", i)
+        commit_block = active_text[i:j]
+        self.assertIn("DATA_CHANGED=true", commit_block)
+        self.assertNotIn("DATA_CHANGED=false", commit_block)
+
+        i2 = active_text.index("id: diffsummary")
+        j2 = active_text.index("id: shards", i2)
+        diffsummary_block = active_text[i2:j2]
+        self.assertIn("DATA_CHANGED=false", diffsummary_block)
+        self.assertNotIn("DATA_CHANGED=true", diffsummary_block)
+
+    def test_r1_integration_real_no_change_env_classifies_success_no_changes(self):
+        """End-to-end R1 proof (Stage B R1 §A items 1/4/5): the exact env the
+        REAL diffsummary heredoc emits on a genuine no-material-change run,
+        fed unmodified through the real classify()/build_receipt_v2() in
+        tools/scheduled_run_classify.py -- never a hand-authored
+        DATA_CHANGED='false' fixture -- must classify as
+        SUCCESS_REAL_FETCH_NO_CHANGES and the V2 receipt must record it."""
+        current = self._dataset(self.HASH_A)
+        committed = self._dataset(self.HASH_A)
+        with tempfile.TemporaryDirectory() as diff_tmp:
+            exit_code, env_text, _out, _err, _calls = _run_diffsummary(
+                diff_tmp, current, committed_text=committed)
+            self.assertIsNone(exit_code)
+        real_env_lines = dict(
+            line.split("=", 1) for line in env_text.splitlines() if "=" in line
+        )
+        self.assertEqual(real_env_lines.get("DATA_CHANGED"), "false")
+        self.assertEqual(real_env_lines.get("MONOLITH_CHANGED"), "false")
+
+        with tempfile.TemporaryDirectory() as classify_tmp:
+            shutil.copyfile(
+                FIXTURES_DIR / "cand_empty_success.json",
+                Path(classify_tmp) / "scheduled_live_candidate_20260924T080000Z.json")
+            env = base_env(
+                HELPER_OUTCOME="success", VALIDATE_OUTCOME="success",
+                DIFFSUMMARY_OUTCOME="success",
+                SHARDS_OUTCOME="skipped", SHARDVALIDATE_OUTCOME="skipped",
+                PRIVACYREPORT_OUTCOME="skipped",
+                COMMIT_OUTCOME="skipped", PUSH_OUTCOME="skipped",
+                DATA_CHANGED=real_env_lines["DATA_CHANGED"],
+                MONOLITH_CHANGED=real_env_lines["MONOLITH_CHANGED"],
+            )
+            result = src.classify(env, tmp_dir=Path(classify_tmp))
+            self.assertEqual(result["status"], "SUCCESS_REAL_FETCH_NO_CHANGES")
+
+            receipt = src.build_receipt_v2(
+                env, result, helper_log=result.get("helper_log"))
+            self.assertEqual(receipt["terminal"]["operational_status"],
+                              "SUCCESS_REAL_FETCH_NO_CHANGES")
+            self.assertIsNone(receipt["terminal"]["refusal_reason"])
+            self.assertIsNone(receipt["publication"])
+            self.assertEqual(receipt["commit"]["decision"], "not_created")
+
+
+# ---------------------------------------------------------------------------
+# Prompt 323 Stage B (WRKOPS t_20260923_adgops323) -- bounded-production
+# acquisition offline coverage. No network anywhere below: all HTTP I/O is
+# replaced by _ScriptedSession/_FakeResponse, all subprocess dispatch in the
+# hard-timeout tests is mocked, and every fake clock is injected rather than
+# reading real wall-clock time. Authored per the Stage A/R1 report's Sec 5
+# offline test plan; NOT executed by this authoring session (WRKOPS
+# NO_RUNTIME) -- the operator runs this suite via
+# `python tools/fetcher_fixture_regression.py -v`.
+# ---------------------------------------------------------------------------
+
+_ATOM_NS_STAGE_B = "http://www.w3.org/2005/Atom"
+
+
+class _FakeResponse:
+    """Minimal stand-in for a requests.Response -- only the attributes/
+    methods fetch_source() actually touches."""
+
+    def __init__(self, status_code=200, content=b"", headers=None,
+                 url="https://example.invalid/feed", encoding="utf-8"):
+        self.status_code = status_code
+        self.content = content
+        self.headers = headers or {}
+        self.url = url
+        self.encoding = encoding
+
+    def raise_for_status(self):
+        if 400 <= self.status_code < 600:
+            raise requests.exceptions.HTTPError(f"{self.status_code} error", response=self)
+
+
+def _atom_bytes(entries_xml: str = "", next_href: str = None) -> bytes:
+    next_link = f'<link rel="next" href="{next_href}"/>' if next_href else ""
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<feed xmlns="{_ATOM_NS_STAGE_B}">{next_link}{entries_xml}</feed>'
+    ).encode("utf-8")
+
+
+def _fake_atom_response(status_code: int = 200, next_href: str = None, headers=None) -> _FakeResponse:
+    return _FakeResponse(status_code=status_code, content=_atom_bytes(next_href=next_href),
+                          headers=headers)
+
+
+class _ScriptedSession:
+    """Fake matching the .get(url, timeout=, allow_redirects=) surface
+    fetch_source() calls. `script` is a list consumed in order, one entry
+    per .get() call -- an Exception instance is raised, anything else is
+    returned as the response. Every call is recorded in `.calls`."""
+
+    def __init__(self, script):
+        self._script = list(script)
+        self.calls = []
+
+    def get(self, url, timeout=None, allow_redirects=True):
+        self.calls.append({"url": url, "timeout": timeout, "allow_redirects": allow_redirects})
+        if not self._script:
+            raise AssertionError("fake session.get() called more times than scripted")
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class _ManualClock:
+    """Injectable fake monotonic clock: reads `.t` directly, advanced only
+    when a test (or a patched time.sleep) explicitly mutates it -- never on
+    its own, so expiry timing in a test is fully deterministic."""
+
+    def __init__(self, start: float = 0.0):
+        self.t = start
+
+    def __call__(self):
+        return self.t
+
+
+class FetchBoundsUnitTests(unittest.TestCase):
+    """Pure unit coverage for tools/fetch_bounds.py -- registry/host
+    authorization (Stage A Sec F), the request-budget formula and
+    fail-closed counter (Sec H), and the deadline formula/object (Sec E).
+    No network, no file I/O."""
+
+    # --- registry / host authorization --------------------------------
+
+    def test_verify_source_registry_matching_passes(self):
+        active = [{"name": n, "url": e["url"]} for n, e in fetch_bounds.pc.PUBLIC_SOURCES.items()]
+        fetch_bounds.verify_source_registry(active)  # must not raise
+
+    def test_verify_source_registry_missing_entry_fails_closed(self):
+        registry = dict(fetch_bounds.pc.PUBLIC_SOURCES)
+        active = [{"name": n, "url": e["url"]} for n, e in registry.items()][:1]
+        with self.assertRaises(fetch_bounds.RegistryMismatchError):
+            fetch_bounds.verify_source_registry(active, registry=registry)
+
+    def test_verify_source_registry_extra_entry_fails_closed(self):
+        registry = dict(fetch_bounds.pc.PUBLIC_SOURCES)
+        active = [{"name": n, "url": e["url"]} for n, e in registry.items()]
+        active.append({"name": "EXTRA-SOURCE", "url": "https://extra.invalid/feed"})
+        with self.assertRaises(fetch_bounds.RegistryMismatchError):
+            fetch_bounds.verify_source_registry(active, registry=registry)
+
+    def test_verify_source_registry_url_drift_fails_closed(self):
+        registry = dict(fetch_bounds.pc.PUBLIC_SOURCES)
+        active = [{"name": n, "url": e["url"]} for n, e in registry.items()]
+        active[0] = {"name": active[0]["name"], "url": "https://drifted.invalid/feed"}
+        with self.assertRaises(fetch_bounds.RegistryMismatchError):
+            fetch_bounds.verify_source_registry(active, registry=registry)
+
+    def test_allowed_hosts_derived_from_registry(self):
+        hosts = fetch_bounds.allowed_hosts()
+        self.assertIn("contrataciondelestado.es", hosts)
+        self.assertIn("contrataciondelsectorpublico.gob.es", hosts)
+
+    def test_is_authorized_host(self):
+        self.assertTrue(fetch_bounds.is_authorized_host("contrataciondelestado.es"))
+        self.assertFalse(fetch_bounds.is_authorized_host("evil.invalid"))
+        self.assertFalse(fetch_bounds.is_authorized_host(""))
+        self.assertFalse(fetch_bounds.is_authorized_host(None))
+
+    # --- request-budget formula -----------------------------------------
+
+    def test_max_total_requests_formula_not_a_frozen_literal(self):
+        # Stage A Sec H: MAX_TOTAL_REQUESTS = sources * pages * (1+retries),
+        # never a hard-coded 8 -- prove it recomputes for different inputs.
+        self.assertEqual(fetch_bounds.max_total_requests(2, pages=1, retries=3), 8)
+        self.assertEqual(fetch_bounds.max_total_requests(3, pages=1, retries=3), 12)
+        self.assertEqual(fetch_bounds.max_total_requests(2, pages=2, retries=3), 16)
+        self.assertEqual(fetch_bounds.max_total_requests(2, pages=1, retries=0), 2)
+
+    def test_request_budget_admits_up_to_max_then_fails_closed(self):
+        budget = fetch_bounds.RequestBudget(3)
+        budget.admit()
+        budget.admit()
+        budget.admit()
+        self.assertEqual(budget.used, 3)
+        self.assertEqual(budget.remaining(), 0)
+        with self.assertRaises(fetch_bounds.BudgetExceededError):
+            budget.admit()
+        self.assertEqual(budget.used, 3)  # the refused call is never counted
+
+    def test_request_budget_rejects_negative_max(self):
+        with self.assertRaises(ValueError):
+            fetch_bounds.RequestBudget(-1)
+
+    # --- deadline formula --------------------------------------------
+
+    def test_compute_global_deadline_s_matches_stage_a_worked_example(self):
+        # Stage A/R1 report Sec E worked example: 2 sources, pages=1,
+        # retries=3, timeout=45s, delay=2.0, backoff=2.0 -> approx 394s.
+        value = fetch_bounds.compute_global_deadline_s(
+            active_source_count=2, pages=1, retries=3,
+            request_timeout_s=45.0, retry_delay=2.0, retry_backoff=2.0)
+        self.assertAlmostEqual(value, 393.6, places=1)
+
+    def test_compute_global_deadline_s_scales_with_inputs(self):
+        base = fetch_bounds.compute_global_deadline_s(active_source_count=1)
+        doubled_sources = fetch_bounds.compute_global_deadline_s(active_source_count=2)
+        self.assertAlmostEqual(doubled_sources, base * 2)
+
+    def test_worst_case_backoff_matches_retry_sleep_upper_bound(self):
+        value = fetch_bounds.worst_case_backoff_s(retries=3, retry_delay=2.0, retry_backoff=2.0)
+        self.assertAlmostEqual(value, 2.0 * (1 + 2 + 4) * 1.2)
+
+    # --- Deadline object (fake clock) ------------------------------------
+
+    def test_deadline_not_expired_before_horizon(self):
+        clock = _ManualClock(start=0.0)
+        d = fetch_bounds.Deadline(10.0, clock=clock)
+        self.assertFalse(d.expired())
+        clock.t = 9.999
+        self.assertFalse(d.expired())
+        d.check()  # must not raise
+
+    def test_deadline_expired_at_and_after_horizon(self):
+        clock = _ManualClock(start=0.0)
+        d = fetch_bounds.Deadline(10.0, clock=clock)
+        clock.t = 10.0
+        self.assertTrue(d.expired())
+        with self.assertRaises(fetch_bounds.DeadlineExceededError):
+            d.check()
+        clock.t = 999.0
+        self.assertTrue(d.expired())
+
+    def test_deadline_remaining_never_negative(self):
+        clock = _ManualClock(start=0.0)
+        d = fetch_bounds.Deadline(5.0, clock=clock)
+        clock.t = 100.0
+        self.assertEqual(d.remaining(), 0.0)
+
+
+class BoundedSessionConstructionTests(unittest.TestCase):
+    """Stage A Sec A: build_bounded_session() must mount a non-retrying
+    transport adapter (Retry(total=0)), while build_session() (every other
+    call site) is unchanged. No network -- inspects only the constructed
+    Session's mounted adapter configuration."""
+
+    def test_build_session_retains_current_retry_adapter(self):
+        s = fl.build_session()
+        adapter = s.get_adapter("https://contrataciondelestado.es/x")
+        self.assertEqual(adapter.max_retries.total, 3)
+        self.assertEqual(adapter.max_retries.connect, 3)
+        self.assertEqual(adapter.max_retries.read, 3)
+
+    def test_build_bounded_session_disables_transport_retries(self):
+        s = fl.build_bounded_session()
+        adapter = s.get_adapter("https://contrataciondelestado.es/x")
+        self.assertEqual(adapter.max_retries.total, 0)
+
+    def test_build_bounded_session_still_sets_headers(self):
+        s = fl.build_bounded_session()
+        self.assertEqual(s.headers.get("User-Agent"), fl.HEADERS["User-Agent"])
+
+
+class BoundedFetchSourceTests(unittest.TestCase):
+    """fetch_source() bounded-mode coverage -- single-layer retry/attempt
+    accounting, failure classification (Stage A Sec B), redirect policy
+    (Sec G), the volume-sanity ceiling (Sec J), and the seven Stage A
+    Sec E.1 deadline checkpoints. All network I/O is replaced by
+    _ScriptedSession; retry backoff sleep and its jitter are mocked out so
+    these tests run instantly and deterministically."""
+
+    def setUp(self):
+        self._sleep_patch = mock.patch.object(fl.time, "sleep", lambda secs: None)
+        self._sleep_patch.start()
+        self._jitter_patch = mock.patch("random.uniform", return_value=1.0)
+        self._jitter_patch.start()
+        # fetch_source() funnels every progress line through fl.pprint(); several of
+        # those lines are unconditional (not gated by _QUIET/_NO_PROGRESS) and contain
+        # non-ASCII glyphs (e.g. U+2193 DOWNWARDS ARROW), which raise UnicodeEncodeError
+        # on a cp1252 Windows stdout. Silence the funnel itself for these direct
+        # fetch_source() calls rather than toggling the CLI flags, which do not cover
+        # every call site.
+        self._pprint_patch = mock.patch.object(fl, "pprint", lambda *a, **kw: None)
+        self._pprint_patch.start()
+
+    def tearDown(self):
+        self._pprint_patch.stop()
+        self._jitter_patch.stop()
+        self._sleep_patch.stop()
+
+    def _source(self, name="S1", url="https://example.invalid/feed"):
+        return {"name": name, "ccaa": None, "url": url}
+
+    # --- legacy compatibility (no bounded params) -------------------------
+
+    def test_legacy_call_omits_bounded_params_preserves_redirects_true(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        fl.fetch_source(session, self._source(), max_pages=1, min_score=20)
+        self.assertEqual(session.calls[0]["allow_redirects"], True)
+        self.assertEqual(session.calls[0]["timeout"], fl.TIMEOUT)
+
+    def test_legacy_call_has_no_deadline_or_budget_enforcement(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            _fake_atom_response(),
+        ])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3)
+        self.assertFalse(result["had_error"])
+        self.assertEqual(len(session.calls), 3)
+        self.assertFalse(result["deadline_exhausted"])
+        self.assertFalse(result["budget_exhausted"])
+
+    # --- single-layer retry / attempt accounting (Sec A/H) ----------------
+
+    def test_budget_counts_exactly_each_real_attempt(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            _fake_atom_response(),
+        ])
+        budget = fetch_bounds.RequestBudget(10)
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, budget=budget)
+        self.assertEqual(len(session.calls), 3)
+        self.assertEqual(budget.used, 3)
+        self.assertEqual(result["retry_count"], 2)
+        self.assertFalse(result["had_error"])
+
+    def test_retries_bounded_at_max_attempts_then_terminal(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+        ])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3)
+        # retries=3 -> at most 4 total attempts (1 initial + 3 retries).
+        self.assertEqual(len(session.calls), 4)
+        self.assertTrue(result["had_error"])
+
+    def test_budget_prevents_attempt_before_network_call(self):
+        session = _ScriptedSession([
+            requests.exceptions.ConnectionError("boom"),
+            requests.exceptions.ConnectionError("boom"),
+            _fake_atom_response(),  # never reached -- budget exhausted first
+        ])
+        budget = fetch_bounds.RequestBudget(2)
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, budget=budget)
+        self.assertEqual(len(session.calls), 2)  # 3rd attempt never made
+        self.assertTrue(result["budget_exhausted"])
+        self.assertTrue(result["had_error"])
+
+    # --- failure classification (Stage A Sec B) --------------------------
+
+    def test_retryable_connect_error_recovers(self):
+        session = _ScriptedSession([requests.exceptions.ConnectionError("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+        self.assertEqual(len(session.calls), 2)
+
+    def test_retryable_timeout_recovers(self):
+        session = _ScriptedSession([requests.exceptions.Timeout("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_ssl_error_recovers(self):
+        session = _ScriptedSession([requests.exceptions.SSLError("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_chunked_encoding_error_recovers(self):
+        session = _ScriptedSession([requests.exceptions.ChunkedEncodingError("x"), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_http_429_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=429), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_http_5xx_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=503), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_malformed_non_atom_body_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=200, content=b"<html>oops</html>"),
+                                     _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_retryable_xml_parse_error_recovers(self):
+        session = _ScriptedSession([_FakeResponse(status_code=200, content=b"<feed><entry>"),
+                                     _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=1)
+        self.assertFalse(result["had_error"])
+
+    def test_terminal_other_4xx_not_retried(self):
+        session = _ScriptedSession([_FakeResponse(status_code=404), _fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3)
+        self.assertTrue(result["had_error"])
+        self.assertEqual(len(session.calls), 1)  # never retried
+
+    def test_terminal_redirect_blocked_when_bounded(self):
+        session = _ScriptedSession([
+            _FakeResponse(status_code=302, headers={"Location": "https://elsewhere.invalid/"}),
+            _fake_atom_response(),
+        ])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20, retries=3,
+                                  allow_redirects=False)
+        self.assertTrue(result["had_error"])
+        self.assertEqual(len(session.calls), 1)  # never retried, never followed
+        self.assertIn("redirect blocked", result["error_msg"])
+
+    def test_redirect_kwarg_passed_through_when_not_bounded(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        fl.fetch_source(session, self._source(), max_pages=1, min_score=20, allow_redirects=True)
+        self.assertEqual(session.calls[0]["allow_redirects"], True)
+
+    # --- volume-sanity ceiling (Stage A Sec J) ----------------------------
+
+    def test_max_source_records_none_means_unlimited(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  max_source_records=None)
+        self.assertFalse(result["had_error"])
+
+    def test_max_source_records_ceiling_aborts_never_truncates(self):
+        # An empty <feed> yields 0 accepted records; a ceiling of -1 is
+        # always exceeded once any non-negative count is reached, so this
+        # deterministically exercises the fail-closed abort path without
+        # depending on the scoring pipeline accepting synthetic entries.
+        session = _ScriptedSession([_fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  max_source_records=-1)
+        self.assertTrue(result["had_error"])
+        self.assertIn("volume ceiling exceeded", result["error_msg"])
+
+    # --- deadline checkpoints (Stage A Sec E.1) ---------------------------
+
+    def test_deadline_already_expired_admits_no_attempt(self):
+        clock = _ManualClock(start=100.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        clock.t = 200.0  # already past deadline_at=101.0
+        session = _ScriptedSession([_fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(session.calls), 0)
+
+    def test_deadline_expiry_during_backoff_prevents_next_attempt(self):
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        session = _ScriptedSession([requests.exceptions.ConnectionError("boom")])
+        with mock.patch.object(fl.time, "sleep", lambda secs: setattr(clock, "t", clock.t + secs)):
+            result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                      retries=3, retry_delay=2.0, retry_backoff=2.0,
+                                      deadline=deadline)
+        # retry_delay(2.0) * backoff**(1-1)(=1) * jitter(1.0) = 2.0s sleep,
+        # which alone exceeds the 1.0s deadline -- no second real attempt.
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(session.calls), 1)
+
+    def test_deadline_expiry_prevents_next_page(self):
+        # R2 (Prompt 323 Stage B R2, WRKOPS t_20260923_adgops323): the shared
+        # Deadline is now checked immediately on response return, before
+        # non-Atom inspection / XML parsing / page-completion accounting.
+        # Expiry on response return therefore prevents completion of the
+        # current page as well as advancement to the next page -- pages_done
+        # stays 0, not 1, because the response that arrived after expiry is
+        # rejected before it is ever parsed or counted.
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(5.0, clock=clock)
+        call_count = [0]
+
+        def _advance_and_return(url, timeout=None, allow_redirects=True):
+            call_count[0] += 1
+            clock.t += 6.0  # exceeds the 5.0s deadline after this one response
+            return _fake_atom_response(next_href="https://example.invalid/feed?page=2")
+
+        session = _ScriptedSession([])
+        session.get = _advance_and_return
+        result = fl.fetch_source(session, self._source(), max_pages=2, min_score=20,
+                                  deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(result["pages_done"], 0)
+        self.assertEqual(call_count[0], 1)  # no request for page 2
+
+    def test_deadline_expiry_prevents_next_source(self):
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(10.0, clock=clock)
+
+        session1 = _ScriptedSession([_fake_atom_response()])
+        result1 = fl.fetch_source(session1, self._source("S1"), max_pages=1, min_score=20,
+                                   deadline=deadline)
+        self.assertFalse(result1["deadline_exhausted"])
+        self.assertEqual(len(session1.calls), 1)
+
+        clock.t = 11.0  # past the shared deadline before the next source starts
+
+        session2 = _ScriptedSession([_fake_atom_response()])
+        result2 = fl.fetch_source(session2, self._source("S2"), max_pages=1, min_score=20,
+                                   deadline=deadline)
+        self.assertTrue(result2["deadline_exhausted"])
+        self.assertEqual(len(session2.calls), 0)
+
+
+class BoundedDeadlineCheckpointOrderingR2Tests(unittest.TestCase):
+    """Prompt 323 Stage B R2 (WRKOPS t_20260923_adgops323) -- exact-diff review
+    finding: the R1 cooperative deadline checkpoint #3 ("immediately after each
+    response or raised request exception") was control-flow-positioned after
+    several `break` exits, so it never fired on the bounded 3xx / terminal 4xx /
+    non-retryable-exception / successful-Atom-parse paths. These three tests
+    are written to fail against the R1 implementation and pass only once the
+    checkpoint is the first statement in both the except- and else-branches of
+    the session.get() try block. No network; a fake clock and a fake
+    session.get() are the only inputs. Not executed by this authoring session
+    (WRKOPS NO_RUNTIME) -- the operator runs this suite."""
+
+    def setUp(self):
+        self._pprint_patch = mock.patch.object(fl, "pprint", lambda *a, **kw: None)
+        self._pprint_patch.start()
+
+    def tearDown(self):
+        self._pprint_patch.stop()
+
+    def _source(self, name="S1", url="https://example.invalid/feed"):
+        return {"name": name, "ccaa": None, "url": url}
+
+    def test_deadline_checked_before_response_classification_on_success(self):
+        """Test 1 (handoff Sec 6): a fake session.get() advances the clock past
+        the deadline and then returns a valid Atom response. The R1 checkpoint
+        sat after the success `break`, so it never fired here and
+        parse_atom_entries() ran on an already-expired acquisition. Corrected
+        order must raise DeadlineExceededError before any response
+        classification/parsing, so parse_atom_entries() is never reached."""
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        calls = []
+
+        def _expired_then_valid(url, timeout=None, allow_redirects=True):
+            calls.append(1)
+            clock.t = 2.0  # expire the deadline once control returns from session.get()
+            return _fake_atom_response()
+
+        session = _ScriptedSession([])
+        session.get = _expired_then_valid
+        with mock.patch.object(fl, "parse_atom_entries") as parse_mock:
+            result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                      deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(calls), 1)  # no further HTTP attempt
+        parse_mock.assert_not_called()  # response content never parsed/processed after expiry
+
+    def test_deadline_checked_before_exception_classification(self):
+        """Test 2 (handoff Sec 6): a fake session.get() advances the clock past
+        the deadline and then raises a retryable request exception. The
+        checkpoint must fire before is_retryable_fetch_error() classification,
+        so no retry is admitted and deadline exhaustion is not converted into
+        an ordinary network failure."""
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        calls = []
+
+        def _expired_then_raise(url, timeout=None, allow_redirects=True):
+            calls.append(1)
+            clock.t = 2.0
+            raise requests.exceptions.ConnectionError("boom")
+
+        session = _ScriptedSession([])
+        session.get = _expired_then_raise
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(calls), 1)  # no second attempt/retry admitted
+        self.assertEqual(result["retry_count"], 0)
+
+    def test_deadline_checked_before_terminal_response_break(self):
+        """Test 3 (handoff Sec 6): a fake session.get() advances the clock past
+        the deadline and then returns a terminal (non-429) 4xx response. Under
+        R1 the terminal-response `break` (from the HTTPError classification)
+        exited the loop before the post-block checkpoint ever ran, so
+        deadline_exhausted stayed False and the outcome was misreported as an
+        ordinary terminal HTTP failure. Corrected order must raise
+        DeadlineExceededError before raise_for_status()/status classification,
+        so the terminal-response break can no longer bypass it."""
+        clock = _ManualClock(start=0.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        calls = []
+
+        def _expired_then_terminal(url, timeout=None, allow_redirects=True):
+            calls.append(1)
+            clock.t = 2.0
+            return _FakeResponse(status_code=404)
+
+        session = _ScriptedSession([])
+        session.get = _expired_then_terminal
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=3, deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertEqual(len(calls), 1)  # terminal-response break did not bypass the checkpoint
+
+
+class ConsoleEncodingCompatibilityTests(unittest.TestCase):
+    """Prompt 323 Stage B R4 (WRKOPS t_20260923_adgops323): the first live
+    Windows bounded-sandbox run crashed with UnicodeEncodeError from
+    fl.pprint()'s startup-banner print() call, before any bounded
+    acquisition network attempt could occur -- a strict cp1252-encoded
+    redirected stdout cannot represent this module's box-drawing/arrow
+    glyphs (U+2550, U+2193, etc.). fl.pprint() now falls back to a
+    backslash-escaped, encoding-safe representation instead of crashing.
+    No network; a strict-encoding in-memory text stream is constructed
+    directly here rather than depending on the actual host console
+    encoding."""
+
+    def test_strict_cp1252_stream_falls_back_to_escaped_representation(self):
+        buf = io.BytesIO()
+        stream = io.TextIOWrapper(buf, encoding="cp1252", errors="strict", newline="")
+        message = "═ ↓"  # BOX DRAWINGS DOUBLE HORIZONTAL + DOWNWARDS ARROW
+        with mock.patch.object(sys, "stdout", stream):
+            fl.pprint(message)
+            stream.flush()
+        written = buf.getvalue().decode("cp1252")
+        self.assertNotIn("═", written)  # the raw glyph must never reach the strict stream
+        self.assertNotIn("↓", written)
+        self.assertIn("\\u2550", written)    # deterministic escaped representation instead
+        self.assertIn("\\u2193", written)
+
+    def test_ascii_message_unchanged_on_normal_stream(self):
+        buf = io.StringIO()
+        with mock.patch.object(sys, "stdout", buf):
+            fl.pprint("ASCII control")
+        self.assertEqual(buf.getvalue(), "ASCII control\n")
+
+
+class BoundedMainEnvelopeStatusTests(unittest.TestCase):
+    """Proves main()'s bounded-mode status wiring end-to-end: when any
+    source reports deadline/budget exhaustion, the written envelope carries
+    is_partial=True and a run_status that the EXISTING
+    scp.run_status_lacks_success() refusal predicate already treats as
+    lacking success -- no new refusal mechanism, reusing run_live()'s
+    established gate. fetch_source() itself is stubbed here (already
+    covered directly by BoundedFetchSourceTests above); SOURCES and
+    registry verification are patched so no real PUBLIC_SOURCES/network
+    coupling is required. No network, no file writes outside a temp dir."""
+
+    def _run_main_with_stub(self, stub_result):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            out_path = tmp / "candidate.json"
+            fake_sources = [{"name": "S1", "ccaa": None, "url": "https://example.invalid/feed"}]
+
+            def _stub_fetch_source(session, source, max_pages, min_score, **kwargs):
+                return dict(stub_result)
+
+            argv = ["fetch_licitaciones.py", "--output", str(out_path),
+                    "--bounded-mode", "--global-deadline", "1.0", "--no-progress"]
+            with mock.patch.object(fl, "SOURCES", fake_sources), \
+                 mock.patch.object(fl, "fetch_source", _stub_fetch_source), \
+                 mock.patch.object(fl, "build_bounded_session", lambda: object()), \
+                 mock.patch.object(fetch_bounds, "verify_source_registry",
+                                    lambda active_sources, registry=None: None), \
+                 mock.patch.object(sys, "argv", argv), \
+                 redirect_stdout(io.StringIO()):
+                fl.main()
+
+            return json.loads(out_path.read_text(encoding="utf-8"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_deadline_exhaustion_produces_partial_nonsuccess_envelope(self):
+        written = self._run_main_with_stub({
+            "results": [], "pages_done": 0, "had_error": True,
+            "error_msg": "bounded acquisition deadline exhausted",
+            "retry_count": 0, "retried_pages": [], "retry_errors": [],
+            "deadline_exhausted": True, "budget_exhausted": False,
+        })
+        self.assertTrue(written["is_partial"])
+        self.assertEqual(written["run_status"], "DEADLINE_EXHAUSTED")
+        self.assertTrue(written["deadline_exhausted"])
+        self.assertTrue(scp.run_status_lacks_success(str(written["run_status"]).lower()))
+
+    def test_budget_exhaustion_produces_partial_nonsuccess_envelope(self):
+        written = self._run_main_with_stub({
+            "results": [], "pages_done": 0, "had_error": True,
+            "error_msg": "request budget exhausted",
+            "retry_count": 0, "retried_pages": [], "retry_errors": [],
+            "deadline_exhausted": False, "budget_exhausted": True,
+        })
+        self.assertTrue(written["is_partial"])
+        self.assertEqual(written["run_status"], "REQUEST_BUDGET_EXHAUSTED")
+        self.assertTrue(written["budget_exhausted"])
+        self.assertTrue(scp.run_status_lacks_success(str(written["run_status"]).lower()))
+
+
+class RunLiveHardTimeoutTests(unittest.TestCase):
+    """Stage A Sec E.2/E.4: run_live()'s hard subprocess-timeout layer must
+    fail closed before any candidate consumption, and must share exactly one
+    GLOBAL_DEADLINE_S value with the --global-deadline flag passed to the
+    bounded fetcher subprocess. subprocess.run itself is mocked to raise
+    subprocess.TimeoutExpired without ever spawning a real process; no
+    network, no real filesystem writes outside a temp TMP_DIR redirect."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self._saved_tmp_dir = sfm.TMP_DIR
+        sfm.TMP_DIR = self.tmp
+
+    def tearDown(self):
+        sfm.TMP_DIR = self._saved_tmp_dir
+        self._tmp.cleanup()
+
+    def _args(self):
+        return types.SimpleNamespace(
+            allow_production_write=True,
+            internal_state_path=str(self.tmp / "unreadable-should-never-be-opened.json"),
+            link_checks_path=None,
+        )
+
+    def test_timeout_expired_fails_closed_before_any_candidate_consumption(self):
+        with mock.patch.object(
+                sfm.subprocess, "run",
+                side_effect=sfm.subprocess.TimeoutExpired(cmd="fetch_licitaciones.py", timeout=1.0)) as run_mock, \
+             mock.patch.object(sfm, "load_json") as load_json_mock, \
+             mock.patch.object(sfm, "load_internal_state") as load_state_mock, \
+             mock.patch.object(sfm, "canonicalize_and_project") as canon_mock, \
+             mock.patch.object(sfm, "write_json") as write_json_mock:
+            with self.assertRaises(SystemExit) as cm:
+                sfm.run_live(self._args())
+        self.assertIn("global acquisition deadline", str(cm.exception))
+        run_mock.assert_called_once()
+        load_json_mock.assert_not_called()
+        load_state_mock.assert_not_called()
+        canon_mock.assert_not_called()
+        write_json_mock.assert_not_called()
+
+    def test_subprocess_timeout_equals_cli_global_deadline_flag(self):
+        captured = {}
+
+        def _fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            captured["timeout"] = kwargs.get("timeout")
+            raise sfm.subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout"))
+
+        with mock.patch.object(sfm.subprocess, "run", side_effect=_fake_run):
+            with self.assertRaises(SystemExit):
+                sfm.run_live(self._args())
+        cmd = captured["cmd"]
+        self.assertIn("--bounded-mode", cmd)
+        idx = cmd.index("--global-deadline")
+        cli_deadline = float(cmd[idx + 1])
+        self.assertEqual(cli_deadline, captured["timeout"])
+        expected = fetch_bounds.compute_global_deadline_s(
+            active_source_count=len(sfm.pc.PUBLIC_SOURCES),
+            pages=fetch_bounds.DEFAULT_PAGES, retries=fetch_bounds.DEFAULT_RETRIES,
+            request_timeout_s=fetch_bounds.DEFAULT_REQUEST_TIMEOUT_S,
+            retry_delay=fetch_bounds.DEFAULT_RETRY_DELAY_S,
+            retry_backoff=fetch_bounds.DEFAULT_RETRY_BACKOFF,
+        )
+        self.assertAlmostEqual(cli_deadline, expected)
+
+
+# ---------------------------------------------------------------------------
+# Prompt 327 (WRKOPS t_20260925_adgops327): write_json() exact-byte contract.
+# Bounded and synthetic -- exercises tools.scheduled_fetch_merge.write_json()
+# directly (the real production implementation, not a duplicated serializer)
+# against a small in-memory payload written to a temp path. Never reads
+# data/licitaciones.json.
+# ---------------------------------------------------------------------------
+
+class WriteJsonByteDeterminismTests(unittest.TestCase):
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _payload(self):
+        return {"meta": {"a": 1, "b": "café ☃"}, "data": [{"x": 1}, {"y": [1, 2]}]}
+
+    def test_output_bytes_equal_deterministic_expected_serialization(self):
+        out = self.tmp / "out.json"
+        payload = self._payload()
+        sfm.write_json(out, payload)
+        expected = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+        self.assertEqual(out.read_bytes(), expected)
+
+    def test_line_separators_are_lf(self):
+        out = self.tmp / "out.json"
+        sfm.write_json(out, self._payload())
+        raw = out.read_bytes()
+        self.assertIn(b"\n", raw)
+        self.assertNotIn(b"\r\n", raw)
+
+    def test_no_bom(self):
+        out = self.tmp / "out.json"
+        sfm.write_json(out, self._payload())
+        raw = out.read_bytes()
+        self.assertFalse(raw.startswith(b"\xef\xbb\xbf"))
+
+    def test_json_remains_parseable_and_semantically_equivalent(self):
+        out = self.tmp / "out.json"
+        payload = self._payload()
+        sfm.write_json(out, payload)
+        reloaded = json.loads(out.read_bytes().decode("utf-8"))
+        self.assertEqual(reloaded, payload)
 
 
 # ---------------------------------------------------------------------------
