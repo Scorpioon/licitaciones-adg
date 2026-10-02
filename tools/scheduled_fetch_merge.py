@@ -190,6 +190,32 @@ _OPEN_KWS   = ("vigent", "en plazo", "activ", "publicad", "anunciad", "open", "a
 _CLOSED_KWS = ("adjudicad", "award", "desiert", "deserta", "closed", "cancelad",
                "resolt", "resolut", "terminad", "finalizad", "archivad")
 
+# B21 repair (WRKOPS t_20261002_adgops332): an open-looking record whose
+# stored submission deadline (`data_limit`) has already passed is demoted to
+# this category instead of CLEAR_OPEN. This is a review/eligibility signal
+# only -- it must never be read as award, cancellation, desertion, or any
+# other official lifecycle status. `estat`/`estat_raw` and award evidence are
+# untouched by this classification.
+DEADLINE_EXPIRED_CATEGORY = "CLEAR_OPEN_DEADLINE_EXPIRED"
+
+
+def _default_reference_date():
+    return datetime.now(timezone.utc).date()
+
+
+def is_deadline_expired(data_limit, reference_date=None) -> bool:
+    """True only when `data_limit` parses as a YYYY-MM-DD date strictly
+    before `reference_date`. A missing, empty, or unparsable `data_limit`
+    is never treated as expired -- absence of a deadline is not evidence of
+    closure (required behavior constraint 5)."""
+    if not data_limit:
+        return False
+    try:
+        deadline = datetime.strptime(str(data_limit).strip()[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return False
+    return deadline < (reference_date or _default_reference_date())
+
 # Fields skipped when iterating the candidate in merge_overlap.
 # LIFECYCLE_DECISION_FIELDS are excluded here — set by resolve_overlap_lifecycle().
 _SKIP_FROM_CANDIDATE = set(ENRICHMENT_FIELDS) | GATE_FIELDS | LIFECYCLE_DECISION_FIELDS | {"source_merge_class"}
@@ -368,8 +394,13 @@ def build_public_meta(records: list, cand_meta: dict) -> dict:
 # Lifecycle classification for candidate-only records
 # ---------------------------------------------------------------------------
 
-def classify_lifecycle(rec: dict) -> tuple[str, bool, bool]:
-    """Return (lifecycle_category, active_opportunity_eligible, lifecycle_review_required)."""
+def classify_lifecycle(rec: dict, reference_date=None) -> tuple[str, bool, bool]:
+    """Return (lifecycle_category, active_opportunity_eligible, lifecycle_review_required).
+
+    `reference_date` (a date object) is the deadline-expiry comparison point;
+    it defaults to the current UTC date but tests may pass an explicit value
+    for deterministic B21 coverage.
+    """
     estat = (rec.get("estat") or rec.get("status") or "").lower()
     adjudicatari = rec.get("adjudicatari") or rec.get("adjudicatario") or ""
     award_results = rec.get("award_results") or []
@@ -379,6 +410,10 @@ def classify_lifecycle(rec: dict) -> tuple[str, bool, bool]:
     is_closed = any(k in estat for k in _CLOSED_KWS)
 
     if is_open and not has_award:
+        # B21: award/closure evidence still dominates (checked above); only an
+        # open-looking, evidence-free record is subject to deadline demotion.
+        if is_deadline_expired(rec.get("data_limit"), reference_date):
+            return DEADLINE_EXPIRED_CATEGORY, False, True
         return "CLEAR_OPEN", True, False
     if is_open and has_award:
         return "OPEN_WITH_AWARD_EVIDENCE", False, True
@@ -391,7 +426,7 @@ def classify_lifecycle(rec: dict) -> tuple[str, bool, bool]:
 # Merge logic
 # ---------------------------------------------------------------------------
 
-def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
+def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict, reference_date=None) -> dict:
     """
     Determine lifecycle fields for an overlap (production + candidate) record.
 
@@ -404,8 +439,19 @@ def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
       2. Candidate open-like but has award evidence → OPEN_WITH_AWARD_EVIDENCE, active=False.
       3. Candidate has award evidence, status unclear → CLEAR_AWARDED, active=False.
       4. Candidate clearly open, no award evidence → preserve production if stronger
-         (CLEAR_AWARDED/OWA); otherwise CLEAR_OPEN, active=True.
+         (CLEAR_AWARDED/OWA); otherwise, if the candidate's stored data_limit has
+         already passed (B21), CLEAR_OPEN_DEADLINE_EXPIRED, active=False, review=True;
+         otherwise CLEAR_OPEN, active=True.
       5. Candidate unclear → preserve production if stronger; else UNKNOWN_LIFECYCLE.
+
+    `reference_date` (a date object) is the B21 deadline-expiry comparison
+    point; it defaults to the current UTC date but tests may pass an explicit
+    value for deterministic coverage.
+
+    Award/closure evidence (Rules 1-3) always dominates a B21 deadline check —
+    deadline expiry is only ever consulted once open-with-no-award status has
+    already been established, so it can never relabel a genuinely awarded,
+    cancelled, or deserted record.
 
     Returns dict: category, active, review, and optionally note, recommended_status.
     """
@@ -451,6 +497,17 @@ def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
         if prod_lc in ("CLEAR_AWARDED", "OPEN_WITH_AWARD_EVIDENCE"):
             # Production is more conservative — preserve it.
             return {"category": prod_lc, "active": False, "review": prod_review}
+        if is_deadline_expired(cand_rec.get("data_limit"), reference_date):
+            return {
+                "category": DEADLINE_EXPIRED_CATEGORY,
+                "active":   False,
+                "review":   True,
+                "note": (
+                    "Stored submission deadline has passed with no award/"
+                    "cancellation evidence; demoted from active eligibility "
+                    "pending official status update. Not an official closure."
+                ),
+            }
         return {"category": "CLEAR_OPEN", "active": True, "review": False}
 
     # Rule 5: Candidate status unclear, no award evidence.
@@ -461,7 +518,7 @@ def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
     return {"category": "UNKNOWN_LIFECYCLE", "active": False, "review": True}
 
 
-def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
+def merge_overlap(prod_rec: dict, cand_rec: dict, reference_date=None) -> tuple[dict, list]:
     """
     Start from production record. Update with candidate's fresh-fetch fields.
 
@@ -469,6 +526,9 @@ def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
     resolve_overlap_lifecycle() rather than blindly preserved from production.
     Enrichment, gate, provenance, and source_merge_class are always from production.
     LIST_UNION_FIELDS are safely unioned. Scalar conflicts are logged.
+
+    `reference_date` is passed through to resolve_overlap_lifecycle() for the
+    B21 deadline-expiry check; defaults to the current UTC date.
     """
     result: dict = dict(prod_rec)
     conflicts: list = []
@@ -499,7 +559,7 @@ def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
             result[field] = merged_list
 
     # Resolve lifecycle via candidate evidence precedence (119 correction).
-    lc = resolve_overlap_lifecycle(prod_rec, cand_rec)
+    lc = resolve_overlap_lifecycle(prod_rec, cand_rec, reference_date)
     result["lifecycle_category"]          = lc["category"]
     result["active_opportunity_eligible"] = lc["active"]
     result["lifecycle_review_required"]   = lc["review"]
@@ -511,10 +571,10 @@ def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
     return result, conflicts
 
 
-def build_candidate_record(cand_rec: dict) -> dict:
+def build_candidate_record(cand_rec: dict, reference_date=None) -> dict:
     """Assign lifecycle classification to a candidate-only (new) record."""
     result = dict(cand_rec)
-    lc_cat, active, review = classify_lifecycle(cand_rec)
+    lc_cat, active, review = classify_lifecycle(cand_rec, reference_date)
     result["lifecycle_category"] = lc_cat
     result["active_opportunity_eligible"] = active
     result["lifecycle_review_required"] = review

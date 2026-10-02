@@ -41,6 +41,7 @@ import tempfile
 import types
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -221,6 +222,122 @@ class L1MergeHelperTests(unittest.TestCase):
     def test_lifecycle_integrity_passes_valid_records(self):
         prod = load_fixture("production_min.json")
         ok, issues = sfm.validate_lifecycle_integrity(prod["data"])
+        self.assertTrue(ok)
+        self.assertEqual(issues, [])
+
+    # --- B21 deadline-blind lifecycle repair --------------------------------
+    # WRKOPS t_20261002_adgops332 / P331 Group C (CANDIDATE-F-5): lifecycle
+    # eligibility must consume the stored submission deadline (`data_limit`).
+    # Deadline expiry alone must demote operational eligibility/review state
+    # only -- it must never be rewritten as award, cancellation, desertion,
+    # or any other official lifecycle status.
+
+    _REF_DATE = date(2026, 10, 2)
+
+    def test_is_deadline_expired_past_date(self):
+        self.assertTrue(sfm.is_deadline_expired("2026-01-01", self._REF_DATE))
+
+    def test_is_deadline_expired_future_date(self):
+        self.assertFalse(sfm.is_deadline_expired("2027-01-01", self._REF_DATE))
+
+    def test_is_deadline_expired_same_day_not_expired(self):
+        self.assertFalse(sfm.is_deadline_expired("2026-10-02", self._REF_DATE))
+
+    def test_is_deadline_expired_missing_value(self):
+        self.assertFalse(sfm.is_deadline_expired("", self._REF_DATE))
+        self.assertFalse(sfm.is_deadline_expired(None, self._REF_DATE))
+
+    def test_is_deadline_expired_malformed_value(self):
+        self.assertFalse(sfm.is_deadline_expired("not-a-date", self._REF_DATE))
+
+    def test_classify_lifecycle_expired_vigente_no_award_demoted(self):
+        rec = {"estat": "Vigente", "data_limit": "2026-01-01"}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, sfm.DEADLINE_EXPIRED_CATEGORY)
+        self.assertFalse(active)
+        self.assertTrue(review)
+        # Official status must be untouched by the demotion.
+        self.assertEqual(rec["estat"], "Vigente")
+
+    def test_classify_lifecycle_future_deadline_vigente_stays_open(self):
+        rec = {"estat": "Vigente", "data_limit": "2027-01-01"}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, "CLEAR_OPEN")
+        self.assertTrue(active)
+        self.assertFalse(review)
+
+    def test_classify_lifecycle_expired_with_award_evidence_not_demoted(self):
+        # Award evidence dominates: must classify as awarded, not deadline-expired.
+        rec = {"estat": "Vigente", "data_limit": "2026-01-01", "adjudicatari": "ACME SA"}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, "OPEN_WITH_AWARD_EVIDENCE")
+        self.assertFalse(active)
+
+    def test_classify_lifecycle_missing_deadline_no_false_closure(self):
+        rec = {"estat": "Vigente", "data_limit": ""}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, "CLEAR_OPEN")
+        self.assertTrue(active)
+
+    def test_resolve_overlap_lifecycle_expired_vigente_no_award_demoted(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Vigente", "data_limit": "2026-01-01"}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], sfm.DEADLINE_EXPIRED_CATEGORY)
+        self.assertFalse(lc["active"])
+        self.assertTrue(lc["review"])
+
+    def test_resolve_overlap_lifecycle_future_deadline_stays_open(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Vigente", "data_limit": "2027-01-01"}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], "CLEAR_OPEN")
+        self.assertTrue(lc["active"])
+
+    def test_resolve_overlap_lifecycle_expired_with_award_evidence_not_demoted(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Adjudicado", "data_limit": "2026-01-01", "adjudicatari": "ACME SA"}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], "CLEAR_AWARDED")
+        self.assertFalse(lc["active"])
+
+    def test_resolve_overlap_lifecycle_missing_deadline_no_false_closure(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Vigente", "data_limit": ""}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], "CLEAR_OPEN")
+        self.assertTrue(lc["active"])
+
+    def test_merge_overlap_expired_deadline_end_to_end_preserves_estat(self):
+        prod_rec = {
+            "contract_folder_id": "CFID-B21-1",
+            "estat": "Vigente",
+            "data_limit": "2026-01-01",
+            "lifecycle_category": "CLEAR_OPEN",
+            "active_opportunity_eligible": True,
+            "lifecycle_review_required": False,
+        }
+        cand_rec = {
+            "contract_folder_id": "CFID-B21-1",
+            "estat": "Vigente",
+            "data_limit": "2026-01-01",
+        }
+        merged, conflicts = sfm.merge_overlap(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(merged["lifecycle_category"], sfm.DEADLINE_EXPIRED_CATEGORY)
+        self.assertFalse(merged["active_opportunity_eligible"])
+        self.assertTrue(merged["lifecycle_review_required"])
+        # Official status fields are never rewritten by deadline expiry alone.
+        self.assertEqual(merged["estat"], "Vigente")
+
+    def test_lifecycle_integrity_accepts_deadline_expired_category(self):
+        # The new category is inactive by construction, so it must never trip
+        # the OPEN_WITH_AWARD_EVIDENCE+active=True invariant guard.
+        recs = [{
+            "contract_folder_id": "CFID-B21-2",
+            "lifecycle_category": sfm.DEADLINE_EXPIRED_CATEGORY,
+            "active_opportunity_eligible": False,
+        }]
+        ok, issues = sfm.validate_lifecycle_integrity(recs)
         self.assertTrue(ok)
         self.assertEqual(issues, [])
 
