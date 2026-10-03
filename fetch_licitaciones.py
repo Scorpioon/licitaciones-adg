@@ -5,6 +5,12 @@
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.6  Oct 2026  Add parse_atom_tombstones(): P331-B16 official Atom
+#                  deleted-entry tombstone signal is now captured per page and
+#                  surfaced in the candidate envelope (meta.tombstones, online
+#                  fetch only). Raw signal only -- product consequence is
+#                  resolved in tools/scheduled_fetch_merge.py (WRKOPS
+#                  t_20261002_adgops333).
 # 0.4.5z May 2026  Bugfix: seen_ids.add deferred after score gate; observed/candidate/accepted accounting.
 # 0.4.5f May 2026  Add merge_master_v2: ContractFolderID-aware merge; canonical_key dedup path.
 # 0.4.4o May 2026  Per-page retry/backoff for transient SSL/network failures in fetch_source().
@@ -558,6 +564,30 @@ def parse_atom_entries(root):
     if entries:
         return entries
     return [e for e in root.iter() if str(e.tag).endswith("entry")]
+
+
+def parse_atom_tombstones(root) -> list:
+    """Official Atom Tombstones (P331-B16): `<at:deleted-entry ref="..."
+    when="...">` elements the PLACSP feed emits alongside ordinary
+    `<atom:entry>` elements when a source entry is removed. Matched by local
+    name only -- namespace prefix in the wild is not guaranteed -- which is
+    safe because a `ref` is only ever acted on after being matched against a
+    known stable identity (see tools/scheduled_fetch_merge.py); an unrelated
+    element that happened to share the local name would simply fail to match
+    anything and be ignored.
+
+    Never itself represents a legal procurement outcome -- it is raw source
+    deletion evidence, carried through unmodified for the merge layer to
+    consume.
+    """
+    tombstones = []
+    for el in root.iter():
+        if localname_lower(el.tag) == "deleted-entry":
+            ref = (el.get("ref") or "").strip()
+            if not ref:
+                continue
+            tombstones.append({"ref": ref, "when": (el.get("when") or "").strip()})
+    return tombstones
 
 
 def get_entry_text(entry, tag):
@@ -1457,6 +1487,7 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
 
     pprint(f"  ↓ {name}  [hasta {max_pages} página(s) × ~100 items]")
     all_results = []
+    all_tombstones = []
     seen_ids = set()
     pages_done = 0
     had_error = False
@@ -1562,6 +1593,12 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
             if not _QUIET:
                 pprint(f"    → {len(entries)} entries")
 
+            tombstones = parse_atom_tombstones(root)
+            if tombstones:
+                all_tombstones.extend(tombstones)
+                if not _QUIET:
+                    pprint(f"    → {len(tombstones)} deleted-entry tombstones")
+
             page_results, discarded = _process_entries(entries, src_ccaa, name, seen_ids, today, min_score)
             if not _QUIET:
                 dup_info = f" dup={discarded['dup']}" if discarded["dup"] else ""
@@ -1603,6 +1640,7 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
 
     return {
         "results": all_results,
+        "tombstones": all_tombstones,
         "pages_done": pages_done,
         "had_error": had_error,
         "error_msg": error_msg,
@@ -1864,6 +1902,7 @@ def main():
     pprint(f"  Datos anteriores cargados: {len(previous)} items\n")
 
     all_new_items = []
+    all_tombstones: list = []
     _local_stats = None
 
     # Run-level tracking (live mode only)
@@ -1929,6 +1968,7 @@ def main():
                                       max_source_records=max_source_records,
                                       budget=budget, deadline=deadline)
             all_new_items.extend(src_result["results"])
+            all_tombstones.extend(src_result.get("tombstones", []))
             sname = src["name"]
             completed_pages_by_source[sname] = src_result["pages_done"]
             retry_counts_by_source[sname] = src_result["retry_count"]
@@ -2103,6 +2143,18 @@ def main():
         envelope["bounded_mode"]              = args.bounded_mode
         envelope["deadline_exhausted"]        = deadline_exhausted_any
         envelope["budget_exhausted"]          = budget_exhausted_any
+
+        # P331-B16: official Atom deleted-entry tombstones observed this run
+        # (deduplicated by ref, first occurrence wins). Raw source-removal
+        # evidence only -- the merge layer (tools/scheduled_fetch_merge.py)
+        # decides product consequence; this envelope never itself asserts a
+        # legal procurement outcome.
+        _tombstones_by_ref: dict = {}
+        for _t in all_tombstones:
+            _ref = _t.get("ref")
+            if _ref and _ref not in _tombstones_by_ref:
+                _tombstones_by_ref[_ref] = _t
+        envelope["tombstones"] = list(_tombstones_by_ref.values())
 
     if _local_stats is not None:
         envelope["observed_entries_count"]    = _local_stats["observed_entries_count"]

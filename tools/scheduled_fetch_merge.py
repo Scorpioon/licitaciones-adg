@@ -216,6 +216,72 @@ def is_deadline_expired(data_limit, reference_date=None) -> bool:
         return False
     return deadline < (reference_date or _default_reference_date())
 
+
+# B16 repair (WRKOPS t_20261002_adgops333): the official Atom feed's
+# deleted-entry tombstone (<at:deleted-entry ref="..." when="...">,
+# fetch_licitaciones.py's parse_atom_tombstones()) is source-removal evidence
+# only -- it is never read as award, cancellation, desertion, or any other
+# official procurement outcome. This category marks that the matched
+# identity's source entry was withdrawn and removes it from active public
+# eligibility pending explicit official status evidence. It never overrides
+# a record that already carries stronger award/closure evidence.
+TOMBSTONE_CATEGORY = "WITHDRAWN_SOURCE_TOMBSTONE"
+_TOMBSTONE_PROTECTED_CATEGORIES = ("CLEAR_AWARDED", "OPEN_WITH_AWARD_EVIDENCE")
+
+
+def extract_tombstone_refs(cand_meta: dict) -> dict:
+    """Map atom-id ref -> tombstone `when` ("" if absent) from the candidate
+    envelope's `meta.tombstones` (fetch_licitaciones.py P331-B16 output).
+    Malformed/non-dict entries and empty refs are dropped; the first
+    occurrence of a repeated ref wins (deterministic)."""
+    refs: dict = {}
+    for t in (cand_meta.get("tombstones") or []):
+        if not isinstance(t, dict):
+            continue
+        ref = str(t.get("ref") or "").strip()
+        if ref and ref not in refs:
+            refs[ref] = str(t.get("when") or "").strip()
+    return refs
+
+
+def apply_tombstone_consequence(rec: dict, tombstone_when: str) -> dict:
+    """Apply the P331-B16 tombstone consequence to a known identity the
+    current candidate run no longer supplies (a production/state-only record
+    whose original atom `id` matches an observed deleted-entry ref).
+
+    Conservative and idempotent:
+      - a record already carrying award/closure evidence (CLEAR_AWARDED,
+        OPEN_WITH_AWARD_EVIDENCE) keeps its existing lifecycle fields
+        untouched -- only a provenance marker is added, never a downgrade;
+      - otherwise the record is demoted to TOMBSTONE_CATEGORY /
+        active_opportunity_eligible=False / lifecycle_review_required=True;
+      - `estat` / `estat_raw` / `adjudicatari` / `award_results` (raw source
+        fidelity) are never modified -- a tombstone is not synthesized into
+        a legal cancellation, desertion, or award;
+      - repeated application with the same input is a no-op beyond
+        `tombstone_observed_at`, which is set only once (first-seen).
+    """
+    result = dict(rec)
+    result["tombstone_ref_matched"] = True
+    if tombstone_when and not result.get("tombstone_observed_at"):
+        result["tombstone_observed_at"] = tombstone_when
+
+    if result.get("lifecycle_category") in _TOMBSTONE_PROTECTED_CATEGORIES:
+        return result
+
+    result["lifecycle_category"] = TOMBSTONE_CATEGORY
+    result["active_opportunity_eligible"] = False
+    result["lifecycle_review_required"] = True
+    result["dry_run_lifecycle_note"] = (
+        "Official Atom feed reported a deleted-entry tombstone for this "
+        "identity's source entry. This is source-removal evidence only -- "
+        "it is not proof of legal cancellation, desertion, award, or "
+        "closure. Removed from active public eligibility pending explicit "
+        "official status evidence."
+    )
+    return result
+
+
 # Fields skipped when iterating the candidate in merge_overlap.
 # LIFECYCLE_DECISION_FIELDS are excluded here — set by resolve_overlap_lifecycle().
 _SKIP_FROM_CANDIDATE = set(ENRICHMENT_FIELDS) | GATE_FIELDS | LIFECYCLE_DECISION_FIELDS | {"source_merge_class"}
@@ -627,16 +693,18 @@ def validate_structure(data: dict, label: str) -> list[str]:
 
 
 def validate_lifecycle_integrity(records: list) -> tuple[bool, list[str]]:
-    """OPEN_WITH_AWARD_EVIDENCE must not have active_opportunity_eligible=True."""
+    """OPEN_WITH_AWARD_EVIDENCE and WITHDRAWN_SOURCE_TOMBSTONE (P331-B16)
+    must not have active_opportunity_eligible=True."""
     issues: list[str] = []
     for i, rec in enumerate(records):
         key = get_merge_key(rec) or f"index:{i}"
+        category = rec.get("lifecycle_category")
         if (
-            rec.get("lifecycle_category") == "OPEN_WITH_AWARD_EVIDENCE"
+            category in ("OPEN_WITH_AWARD_EVIDENCE", TOMBSTONE_CATEGORY)
             and rec.get("active_opportunity_eligible") is True
         ):
             issues.append(
-                f"{key}: OPEN_WITH_AWARD_EVIDENCE has active_opportunity_eligible=True (UNSAFE)"
+                f"{key}: {category} has active_opportunity_eligible=True (UNSAFE)"
             )
     return (len(issues) == 0), issues
 
@@ -867,13 +935,19 @@ def run_merge_dry_run(args) -> None:
 
     prod_index = build_index(prod_rows)
     cand_index = build_index(cand_rows)
+    tombstone_refs = extract_tombstone_refs(cand_meta)
 
     merged_rows: list = []
     all_conflicts: list = []
     overlap_keys: list = []
     candidate_only_keys: list = []
+    tombstones_applied = 0
 
     # Process production records: merge overlaps, preserve production-only.
+    # P331-B16: a production-only record (absent from this candidate) whose
+    # original atom `id` matches an observed deleted-entry ref is demoted via
+    # apply_tombstone_consequence() instead of being blindly carried forward
+    # unchanged -- see that function for the conservative/idempotent rules.
     for rec in prod_rows:
         key = get_merge_key(rec)
         if key and key in cand_index:
@@ -883,7 +957,12 @@ def run_merge_dry_run(args) -> None:
                 all_conflicts.extend({"merge_key": key, **c} for c in conflicts)
             overlap_keys.append(key)
         else:
-            merged_rows.append(dict(rec))
+            tomb_when = tombstone_refs.get(rec.get("id"))
+            if tomb_when is not None:
+                merged_rows.append(apply_tombstone_consequence(rec, tomb_when))
+                tombstones_applied += 1
+            else:
+                merged_rows.append(dict(rec))
 
     # Append candidate-only records (not in production).
     for cand_rec in cand_rows:
@@ -908,6 +987,7 @@ def run_merge_dry_run(args) -> None:
         "overlap_count": len(overlap_keys),
         "candidate_only_added": len(candidate_only_keys),
         "production_only_preserved": prod_only_count,
+        "tombstones_applied": tombstones_applied,
     })
     write_json(output_path, {"meta": output_meta, "data": merged_rows})
 
@@ -920,6 +1000,7 @@ def run_merge_dry_run(args) -> None:
         "overlap_count": len(overlap_keys),
         "production_only_preserved": prod_only_count,
         "candidate_only_added": len(candidate_only_keys),
+        "tombstones_applied": tombstones_applied,
         "active_true": merged_counts["active_true"],
         "review_true": merged_counts["review_true"],
         "rs_count": merged_counts["rs_count"],
@@ -945,6 +1026,7 @@ def run_merge_dry_run(args) -> None:
     print(f"  overlap merged      : {len(overlap_keys)}")
     print(f"  candidate only added: {len(candidate_only_keys)}")
     print(f"  production preserved: {prod_only_count}")
+    print(f"  tombstones applied  : {tombstones_applied}")
     print(f"  merged total        : {len(merged_rows)}")
     print(f"  active_true         : {merged_counts['active_true']}")
     print(f"  review_true         : {merged_counts['review_true']}")
@@ -1216,12 +1298,18 @@ def run_live(args) -> None:
     cand_rows   = cand_data["data"]
     state_index = build_index(state_rows)
     cand_index  = build_index(cand_rows)
+    tombstone_refs = extract_tombstone_refs(cand_meta)
 
     merged_rows: list = []
     all_conflicts: list = []
     overlap_keys: list = []
     candidate_only_keys: list = []
+    tombstones_applied = 0
 
+    # P331-B16: a state-only record (absent from this candidate) whose
+    # original atom `id` matches an observed deleted-entry ref is demoted via
+    # apply_tombstone_consequence() instead of being blindly carried forward
+    # unchanged -- see that function for the conservative/idempotent rules.
     for rec in state_rows:
         key = get_merge_key(rec)
         if key and key in cand_index:
@@ -1231,7 +1319,12 @@ def run_live(args) -> None:
                 all_conflicts.extend({"merge_key": key, **c} for c in conflicts)
             overlap_keys.append(key)
         else:
-            merged_rows.append(dict(rec))
+            tomb_when = tombstone_refs.get(rec.get("id"))
+            if tomb_when is not None:
+                merged_rows.append(apply_tombstone_consequence(rec, tomb_when))
+                tombstones_applied += 1
+            else:
+                merged_rows.append(dict(rec))
 
     for cand_rec in cand_rows:
         key = get_merge_key(cand_rec)
@@ -1307,6 +1400,7 @@ def run_live(args) -> None:
     print(
         f"[run-live] merged={len(merged_rows)} "
         f"overlap={len(overlap_keys)} added={len(candidate_only_keys)} "
+        f"tombstones_applied={tombstones_applied} "
         f"active={merged_counts['active_true']} review={merged_counts['review_true']} "
         f"rs={merged_counts['rs_count']}"
     )

@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "generated_at": "2026-09-01T06:00:00Z",
+    "run_status": "FULL_SUCCESS",
+    "is_partial": false,
+    "failed_sources": [],
+    "source_errors": {},
+    "tombstones": [
+      {"ref": "FIX-AWARD-001", "when": "2026-09-01T00:00:00Z"}
+    ]
+  },
+  "data": []
+}

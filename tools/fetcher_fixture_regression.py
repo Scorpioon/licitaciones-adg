@@ -341,6 +341,197 @@ class L1MergeHelperTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(issues, [])
 
+    # --- B16 Atom tombstone semantics repair --------------------------------
+    # WRKOPS t_20261002_adgops333 / P331-B16: the official Atom feed's
+    # deleted-entry tombstone (<at:deleted-entry ref="..." when="...">) must
+    # be preserved and acted on so a matched identity cannot continue to be
+    # represented as an ordinary active/current opportunity solely through
+    # historical carry-forward. A tombstone is source-removal evidence only
+    # -- never a legal cancellation, desertion, award, or closure.
+
+    def test_extract_tombstone_refs_basic(self):
+        refs = sfm.extract_tombstone_refs({
+            "tombstones": [{"ref": "A-1", "when": "2026-09-01T00:00:00Z"}]
+        })
+        self.assertEqual(refs, {"A-1": "2026-09-01T00:00:00Z"})
+
+    def test_extract_tombstone_refs_drops_malformed_and_empty(self):
+        refs = sfm.extract_tombstone_refs({
+            "tombstones": [
+                {"ref": "", "when": "2026-09-01T00:00:00Z"},
+                "not-a-dict",
+                {"when": "2026-09-01T00:00:00Z"},
+                {"ref": "A-2"},
+            ]
+        })
+        self.assertEqual(refs, {"A-2": ""})
+
+    def test_extract_tombstone_refs_first_occurrence_wins(self):
+        refs = sfm.extract_tombstone_refs({
+            "tombstones": [
+                {"ref": "A-3", "when": "first"},
+                {"ref": "A-3", "when": "second"},
+            ]
+        })
+        self.assertEqual(refs["A-3"], "first")
+
+    def test_extract_tombstone_refs_missing_key(self):
+        self.assertEqual(sfm.extract_tombstone_refs({}), {})
+
+    def test_apply_tombstone_consequence_demotes_open_identity(self):
+        rec = {
+            "id": "FIX-OPEN-001",
+            "estat": "vigent",
+            "adjudicatari": "",
+            "lifecycle_category": "CLEAR_OPEN",
+            "active_opportunity_eligible": True,
+            "lifecycle_review_required": False,
+        }
+        out = sfm.apply_tombstone_consequence(rec, "2026-09-01T00:00:00Z")
+        self.assertEqual(out["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(out["active_opportunity_eligible"])
+        self.assertTrue(out["lifecycle_review_required"])
+        self.assertTrue(out["tombstone_ref_matched"])
+        self.assertEqual(out["tombstone_observed_at"], "2026-09-01T00:00:00Z")
+        # Raw source fidelity: no legal status synthesized.
+        self.assertEqual(out["estat"], "vigent")
+        self.assertEqual(out["adjudicatari"], "")
+
+    def test_apply_tombstone_consequence_idempotent_on_repeat(self):
+        rec = {"id": "FIX-OPEN-001", "estat": "vigent", "lifecycle_category": "CLEAR_OPEN",
+               "active_opportunity_eligible": True, "lifecycle_review_required": False}
+        once = sfm.apply_tombstone_consequence(rec, "2026-09-01T00:00:00Z")
+        twice = sfm.apply_tombstone_consequence(once, "2026-09-05T00:00:00Z")
+        self.assertEqual(twice["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(twice["active_opportunity_eligible"])
+        # First-seen timestamp is preserved, not overwritten by a later re-application.
+        self.assertEqual(twice["tombstone_observed_at"], "2026-09-01T00:00:00Z")
+
+    def test_apply_tombstone_consequence_conservative_for_already_awarded(self):
+        rec = {
+            "id": "FIX-AWARD-001",
+            "estat": "adjudicada",
+            "adjudicatari": "Empresa Sintetica SL",
+            "lifecycle_category": "CLEAR_AWARDED",
+            "active_opportunity_eligible": False,
+            "lifecycle_review_required": False,
+        }
+        out = sfm.apply_tombstone_consequence(rec, "2026-09-01T00:00:00Z")
+        # Stronger existing evidence is never downgraded/relabeled.
+        self.assertEqual(out["lifecycle_category"], "CLEAR_AWARDED")
+        self.assertFalse(out["active_opportunity_eligible"])
+        self.assertEqual(out["adjudicatari"], "Empresa Sintetica SL")
+        # Provenance is still recorded.
+        self.assertTrue(out["tombstone_ref_matched"])
+
+    def test_lifecycle_integrity_rejects_unsafe_active_tombstone(self):
+        bad = [{
+            "contract_folder_id": "CFID-TOMB-BAD",
+            "lifecycle_category": sfm.TOMBSTONE_CATEGORY,
+            "active_opportunity_eligible": True,
+        }]
+        ok, issues = sfm.validate_lifecycle_integrity(bad)
+        self.assertFalse(ok)
+        self.assertTrue(issues)
+
+    # --- B16 end-to-end: run_merge_dry_run production-only branch ----------
+
+    def test_dryrun_tombstone_demotes_known_active_identity(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out))
+        merged = {r["id"]: r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        rec = merged["FIX-OPEN-001"]
+        self.assertEqual(rec["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(rec["active_opportunity_eligible"])
+        self.assertTrue(rec["lifecycle_review_required"])
+        self.assertTrue(rec.get("tombstone_ref_matched"))
+        # estat is raw source fidelity -- untouched, no legal state synthesized.
+        self.assertEqual(rec["estat"], "vigent")
+        self.assertEqual(rec["adjudicatari"], "")
+        report = json.loads(sfm.REPORT_DRY_RUN.read_text(encoding="utf-8"))
+        self.assertEqual(report["tombstones_applied"], 1)
+
+    def test_dryrun_tombstone_repeated_run_is_idempotent(self):
+        out1 = self.tmp / "out1.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out1))
+        first = {r["id"]: r for r in json.loads(out1.read_text(encoding="utf-8"))["data"]}["FIX-OPEN-001"]
+
+        # Second run starts from the already-tombstoned output and re-applies
+        # the same tombstone ref again.
+        sfm.PRODUCTION_PATH = out1
+        out2 = self.tmp / "out2.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out2))
+        second = {r["id"]: r for r in json.loads(out2.read_text(encoding="utf-8"))["data"]}["FIX-OPEN-001"]
+
+        self.assertEqual(second["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(second["active_opportunity_eligible"])
+        self.assertEqual(second["tombstone_observed_at"], first["tombstone_observed_at"])
+
+    def test_dryrun_tombstone_already_nonactive_identity_unchanged(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_awarded_identity.json", out))
+        merged = {r["id"]: r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        rec = merged["FIX-AWARD-001"]
+        self.assertEqual(rec["lifecycle_category"], "CLEAR_AWARDED")
+        self.assertFalse(rec["active_opportunity_eligible"])
+        self.assertTrue(rec.get("tombstone_ref_matched"))
+
+    def test_dryrun_tombstone_unknown_ref_is_conservative_noop(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_unknown_ref.json", out))
+        merged = {r["id"]: r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        # No ghost record was created for the unmatched ref...
+        self.assertNotIn("FIX-GHOST-999", merged)
+        # ...and every known identity is untouched (no tombstone fields leaked).
+        self.assertEqual(len(merged), 3)
+        for rec in merged.values():
+            self.assertNotIn("tombstone_ref_matched", rec)
+        report = json.loads(sfm.REPORT_DRY_RUN.read_text(encoding="utf-8"))
+        self.assertEqual(report["tombstones_applied"], 0)
+
+    def test_dryrun_ordinary_entries_unaffected_by_tombstone_handling(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_full_success.json", out))
+        merged = {sfm.get_merge_key(r): r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        for key in ("CFID-OPEN-001", "CFID-OVERLAP-001", "CFID-NEW-001"):
+            self.assertIn(key, merged)
+            self.assertNotIn("tombstone_ref_matched", merged[key])
+
+    def test_dryrun_carry_forward_cannot_resurrect_tombstoned_identity(self):
+        # Run 1: tombstone FIX-OPEN-001.
+        out1 = self.tmp / "out1.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out1))
+
+        # Run 2: an ordinary later run that never mentions FIX-OPEN-001 again
+        # and carries no tombstones of its own -- pure blind carry-forward.
+        sfm.PRODUCTION_PATH = out1
+        out2 = self.tmp / "out2.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_full_success.json", out2))
+
+        merged = {r["id"]: r for r in json.loads(out2.read_text(encoding="utf-8"))["data"]}
+        rec = merged["FIX-OPEN-001"]
+        # Historical carry-forward alone must not resurrect active/public eligibility.
+        self.assertEqual(rec["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(rec["active_opportunity_eligible"])
+
+    def test_dryrun_later_live_entry_follows_existing_overlap_rules(self):
+        # Run 1: tombstone FIX-OPEN-001.
+        out1 = self.tmp / "out1.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out1))
+
+        # Run 2: the official feed explicitly republishes the same
+        # ContractFolderID as an ordinary open entry (no tombstone this run).
+        # This is explicit new source evidence flowing through the existing,
+        # unmodified overlap rules -- not an implicit resurrection rule.
+        sfm.PRODUCTION_PATH = out1
+        out2 = self.tmp / "out2.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_overlap_revives.json", out2))
+
+        merged = {sfm.get_merge_key(r): r for r in json.loads(out2.read_text(encoding="utf-8"))["data"]}
+        rec = merged["CFID-OPEN-001"]
+        self.assertEqual(rec["lifecycle_category"], "CLEAR_OPEN")
+        self.assertTrue(rec["active_opportunity_eligible"])
+
     # --- run_validate_production canonical-only behaviour (A2.3) -----------
 
     def test_validate_production_canonical_fixture_accepted(self):
