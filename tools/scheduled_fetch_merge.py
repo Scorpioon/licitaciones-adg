@@ -79,6 +79,14 @@ try:
 except ImportError:  # pragma: no cover - direct-run fallback
     import fetch_bounds
 
+# WRKOPS t_20261004_adgops335 (P331-B15 D1/D4 repair): optional acquisition-
+# layer staging authority -- rotated here only after a successful public
+# write of a fully-acquired cycle. Never read for merge/lifecycle decisions.
+try:
+    from tools import acquisition_staging
+except ImportError:  # pragma: no cover - direct-run fallback
+    import acquisition_staging
+
 # Canonicalization (Prompt 292, closed) and public-record projection
 # (Prompt 289, closed). Used only by --run-live (p294): the internal
 # continuity merge, canonicalization, and public projection are three
@@ -1191,6 +1199,18 @@ def run_live(args) -> None:
         )
     internal_state_path = Path(args.internal_state_path)
 
+    # WRKOPS t_20261004_adgops335 (P331-B15 D1/D4): optional, strictly
+    # additive. getattr() guards callers (and existing tests) that construct
+    # args without this field -- absent (the default), run_live() is
+    # byte-for-byte the legacy single-run behavior this task found it in,
+    # including the legacy acquisition_complete gate being skipped entirely
+    # (see below): there is no continuation mechanism yet for such a caller,
+    # so enforcing the new fail-closed gate without one would only convert
+    # today's always-publishes-something behavior into an unconditional,
+    # un-recoverable refusal -- exactly the "routine ceiling-hit creates
+    # indefinite stale state" failure this task's design is meant to avoid.
+    acquisition_staging_path = getattr(args, "acquisition_staging_path", None)
+
     TMP_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     candidate_path = TMP_DIR / f"scheduled_live_candidate_{ts}.json"
@@ -1224,16 +1244,20 @@ def run_live(args) -> None:
     print(f"[run-live] Fetching to: {candidate_path}")
     print(f"[run-live] bounded-mode: global deadline={GLOBAL_DEADLINE_S}s "
           f"(sources={active_source_count}, hard subprocess timeout=same value)")
+    fetch_cmd = [
+        sys.executable, str(FETCHER_SCRIPT),
+        "--output", str(candidate_path),
+        "--min-score", "20",
+        "--no-progress",
+        "--bounded-mode",
+        "--global-deadline", str(GLOBAL_DEADLINE_S),
+    ]
+    if acquisition_staging_path:
+        fetch_cmd += ["--acquisition-staging-path", str(acquisition_staging_path)]
+        print(f"[run-live] acquisition staging: {acquisition_staging_path}")
     try:
         result = subprocess.run(
-            [
-                sys.executable, str(FETCHER_SCRIPT),
-                "--output", str(candidate_path),
-                "--min-score", "20",
-                "--no-progress",
-                "--bounded-mode",
-                "--global-deadline", str(GLOBAL_DEADLINE_S),
-            ],
+            fetch_cmd,
             capture_output=True,
             text=True,
             timeout=GLOBAL_DEADLINE_S,
@@ -1289,6 +1313,35 @@ def run_live(args) -> None:
                 "[ERROR] Partial/failed candidate — refusing production write. "
                 "Investigate fetcher output before re-running."
             )
+
+    # WRKOPS t_20261004_adgops335 (P331-B15 D4): a SEPARATE fail-closed gate
+    # from the is_partial check above -- deliberately not conflated with it.
+    # Only enforced when the D1 acquisition-staging authority is active
+    # (acquisition_staging_path set): without a continuation mechanism,
+    # enforcing this unconditionally would turn every ordinary, error-free
+    # run into a permanent refusal (both live sources are known to exceed a
+    # single bounded run's page ceiling -- P334 §14(c)/addendum R1B), which
+    # is exactly the "routine ceiling-hit creates indefinite stale state"
+    # failure this design exists to avoid. acquisition_complete missing
+    # entirely is treated as incomplete (fail closed on an unexpected
+    # candidate shape, never default-true). Not overridable by
+    # --allow-partial-production-write -- that flag does not exist on this
+    # module's own CLI surface at all (it belongs to fetch_licitaciones.py's
+    # unrelated direct-write guard) and this task authorizes no new override.
+    cand_acquisition_complete = cand_meta.get("acquisition_complete")
+    print(f"[run-live] candidate acquisition_complete={cand_acquisition_complete!r}")
+    if acquisition_staging_path and cand_acquisition_complete is not True:
+        sys.exit(
+            "[ERROR] Acquisition incomplete (acquisition_complete="
+            f"{cand_acquisition_complete!r}) — refusing production write. "
+            "This is distinct from the is_partial/run_status check above: "
+            "the bounded acquisition path has not yet reached every "
+            "required source's own feed-terminal condition. Bounded "
+            "forward progress has already been persisted to the "
+            "acquisition-staging authority for this cycle; a later "
+            "scheduled run will continue it automatically. This is not a "
+            "fetch failure."
+        )
 
     # Load the authoritative private internal-continuity state (never
     # data/licitaciones.json — that is now derived output, not input).
@@ -1373,6 +1426,15 @@ def run_live(args) -> None:
     public_meta = build_public_meta(public_records, cand_meta)
     write_json(PRODUCTION_PATH, {"meta": public_meta, "data": public_records})
     print(f"[run-live] Written: {PRODUCTION_PATH} ({len(public_records)} canonical public records)")
+
+    # WRKOPS t_20261004_adgops335 (P331-B15 D1): rotate the acquisition-
+    # staging cycle only AFTER the public write above has succeeded -- a
+    # failure at any point before this line (canonicalization, projection,
+    # backup, write) leaves the completed cycle's staged data intact, so a
+    # later run can retry the merge/publish step alone, with zero re-fetch.
+    if acquisition_staging_path:
+        acquisition_staging.rotate(Path(acquisition_staging_path), pc.PUBLIC_SOURCES)
+        print(f"[run-live] Acquisition cycle complete; staging rotated: {acquisition_staging_path}")
     print(
         f"[run-live] generation_id={public_meta['generation_id']} "
         f"dataset_sha256={public_meta['dataset_sha256'][:12]}... "
@@ -1451,6 +1513,16 @@ def main() -> None:
                          "reviewed adgops.link_checks/1 sidecar to overlay onto "
                          "--run-live's public output. Absent by default (no behavior "
                          "change). Never derived/guessed -- must be explicit.")
+    ap.add_argument("--acquisition-staging-path", metavar="PATH", dest="acquisition_staging_path",
+                    default=None,
+                    help="WRKOPS t_20261004_adgops335 (P331-B15 D1/D4): optional path to the "
+                         "dedicated, private acquisition-staging file (sibling to "
+                         "--internal-state-path in the same private companion-repo working "
+                         "copy). When set, --run-live passes it through to the fetcher "
+                         "subprocess, enforces the new acquisition_complete fail-closed gate, "
+                         "and rotates the staging cycle after a successful public write. "
+                         "Absent by default -- --run-live remains the legacy single-run "
+                         "behavior with no acquisition_complete enforcement.")
 
     args = ap.parse_args()
 

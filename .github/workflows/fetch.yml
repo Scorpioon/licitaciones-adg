@@ -187,38 +187,69 @@ jobs:
           # status, and "Commit data if changed" below can never stage it
           # (it `git add`s an explicit public-file list only).
           ADGOPS_INTERNAL_STATE_PATH: _tmp/adgops-state/state/licitaciones.json
+          # WRKOPS t_20261004_adgops335 (P331-B15 D1): sibling file in the
+          # same private companion-repo working copy -- acquisition-layer
+          # staging only, strictly separate from the internal-continuity
+          # state above (never read as its substitute, never the canonical
+          # state's checkpoint).
+          ADGOPS_STAGING_PATH: _tmp/adgops-state/state/acquisition_staging.json
         run: |
           set -euo pipefail
           mkdir -p _tmp
           # set -o pipefail: the helper's exit code propagates through tee, so a
           # fail-closed refusal (EMPTY_FAILURE / partial candidate / missing or
-          # invalid internal state) fails the step instead of being masked by
-          # tee's own exit 0.
+          # invalid internal state / acquisition_complete=false) fails the step
+          # instead of being masked by tee's own exit 0. A fail-closed
+          # acquisition_complete=false refusal still leaves this run's bounded
+          # forward progress committed by "Commit and push private internal
+          # state" below, which runs regardless of this step's own outcome.
           python tools/scheduled_fetch_merge.py --run-live --allow-production-write \
-            --internal-state-path "$ADGOPS_INTERNAL_STATE_PATH" 2>&1 | tee _tmp/run_helper.log
+            --internal-state-path "$ADGOPS_INTERNAL_STATE_PATH" \
+            --acquisition-staging-path "$ADGOPS_STAGING_PATH" 2>&1 | tee _tmp/run_helper.log
 
       - name: Commit and push private internal state
         id: statepush
-        if: env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false'
+        # WRKOPS t_20261004_adgops335 (P331-B15 D1): always() is required so
+        # this step still runs -- and still commits/pushes bounded
+        # acquisition-staging progress -- when the helper step above fails
+        # closed on a routine acquisition_complete=false ceiling hit (its
+        # normal, expected outcome while a cycle is still in progress, not
+        # an incident). Scoped to steps.statecheckout.outcome == 'success' so
+        # it never runs against a working copy that was never checked out
+        # (RUN_FETCH!=true skips statecheckout entirely; a real checkout
+        # failure must still fail the job closed, exactly as before).
+        if: always() && env.RUN_FETCH == 'true' && env.DRY_RUN_MODE == 'false' && steps.statecheckout.outcome == 'success'
         shell: bash
         working-directory: _tmp/adgops-state
         run: |
           # Must succeed before any public commit/push (handoff §2 steps
           # 10-11, §5B): this step runs before "Commit data if changed" /
-          # "Push" below, and (like those steps' own plain `if:`) relies on
-          # GitHub Actions' default behaviour that a later step does not run
-          # once an earlier step in this job has failed. A failure here
-          # (auth, network, push rejected) therefore fails the whole run
-          # closed before the public artifact is ever committed or pushed.
-          # Diff-guarded: a no-change internal state produces no empty commit.
+          # "Push" below. A failure here (auth, network, push rejected)
+          # fails the whole run closed before the public artifact is ever
+          # committed or pushed -- enforced below by explicitly checking
+          # this step's own exit code is never reached by a later public
+          # step when it fails (GitHub Actions' default plain-`if:` behavior
+          # on every step after this one that does NOT itself use always()).
+          # Diff-guarded: a no-change internal state and/or staging file
+          # produces no empty commit.
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add state/licitaciones.json
+          # state/acquisition_staging.json is new (WRKOPS t_20261004_adgops335)
+          # and does not yet exist in this private repo at all before its
+          # first successful write -- and may still not exist locally on a
+          # run that failed before fetch_licitaciones.py reached its one
+          # staging write (e.g. a hard subprocess-timeout kill). `git add` on
+          # a path that matches nothing is a hard (non-zero) error under
+          # `set -e`, so only stage it when actually present.
+          if [ -f state/acquisition_staging.json ]; then
+            git add state/acquisition_staging.json
+          fi
           if git diff --cached --quiet; then
-            echo "no internal-state changes to commit"
+            echo "no internal-state/acquisition-staging changes to commit"
           else
-            git commit -m "state(auto/fetcher1-scheduled): update internal continuity state [run #${{ github.run_number }}]" \
+            git commit -m "state(auto/fetcher1-scheduled): update internal continuity + acquisition staging state [run #${{ github.run_number }}]" \
                         -m "Automation-ID: ${AUTOMATION_ID}"
             git push
           fi
