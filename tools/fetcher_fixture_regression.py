@@ -41,6 +41,7 @@ import tempfile
 import types
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -63,6 +64,7 @@ import tools.link_check_resolver as lcr  # noqa: E402
 import tools.fetch_bounds as fetch_bounds  # noqa: E402 - Prompt 323 Stage B
 import fetch_licitaciones as fl  # noqa: E402 - Prompt 323 Stage B
 import tools.run_receipt as run_receipt  # noqa: E402 - Prompt 324 Stage B
+import tools.acquisition_staging as acquisition_staging  # noqa: E402 - WRKOPS t_20261004_adgops335
 
 AUTOMATION_ID = "ADGOPS_AUTO_FETCHER1_SCHEDULED"
 
@@ -223,6 +225,313 @@ class L1MergeHelperTests(unittest.TestCase):
         ok, issues = sfm.validate_lifecycle_integrity(prod["data"])
         self.assertTrue(ok)
         self.assertEqual(issues, [])
+
+    # --- B21 deadline-blind lifecycle repair --------------------------------
+    # WRKOPS t_20261002_adgops332 / P331 Group C (CANDIDATE-F-5): lifecycle
+    # eligibility must consume the stored submission deadline (`data_limit`).
+    # Deadline expiry alone must demote operational eligibility/review state
+    # only -- it must never be rewritten as award, cancellation, desertion,
+    # or any other official lifecycle status.
+
+    _REF_DATE = date(2026, 10, 2)
+
+    def test_is_deadline_expired_past_date(self):
+        self.assertTrue(sfm.is_deadline_expired("2026-01-01", self._REF_DATE))
+
+    def test_is_deadline_expired_future_date(self):
+        self.assertFalse(sfm.is_deadline_expired("2027-01-01", self._REF_DATE))
+
+    def test_is_deadline_expired_same_day_not_expired(self):
+        self.assertFalse(sfm.is_deadline_expired("2026-10-02", self._REF_DATE))
+
+    def test_is_deadline_expired_missing_value(self):
+        self.assertFalse(sfm.is_deadline_expired("", self._REF_DATE))
+        self.assertFalse(sfm.is_deadline_expired(None, self._REF_DATE))
+
+    def test_is_deadline_expired_malformed_value(self):
+        self.assertFalse(sfm.is_deadline_expired("not-a-date", self._REF_DATE))
+
+    def test_classify_lifecycle_expired_vigente_no_award_demoted(self):
+        rec = {"estat": "Vigente", "data_limit": "2026-01-01"}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, sfm.DEADLINE_EXPIRED_CATEGORY)
+        self.assertFalse(active)
+        self.assertTrue(review)
+        # Official status must be untouched by the demotion.
+        self.assertEqual(rec["estat"], "Vigente")
+
+    def test_classify_lifecycle_future_deadline_vigente_stays_open(self):
+        rec = {"estat": "Vigente", "data_limit": "2027-01-01"}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, "CLEAR_OPEN")
+        self.assertTrue(active)
+        self.assertFalse(review)
+
+    def test_classify_lifecycle_expired_with_award_evidence_not_demoted(self):
+        # Award evidence dominates: must classify as awarded, not deadline-expired.
+        rec = {"estat": "Vigente", "data_limit": "2026-01-01", "adjudicatari": "ACME SA"}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, "OPEN_WITH_AWARD_EVIDENCE")
+        self.assertFalse(active)
+
+    def test_classify_lifecycle_missing_deadline_no_false_closure(self):
+        rec = {"estat": "Vigente", "data_limit": ""}
+        category, active, review = sfm.classify_lifecycle(rec, self._REF_DATE)
+        self.assertEqual(category, "CLEAR_OPEN")
+        self.assertTrue(active)
+
+    def test_resolve_overlap_lifecycle_expired_vigente_no_award_demoted(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Vigente", "data_limit": "2026-01-01"}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], sfm.DEADLINE_EXPIRED_CATEGORY)
+        self.assertFalse(lc["active"])
+        self.assertTrue(lc["review"])
+
+    def test_resolve_overlap_lifecycle_future_deadline_stays_open(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Vigente", "data_limit": "2027-01-01"}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], "CLEAR_OPEN")
+        self.assertTrue(lc["active"])
+
+    def test_resolve_overlap_lifecycle_expired_with_award_evidence_not_demoted(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Adjudicado", "data_limit": "2026-01-01", "adjudicatari": "ACME SA"}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], "CLEAR_AWARDED")
+        self.assertFalse(lc["active"])
+
+    def test_resolve_overlap_lifecycle_missing_deadline_no_false_closure(self):
+        prod_rec = {"lifecycle_category": "CLEAR_OPEN", "active_opportunity_eligible": True}
+        cand_rec = {"estat": "Vigente", "data_limit": ""}
+        lc = sfm.resolve_overlap_lifecycle(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(lc["category"], "CLEAR_OPEN")
+        self.assertTrue(lc["active"])
+
+    def test_merge_overlap_expired_deadline_end_to_end_preserves_estat(self):
+        prod_rec = {
+            "contract_folder_id": "CFID-B21-1",
+            "estat": "Vigente",
+            "data_limit": "2026-01-01",
+            "lifecycle_category": "CLEAR_OPEN",
+            "active_opportunity_eligible": True,
+            "lifecycle_review_required": False,
+        }
+        cand_rec = {
+            "contract_folder_id": "CFID-B21-1",
+            "estat": "Vigente",
+            "data_limit": "2026-01-01",
+        }
+        merged, conflicts = sfm.merge_overlap(prod_rec, cand_rec, self._REF_DATE)
+        self.assertEqual(merged["lifecycle_category"], sfm.DEADLINE_EXPIRED_CATEGORY)
+        self.assertFalse(merged["active_opportunity_eligible"])
+        self.assertTrue(merged["lifecycle_review_required"])
+        # Official status fields are never rewritten by deadline expiry alone.
+        self.assertEqual(merged["estat"], "Vigente")
+
+    def test_lifecycle_integrity_accepts_deadline_expired_category(self):
+        # The new category is inactive by construction, so it must never trip
+        # the OPEN_WITH_AWARD_EVIDENCE+active=True invariant guard.
+        recs = [{
+            "contract_folder_id": "CFID-B21-2",
+            "lifecycle_category": sfm.DEADLINE_EXPIRED_CATEGORY,
+            "active_opportunity_eligible": False,
+        }]
+        ok, issues = sfm.validate_lifecycle_integrity(recs)
+        self.assertTrue(ok)
+        self.assertEqual(issues, [])
+
+    # --- B16 Atom tombstone semantics repair --------------------------------
+    # WRKOPS t_20261002_adgops333 / P331-B16: the official Atom feed's
+    # deleted-entry tombstone (<at:deleted-entry ref="..." when="...">) must
+    # be preserved and acted on so a matched identity cannot continue to be
+    # represented as an ordinary active/current opportunity solely through
+    # historical carry-forward. A tombstone is source-removal evidence only
+    # -- never a legal cancellation, desertion, award, or closure.
+
+    def test_extract_tombstone_refs_basic(self):
+        refs = sfm.extract_tombstone_refs({
+            "tombstones": [{"ref": "A-1", "when": "2026-09-01T00:00:00Z"}]
+        })
+        self.assertEqual(refs, {"A-1": "2026-09-01T00:00:00Z"})
+
+    def test_extract_tombstone_refs_drops_malformed_and_empty(self):
+        refs = sfm.extract_tombstone_refs({
+            "tombstones": [
+                {"ref": "", "when": "2026-09-01T00:00:00Z"},
+                "not-a-dict",
+                {"when": "2026-09-01T00:00:00Z"},
+                {"ref": "A-2"},
+            ]
+        })
+        self.assertEqual(refs, {"A-2": ""})
+
+    def test_extract_tombstone_refs_first_occurrence_wins(self):
+        refs = sfm.extract_tombstone_refs({
+            "tombstones": [
+                {"ref": "A-3", "when": "first"},
+                {"ref": "A-3", "when": "second"},
+            ]
+        })
+        self.assertEqual(refs["A-3"], "first")
+
+    def test_extract_tombstone_refs_missing_key(self):
+        self.assertEqual(sfm.extract_tombstone_refs({}), {})
+
+    def test_apply_tombstone_consequence_demotes_open_identity(self):
+        rec = {
+            "id": "FIX-OPEN-001",
+            "estat": "vigent",
+            "adjudicatari": "",
+            "lifecycle_category": "CLEAR_OPEN",
+            "active_opportunity_eligible": True,
+            "lifecycle_review_required": False,
+        }
+        out = sfm.apply_tombstone_consequence(rec, "2026-09-01T00:00:00Z")
+        self.assertEqual(out["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(out["active_opportunity_eligible"])
+        self.assertTrue(out["lifecycle_review_required"])
+        self.assertTrue(out["tombstone_ref_matched"])
+        self.assertEqual(out["tombstone_observed_at"], "2026-09-01T00:00:00Z")
+        # Raw source fidelity: no legal status synthesized.
+        self.assertEqual(out["estat"], "vigent")
+        self.assertEqual(out["adjudicatari"], "")
+
+    def test_apply_tombstone_consequence_idempotent_on_repeat(self):
+        rec = {"id": "FIX-OPEN-001", "estat": "vigent", "lifecycle_category": "CLEAR_OPEN",
+               "active_opportunity_eligible": True, "lifecycle_review_required": False}
+        once = sfm.apply_tombstone_consequence(rec, "2026-09-01T00:00:00Z")
+        twice = sfm.apply_tombstone_consequence(once, "2026-09-05T00:00:00Z")
+        self.assertEqual(twice["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(twice["active_opportunity_eligible"])
+        # First-seen timestamp is preserved, not overwritten by a later re-application.
+        self.assertEqual(twice["tombstone_observed_at"], "2026-09-01T00:00:00Z")
+
+    def test_apply_tombstone_consequence_conservative_for_already_awarded(self):
+        rec = {
+            "id": "FIX-AWARD-001",
+            "estat": "adjudicada",
+            "adjudicatari": "Empresa Sintetica SL",
+            "lifecycle_category": "CLEAR_AWARDED",
+            "active_opportunity_eligible": False,
+            "lifecycle_review_required": False,
+        }
+        out = sfm.apply_tombstone_consequence(rec, "2026-09-01T00:00:00Z")
+        # Stronger existing evidence is never downgraded/relabeled.
+        self.assertEqual(out["lifecycle_category"], "CLEAR_AWARDED")
+        self.assertFalse(out["active_opportunity_eligible"])
+        self.assertEqual(out["adjudicatari"], "Empresa Sintetica SL")
+        # Provenance is still recorded.
+        self.assertTrue(out["tombstone_ref_matched"])
+
+    def test_lifecycle_integrity_rejects_unsafe_active_tombstone(self):
+        bad = [{
+            "contract_folder_id": "CFID-TOMB-BAD",
+            "lifecycle_category": sfm.TOMBSTONE_CATEGORY,
+            "active_opportunity_eligible": True,
+        }]
+        ok, issues = sfm.validate_lifecycle_integrity(bad)
+        self.assertFalse(ok)
+        self.assertTrue(issues)
+
+    # --- B16 end-to-end: run_merge_dry_run production-only branch ----------
+
+    def test_dryrun_tombstone_demotes_known_active_identity(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out))
+        merged = {r["id"]: r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        rec = merged["FIX-OPEN-001"]
+        self.assertEqual(rec["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(rec["active_opportunity_eligible"])
+        self.assertTrue(rec["lifecycle_review_required"])
+        self.assertTrue(rec.get("tombstone_ref_matched"))
+        # estat is raw source fidelity -- untouched, no legal state synthesized.
+        self.assertEqual(rec["estat"], "vigent")
+        self.assertEqual(rec["adjudicatari"], "")
+        report = json.loads(sfm.REPORT_DRY_RUN.read_text(encoding="utf-8"))
+        self.assertEqual(report["tombstones_applied"], 1)
+
+    def test_dryrun_tombstone_repeated_run_is_idempotent(self):
+        out1 = self.tmp / "out1.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out1))
+        first = {r["id"]: r for r in json.loads(out1.read_text(encoding="utf-8"))["data"]}["FIX-OPEN-001"]
+
+        # Second run starts from the already-tombstoned output and re-applies
+        # the same tombstone ref again.
+        sfm.PRODUCTION_PATH = out1
+        out2 = self.tmp / "out2.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out2))
+        second = {r["id"]: r for r in json.loads(out2.read_text(encoding="utf-8"))["data"]}["FIX-OPEN-001"]
+
+        self.assertEqual(second["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(second["active_opportunity_eligible"])
+        self.assertEqual(second["tombstone_observed_at"], first["tombstone_observed_at"])
+
+    def test_dryrun_tombstone_already_nonactive_identity_unchanged(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_awarded_identity.json", out))
+        merged = {r["id"]: r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        rec = merged["FIX-AWARD-001"]
+        self.assertEqual(rec["lifecycle_category"], "CLEAR_AWARDED")
+        self.assertFalse(rec["active_opportunity_eligible"])
+        self.assertTrue(rec.get("tombstone_ref_matched"))
+
+    def test_dryrun_tombstone_unknown_ref_is_conservative_noop(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_unknown_ref.json", out))
+        merged = {r["id"]: r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        # No ghost record was created for the unmatched ref...
+        self.assertNotIn("FIX-GHOST-999", merged)
+        # ...and every known identity is untouched (no tombstone fields leaked).
+        self.assertEqual(len(merged), 3)
+        for rec in merged.values():
+            self.assertNotIn("tombstone_ref_matched", rec)
+        report = json.loads(sfm.REPORT_DRY_RUN.read_text(encoding="utf-8"))
+        self.assertEqual(report["tombstones_applied"], 0)
+
+    def test_dryrun_ordinary_entries_unaffected_by_tombstone_handling(self):
+        out = self.tmp / "out.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_full_success.json", out))
+        merged = {sfm.get_merge_key(r): r for r in json.loads(out.read_text(encoding="utf-8"))["data"]}
+        for key in ("CFID-OPEN-001", "CFID-OVERLAP-001", "CFID-NEW-001"):
+            self.assertIn(key, merged)
+            self.assertNotIn("tombstone_ref_matched", merged[key])
+
+    def test_dryrun_carry_forward_cannot_resurrect_tombstoned_identity(self):
+        # Run 1: tombstone FIX-OPEN-001.
+        out1 = self.tmp / "out1.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out1))
+
+        # Run 2: an ordinary later run that never mentions FIX-OPEN-001 again
+        # and carries no tombstones of its own -- pure blind carry-forward.
+        sfm.PRODUCTION_PATH = out1
+        out2 = self.tmp / "out2.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_full_success.json", out2))
+
+        merged = {r["id"]: r for r in json.loads(out2.read_text(encoding="utf-8"))["data"]}
+        rec = merged["FIX-OPEN-001"]
+        # Historical carry-forward alone must not resurrect active/public eligibility.
+        self.assertEqual(rec["lifecycle_category"], sfm.TOMBSTONE_CATEGORY)
+        self.assertFalse(rec["active_opportunity_eligible"])
+
+    def test_dryrun_later_live_entry_follows_existing_overlap_rules(self):
+        # Run 1: tombstone FIX-OPEN-001.
+        out1 = self.tmp / "out1.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_open_identity.json", out1))
+
+        # Run 2: the official feed explicitly republishes the same
+        # ContractFolderID as an ordinary open entry (no tombstone this run).
+        # This is explicit new source evidence flowing through the existing,
+        # unmodified overlap rules -- not an implicit resurrection rule.
+        sfm.PRODUCTION_PATH = out1
+        out2 = self.tmp / "out2.json"
+        sfm.run_merge_dry_run(dryrun_args(FIXTURES_DIR / "cand_tombstone_overlap_revives.json", out2))
+
+        merged = {sfm.get_merge_key(r): r for r in json.loads(out2.read_text(encoding="utf-8"))["data"]}
+        rec = merged["CFID-OPEN-001"]
+        self.assertEqual(rec["lifecycle_category"], "CLEAR_OPEN")
+        self.assertTrue(rec["active_opportunity_eligible"])
 
     # --- run_validate_production canonical-only behaviour (A2.3) -----------
 
@@ -3402,6 +3711,33 @@ class FetchBoundsUnitTests(unittest.TestCase):
         self.assertFalse(fetch_bounds.is_authorized_host(""))
         self.assertFalse(fetch_bounds.is_authorized_host(None))
 
+    # --- WRKOPS t_20261004_adgops335 corrective C2: source-bound
+    # continuation validation (distinct from the global is_authorized_host
+    # set above) ----------------------------------------------------------
+
+    def test_is_valid_continuation_url_same_host_passes(self):
+        self.assertTrue(fetch_bounds.is_valid_continuation_url(
+            "https://contrataciondelestado.es/sindicacion/x?page=2",
+            "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
+        ))
+
+    def test_is_valid_continuation_url_rejects_cross_source_bleed(self):
+        # Both hosts are individually authorized (test_allowed_hosts_
+        # derived_from_registry above), so is_authorized_host() alone
+        # cannot catch a PLACSP-643 cursor that actually resolves to
+        # PLACSP-1044's host -- this is the exact gap C2 closes.
+        placsp_643_url = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-643"]["url"]
+        placsp_1044_next_href = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-1044"]["url"] + "?page=9"
+        self.assertTrue(fetch_bounds.is_authorized_host(
+            fetch_bounds.urlparse(placsp_1044_next_href).hostname
+        ))
+        self.assertFalse(fetch_bounds.is_valid_continuation_url(placsp_1044_next_href, placsp_643_url))
+
+    def test_is_valid_continuation_url_rejects_empty_or_missing(self):
+        self.assertFalse(fetch_bounds.is_valid_continuation_url("", "https://s1.invalid/feed"))
+        self.assertFalse(fetch_bounds.is_valid_continuation_url(None, "https://s1.invalid/feed"))
+        self.assertFalse(fetch_bounds.is_valid_continuation_url("https://s1.invalid/feed?p=2", ""))
+
     # --- request-budget formula -----------------------------------------
 
     def test_max_total_requests_formula_not_a_frozen_literal(self):
@@ -3742,6 +4078,317 @@ class BoundedFetchSourceTests(unittest.TestCase):
         self.assertEqual(len(session2.calls), 0)
 
 
+class StagedAcquisitionFetchSourceTests(unittest.TestCase):
+    """WRKOPS t_20261004_adgops335 (P331-B15 D1/D4): fetch_source()'s new
+    start_url/exhausted/next_url contract -- the minimal per-call primitive
+    the acquisition-staging continuation design resumes from. No network."""
+
+    def setUp(self):
+        self._pprint_patch = mock.patch.object(fl, "pprint", lambda *a, **kw: None)
+        self._pprint_patch.start()
+
+    def tearDown(self):
+        self._pprint_patch.stop()
+
+    def _source(self, name="S1", url="https://example.invalid/feed"):
+        return {"name": name, "ccaa": None, "url": url}
+
+    def test_start_url_overrides_source_base_url(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                         start_url="https://example.invalid/feed?resume=p7")
+        self.assertEqual(session.calls[0]["url"], "https://example.invalid/feed?resume=p7")
+
+    def test_start_url_none_uses_source_base_url(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        fl.fetch_source(session, self._source(url="https://example.invalid/base"),
+                         max_pages=1, min_score=20, start_url=None)
+        self.assertEqual(session.calls[0]["url"], "https://example.invalid/base")
+
+    def test_start_url_empty_string_uses_source_base_url(self):
+        session = _ScriptedSession([_fake_atom_response()])
+        fl.fetch_source(session, self._source(url="https://example.invalid/base"),
+                         max_pages=1, min_score=20, start_url="")
+        self.assertEqual(session.calls[0]["url"], "https://example.invalid/base")
+
+    def test_exhausted_true_on_natural_feed_termination(self):
+        session = _ScriptedSession([_fake_atom_response()])  # no next link at all
+        result = fl.fetch_source(session, self._source(), max_pages=5, min_score=20)
+        self.assertTrue(result["exhausted"])
+        self.assertEqual(result["next_url"], "")
+        self.assertEqual(result["pages_done"], 1)
+
+    def test_exhausted_false_on_ceiling_hit_with_pending_next_link(self):
+        session = _ScriptedSession([
+            _fake_atom_response(next_href="https://example.invalid/feed?page=2"),
+        ])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20)
+        self.assertFalse(result["exhausted"])
+        self.assertEqual(result["next_url"], "https://example.invalid/feed?page=2")
+        self.assertEqual(result["pages_done"], 1)
+
+    def test_exhausted_false_on_had_error(self):
+        session = _ScriptedSession([_FakeResponse(status_code=404)])
+        result = fl.fetch_source(session, self._source(), max_pages=5, min_score=20, retries=0)
+        self.assertTrue(result["had_error"])
+        self.assertFalse(result["exhausted"])
+
+    def test_exhausted_false_on_deadline_exhausted(self):
+        clock = _ManualClock(start=100.0)
+        deadline = fetch_bounds.Deadline(1.0, clock=clock)
+        clock.t = 200.0
+        session = _ScriptedSession([_fake_atom_response()])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  deadline=deadline)
+        self.assertTrue(result["deadline_exhausted"])
+        self.assertFalse(result["exhausted"])
+
+    def test_next_url_resumes_across_two_calls_to_natural_exhaustion(self):
+        # First call: ceiling hit at page 1 with a pending next link.
+        session1 = _ScriptedSession([
+            _fake_atom_response(next_href="https://example.invalid/feed?page=2"),
+        ])
+        result1 = fl.fetch_source(session1, self._source(), max_pages=1, min_score=20)
+        self.assertFalse(result1["exhausted"])
+        self.assertEqual(result1["next_url"], "https://example.invalid/feed?page=2")
+
+        # Second call resumes from that exact cursor and reaches exhaustion.
+        session2 = _ScriptedSession([_fake_atom_response()])  # no further next link
+        result2 = fl.fetch_source(session2, self._source(), max_pages=1, min_score=20,
+                                   start_url=result1["next_url"])
+        self.assertEqual(session2.calls[0]["url"], "https://example.invalid/feed?page=2")
+        self.assertTrue(result2["exhausted"])
+        self.assertEqual(result2["next_url"], "")
+
+    def test_next_url_unchanged_on_failed_attempt(self):
+        # A failed attempt must not advance the cursor -- the caller's
+        # staging-update logic relies on next_url reflecting only genuinely
+        # completed progress (fetch_source() itself, not a caller-side
+        # special case).
+        session = _ScriptedSession([_FakeResponse(status_code=404)])
+        result = fl.fetch_source(session, self._source(), max_pages=1, min_score=20,
+                                  retries=0, start_url="https://example.invalid/feed?page=5")
+        self.assertTrue(result["had_error"])
+        self.assertEqual(result["next_url"], "https://example.invalid/feed?page=5")
+
+
+class DedupMergeItemsTests(unittest.TestCase):
+    """WRKOPS t_20261004_adgops335: dedup_merge_items() -- the acquisition-
+    staging accumulation precedence (status_rank then rellevancia), proven
+    standalone against fetch_licitaciones.py's own STATUS_RANK table. No
+    network, no file I/O."""
+
+    def _item(self, key, notice_type="PUB", rellevancia=20):
+        return {"canonical_key": key, "id": key, "notice_type": notice_type,
+                "rellevancia": rellevancia}
+
+    def test_new_identity_appended(self):
+        existing = [self._item("A")]
+        merged = fl.dedup_merge_items(existing, [self._item("B")])
+        self.assertEqual([i["canonical_key"] for i in merged], ["A", "B"])
+
+    def test_higher_status_rank_wins(self):
+        existing = [self._item("A", notice_type="PUB")]        # rank 2
+        merged = fl.dedup_merge_items(existing, [self._item("A", notice_type="AWARD")])  # rank 8
+        self.assertEqual(merged[0]["notice_type"], "AWARD")
+
+    def test_lower_status_rank_never_overwrites(self):
+        existing = [self._item("A", notice_type="AWARD")]       # rank 8
+        merged = fl.dedup_merge_items(existing, [self._item("A", notice_type="PUB")])    # rank 2
+        self.assertEqual(merged[0]["notice_type"], "AWARD")
+
+    def test_tie_break_by_rellevancia(self):
+        existing = [self._item("A", notice_type="PUB", rellevancia=20)]
+        merged = fl.dedup_merge_items(existing, [self._item("A", notice_type="PUB", rellevancia=45)])
+        self.assertEqual(merged[0]["rellevancia"], 45)
+
+    def test_idempotent_replay(self):
+        existing = [self._item("A")]
+        new = [self._item("A")]
+        once = fl.dedup_merge_items(existing, new)
+        twice = fl.dedup_merge_items(once, new)
+        self.assertEqual(once, twice)
+        self.assertEqual(len(twice), 1)
+
+    def test_preserves_position_of_existing_identity(self):
+        existing = [self._item("A"), self._item("B")]
+        merged = fl.dedup_merge_items(existing, [self._item("A", notice_type="AWARD")])
+        self.assertEqual([i["canonical_key"] for i in merged], ["A", "B"])
+        self.assertEqual(merged[0]["notice_type"], "AWARD")
+
+
+class DedupTombstoneListTests(unittest.TestCase):
+    """WRKOPS t_20261004_adgops335: _dedup_tombstone_list() -- accumulation
+    by ref, first occurrence wins (mirrors main()'s own per-run tombstone
+    dedup). No network."""
+
+    def test_dedup_by_ref_first_occurrence_wins(self):
+        existing = [{"ref": "R1", "when": "2026-01-01"}]
+        merged = fl._dedup_tombstone_list(
+            existing, [{"ref": "R1", "when": "2026-02-02"}, {"ref": "R2", "when": ""}]
+        )
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(next(t for t in merged if t["ref"] == "R1")["when"], "2026-01-01")
+
+
+class AcquisitionStagingModuleTests(unittest.TestCase):
+    """WRKOPS t_20261004_adgops335: tools/acquisition_staging.py -- shape
+    validation, fresh-cycle fallback rules, atomic write, and rotation. No
+    network."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_new_cycle_shape(self):
+        staging = acquisition_staging.new_cycle(["S1", "S2"])
+        self.assertEqual(staging["schema"], acquisition_staging.SCHEMA)
+        self.assertEqual(set(staging["sources"].keys()), {"S1", "S2"})
+        self.assertEqual(staging["data"], [])
+        self.assertEqual(staging["tombstones"], [])
+        self.assertFalse(staging["sources"]["S1"]["exhausted"])
+        self.assertIsNone(staging["sources"]["S1"]["next_url"])
+
+    def test_load_or_new_absent_file_starts_fresh(self):
+        staging, fresh, reason = acquisition_staging.load_or_new(self.tmp / "missing.json", ["S1"])
+        self.assertTrue(fresh)
+        self.assertEqual(reason, "ABSENT")
+        self.assertEqual(set(staging["sources"].keys()), {"S1"})
+
+    def test_load_or_new_malformed_json_starts_fresh(self):
+        bad = self.tmp / "bad.json"
+        bad.write_text("{ not valid json", encoding="utf-8")
+        staging, fresh, reason = acquisition_staging.load_or_new(bad, ["S1"])
+        self.assertTrue(fresh)
+        self.assertEqual(reason, "MALFORMED_JSON")
+
+    def test_load_or_new_registry_drift_starts_fresh(self):
+        path = self.tmp / "staging.json"
+        acquisition_staging.write_atomic(path, acquisition_staging.new_cycle(["S1", "S2"]))
+        staging, fresh, reason = acquisition_staging.load_or_new(path, ["S1", "S3"])
+        self.assertTrue(fresh)
+        self.assertEqual(reason, "INVALID_SHAPE_OR_REGISTRY_DRIFT")
+        self.assertEqual(set(staging["sources"].keys()), {"S1", "S3"})
+
+    def test_load_or_new_valid_round_trips(self):
+        path = self.tmp / "staging.json"
+        original = acquisition_staging.new_cycle(["S1"])
+        original["sources"]["S1"]["next_url"] = "https://example.invalid/feed?p=2"
+        original["data"] = [{"id": "X1"}]
+        acquisition_staging.write_atomic(path, original)
+        loaded, fresh, reason = acquisition_staging.load_or_new(path, ["S1"])
+        self.assertFalse(fresh)
+        self.assertIsNone(reason)
+        self.assertEqual(loaded["cycle_id"], original["cycle_id"])
+        self.assertEqual(loaded["sources"]["S1"]["next_url"], "https://example.invalid/feed?p=2")
+        self.assertEqual(loaded["data"], [{"id": "X1"}])
+
+    def test_new_cycle_stores_source_url_fingerprint(self):
+        # WRKOPS t_20261004_adgops335 corrective C2: each source's record
+        # carries the registry URL it was created with, not just its name.
+        sources = [{"name": "S1", "url": "https://s1.invalid/feed"},
+                   {"name": "S2", "url": "https://s2.invalid/feed"}]
+        staging = acquisition_staging.new_cycle(sources)
+        self.assertEqual(staging["sources"]["S1"]["source_url"], "https://s1.invalid/feed")
+        self.assertEqual(staging["sources"]["S2"]["source_url"], "https://s2.invalid/feed")
+
+    def test_load_or_new_accepts_dict_shaped_registry(self):
+        # tools.public_contract.PUBLIC_SOURCES shape: a dict keyed by name
+        # with "url"-bearing entries, as used by scheduled_fetch_merge.py's
+        # rotate() call.
+        registry = {"S1": {"id": "S1", "url": "https://s1.invalid/feed"}}
+        staging, fresh, reason = acquisition_staging.load_or_new(self.tmp / "missing.json", registry)
+        self.assertTrue(fresh)
+        self.assertEqual(staging["sources"]["S1"]["source_url"], "https://s1.invalid/feed")
+
+    def test_load_or_new_source_url_drift_same_name_starts_fresh(self):
+        # C2: the human-visible source name is unchanged but its
+        # underlying feed URL drifted in the registry -- the old cycle
+        # must be treated as stale/incompatible, exactly like a name-set
+        # mismatch, not silently reused.
+        sources_v1 = [{"name": "S1", "url": "https://s1-old.invalid/feed"}]
+        path = self.tmp / "staging.json"
+        acquisition_staging.write_atomic(path, acquisition_staging.new_cycle(sources_v1))
+
+        sources_v2 = [{"name": "S1", "url": "https://s1-new.invalid/feed"}]
+        staging, fresh, reason = acquisition_staging.load_or_new(path, sources_v2)
+        self.assertTrue(fresh)
+        self.assertEqual(reason, "INVALID_SHAPE_OR_REGISTRY_DRIFT")
+        self.assertEqual(staging["sources"]["S1"]["source_url"], "https://s1-new.invalid/feed")
+
+    def test_all_sources_exhausted_requires_every_source(self):
+        staging = acquisition_staging.new_cycle(["S1", "S2"])
+        self.assertFalse(acquisition_staging.all_sources_exhausted(staging))
+        staging["sources"]["S1"]["exhausted"] = True
+        self.assertFalse(acquisition_staging.all_sources_exhausted(staging))
+        staging["sources"]["S2"]["exhausted"] = True
+        self.assertTrue(acquisition_staging.all_sources_exhausted(staging))
+
+    def test_write_atomic_leaves_no_temp_file_behind(self):
+        path = self.tmp / "staging.json"
+        acquisition_staging.write_atomic(path, acquisition_staging.new_cycle(["S1"]))
+        leftovers = [p for p in self.tmp.glob("*") if ".tmp-" in p.name]
+        self.assertEqual(leftovers, [])
+        self.assertTrue(path.exists())
+
+    def test_rotate_resets_to_fresh_empty_cycle(self):
+        path = self.tmp / "staging.json"
+        staging = acquisition_staging.new_cycle(["S1"])
+        staging["sources"]["S1"]["exhausted"] = True
+        staging["data"] = [{"id": "X1"}]
+        acquisition_staging.write_atomic(path, staging)
+        old_cycle_id = staging["cycle_id"]
+
+        acquisition_staging.rotate(path, ["S1"])
+        reloaded = json.loads(path.read_text(encoding="utf-8"))
+        self.assertNotEqual(reloaded["cycle_id"], old_cycle_id)
+        self.assertEqual(reloaded["data"], [])
+        self.assertFalse(reloaded["sources"]["S1"]["exhausted"])
+
+
+class DownstreamMergeSemanticsUnchangedTests(unittest.TestCase):
+    """WRKOPS t_20261004_adgops335 -- P334 §13 regression item 7: an
+    executable differential proof (not merely code-reading inference) that
+    get_merge_key()/build_index()/merge_overlap() produce a byte-identical
+    result for a row common to both a 'single-page-shaped' candidate
+    population and a much larger 'multi-page accumulated' population. No
+    network."""
+
+    def test_shared_key_merges_identically_regardless_of_population_size(self):
+        prod_rec = {
+            "id": "SHARED-1", "contract_folder_id": "CFID-SHARED",
+            "canonical_key": "CFID-SHARED", "estat": "vigent",
+            "adjudicatari": "", "lifecycle_category": "CLEAR_OPEN",
+            "active_opportunity_eligible": True, "lifecycle_review_required": False,
+        }
+        shared_cand_rec = {
+            "id": "SHARED-1", "contract_folder_id": "CFID-SHARED",
+            "canonical_key": "CFID-SHARED", "estat": "adjudicado",
+            "adjudicatari": "Empresa X", "award_results": [],
+        }
+        single_page_pop = [shared_cand_rec]
+        multi_page_pop = [shared_cand_rec] + [
+            {"id": f"OTHER-{i}", "contract_folder_id": f"CFID-OTHER-{i}",
+             "canonical_key": f"CFID-OTHER-{i}", "estat": "vigent"}
+            for i in range(50)
+        ]
+
+        idx_single = sfm.build_index(single_page_pop)
+        idx_multi = sfm.build_index(multi_page_pop)
+        key = sfm.get_merge_key(prod_rec)
+        self.assertIn(key, idx_single)
+        self.assertIn(key, idx_multi)
+
+        result_single, conflicts_single = sfm.merge_overlap(dict(prod_rec), idx_single[key])
+        result_multi, conflicts_multi = sfm.merge_overlap(dict(prod_rec), idx_multi[key])
+
+        self.assertEqual(result_single, result_multi)
+        self.assertEqual(conflicts_single, conflicts_multi)
+
+
 class BoundedDeadlineCheckpointOrderingR2Tests(unittest.TestCase):
     """Prompt 323 Stage B R2 (WRKOPS t_20260923_adgops323) -- exact-diff review
     finding: the R1 cooperative deadline checkpoint #3 ("immediately after each
@@ -3996,6 +4643,477 @@ class RunLiveHardTimeoutTests(unittest.TestCase):
             retry_backoff=fetch_bounds.DEFAULT_RETRY_BACKOFF,
         )
         self.assertAlmostEqual(cli_deadline, expected)
+
+
+# ---------------------------------------------------------------------------
+# WRKOPS t_20261004_adgops335 (P331-B15 D1/D4) -- P334 §13 deterministic
+# regression contract items 1,2,3,4,5,6 (multi-page/multi-run accumulation)
+# exercised end-to-end through fl.main()'s real staged-acquisition code
+# path, and item 8 (the D4 ceiling-hit fail-closed gate) exercised end-to-
+# end through sfm.run_live(). No network anywhere below: _ScriptedSession
+# fakes every HTTP call and subprocess.run is faked to write a real
+# candidate JSON file so the real validate_structure()/
+# normalize_candidate_envelope() code paths are exercised too, not stubbed
+# away.
+# ---------------------------------------------------------------------------
+
+def _design_entry_xml(eid: str, cfid: str = None, status: str = "PUB") -> str:
+    """A minimal Atom <entry> that clears title_passes_gate()/score_item()'s
+    min_score=20 gate (two TITLE_DESIGN_KW matches in the title alone = 20)
+    and carries a ContractFolderID + ContractFolderStatusCode so identity/
+    status-rank precedence (STATUS_RANK/dedup_merge_items) is exercisable."""
+    return (
+        "<entry>"
+        f"<id>urn:test:{eid}</id>"
+        f"<title>Diseño gráfico y comunicación visual {eid}</title>"
+        "<content type=\"html\">Contrato de diseño gráfico y comunicación visual.</content>"
+        f"<ContractFolderID>{cfid or eid}</ContractFolderID>"
+        f"<ContractFolderStatusCode>{status}</ContractFolderStatusCode>"
+        "</entry>"
+    )
+
+
+class StagedAcquisitionMainIntegrationTests(unittest.TestCase):
+    """P334 §13 items 1, 2, 3, 4, 5, 6 -- a real on-disk staging file shared
+    across separate fl.main() invocations, each simulating one scheduled
+    run with its own _ScriptedSession. fetch_bounds.verify_source_registry
+    is bypassed with a fake single-source SOURCES list, mirroring the
+    existing BoundedMainEnvelopeStatusTests pattern above."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self._pprint_patch = mock.patch.object(fl, "pprint", lambda *a, **kw: None)
+        self._pprint_patch.start()
+        # Real per-page retry/inter-page sleeps would otherwise introduce
+        # real wall-clock delay (retry_delay/backoff defaults) into an
+        # offline, deterministic test -- mirrors BoundedFetchSourceTests'
+        # own setUp() pattern above.
+        self._sleep_patch = mock.patch.object(fl.time, "sleep", lambda secs: None)
+        self._sleep_patch.start()
+
+    def tearDown(self):
+        self._sleep_patch.stop()
+        self._pprint_patch.stop()
+        self._tmp.cleanup()
+
+    # NOTE (post-C2 corrective): main()'s staged resume-cursor check is now
+    # fetch_bounds.is_valid_continuation_url(next_url, src["url"]) -- it
+    # compares a stored next_url's hostname against THIS source's OWN
+    # fake URL below, not against the real tools.public_contract.
+    # PUBLIC_SOURCES registry, so any fake hostname would work. It still
+    # uses a real authorized hostname (contrataciondelestado.es) with a
+    # synthetic path/query only for historical/readability continuity with
+    # earlier passes of this task.
+    _FAKE_BASE_URL = "https://contrataciondelestado.es/_wrkops_test_fixture_feed"
+
+    def _run(self, session, staging_path, out_path, pages=1):
+        fake_sources = [{"name": "S1", "ccaa": None, "url": self._FAKE_BASE_URL}]
+        argv = ["fetch_licitaciones.py", "--output", str(out_path),
+                "--bounded-mode", "--global-deadline", "60.0", "--no-progress",
+                "--pages", str(pages),
+                "--acquisition-staging-path", str(staging_path)]
+        with mock.patch.object(fl, "SOURCES", fake_sources), \
+             mock.patch.object(fl, "build_bounded_session", lambda: session), \
+             mock.patch.object(fetch_bounds, "verify_source_registry",
+                                lambda active_sources, registry=None: None), \
+             mock.patch.object(sys, "argv", argv), \
+             redirect_stdout(io.StringIO()):
+            fl.main()
+        return json.loads(out_path.read_text(encoding="utf-8"))
+
+    def test_two_run_cycle_accumulates_pages_and_tombstone_then_completes(self):
+        staging_path = self.tmp / "staging.json"
+
+        page1 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-1"),
+            next_href=self._FAKE_BASE_URL + "?page=2",
+        ))
+        written1 = self._run(_ScriptedSession([page1]), staging_path, self.tmp / "candidate_1.json")
+        self.assertFalse(written1["acquisition_complete"])
+        self.assertEqual(len(written1["data"]), 1)
+        self.assertEqual(written1["data"][0]["contract_folder_id"], "CFID-1")
+
+        page2 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=(
+                _design_entry_xml("E2", cfid="CFID-2")
+                + '<deleted-entry ref="E-OLD" when="2026-01-15T00:00:00Z"/>'
+            ),
+        ))  # no further next link -- natural exhaustion
+        written2 = self._run(_ScriptedSession([page2]), staging_path, self.tmp / "candidate_2.json")
+
+        # Item 1: both pages' entries are present in the final candidate.
+        self.assertTrue(written2["acquisition_complete"])
+        cfids = {d["contract_folder_id"] for d in written2["data"]}
+        self.assertEqual(cfids, {"CFID-1", "CFID-2"})
+        # Item 4: the page-2 tombstone is captured in the final candidate.
+        self.assertEqual([t["ref"] for t in written2["tombstones"]], ["E-OLD"])
+
+    def test_identity_observed_across_runs_resolves_to_stronger_evidence(self):
+        # Item 2: a fixed identity (CFID-1) appears in run 1 ("page 1", open
+        # status), then again in run 2 ("page 2" of the same traversal, now
+        # with award evidence) -- identity resolution in the accumulated
+        # candidate must reflect the stronger evidence regardless of which
+        # run/page it arrived on.
+        staging_path = self.tmp / "staging.json"
+        page1 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-1", status="PUB"),
+            next_href=self._FAKE_BASE_URL + "?page=2",
+        ))
+        self._run(_ScriptedSession([page1]), staging_path, self.tmp / "c1.json")
+
+        page2 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1-upd", cfid="CFID-1", status="ADJ"),
+        ))
+        written2 = self._run(_ScriptedSession([page2]), staging_path, self.tmp / "c2.json")
+
+        self.assertTrue(written2["acquisition_complete"])
+        matches = [d for d in written2["data"] if d["contract_folder_id"] == "CFID-1"]
+        self.assertEqual(len(matches), 1)  # no duplicate identity
+        self.assertEqual(matches[0]["estat"], "Adjudicado")  # stronger evidence won
+
+    def test_duplicate_identity_within_same_accumulated_cycle_collapses(self):
+        # Item 3: the SAME identity observed twice (once per run) collapses
+        # to one record in the accumulated candidate, never duplicated.
+        staging_path = self.tmp / "staging.json"
+        page1 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-DUP", status="PUB"),
+            next_href=self._FAKE_BASE_URL + "?page=2",
+        ))
+        self._run(_ScriptedSession([page1]), staging_path, self.tmp / "c1.json")
+        page2 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1-again", cfid="CFID-DUP", status="PUB"),
+        ))
+        written2 = self._run(_ScriptedSession([page2]), staging_path, self.tmp / "c2.json")
+        matches = [d for d in written2["data"] if d["contract_folder_id"] == "CFID-DUP"]
+        self.assertEqual(len(matches), 1)
+
+    def test_mid_cycle_attempt_failure_leaves_cursor_and_data_untouched(self):
+        # Item 5 (cross-run shape): a whole run whose SINGLE page-1 attempt
+        # fails outright (retries exhausted) leaves that source's staged
+        # cursor/accumulated data exactly as it was before the attempt --
+        # the next run retries the SAME position, never silently skipping
+        # ahead or losing already-staged progress. This is the "retry the
+        # last position" case; see
+        # test_mid_pagination_failure_within_one_run_retains_completed_page_and_resumes_at_failed_page
+        # below (WRKOPS t_20261004_adgops335 corrective C3) for the
+        # distinct "page 1 succeeds, page 2 fails, both within the SAME
+        # run" shape P334's item 5 also requires.
+        staging_path = self.tmp / "staging.json"
+        page1 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-1"),
+            next_href=self._FAKE_BASE_URL + "?page=2",
+        ))
+        self._run(_ScriptedSession([page1]), staging_path, self.tmp / "c1.json")
+        before = json.loads(staging_path.read_text(encoding="utf-8"))
+
+        failing_session = _ScriptedSession([
+            _FakeResponse(status_code=503), _FakeResponse(status_code=503),
+            _FakeResponse(status_code=503), _FakeResponse(status_code=503),
+        ])
+        written2 = self._run(failing_session, staging_path, self.tmp / "c2.json")
+        after = json.loads(staging_path.read_text(encoding="utf-8"))
+
+        self.assertFalse(written2["acquisition_complete"])
+        self.assertTrue(written2["failed_sources"])
+        self.assertEqual(after["sources"]["S1"]["next_url"], before["sources"]["S1"]["next_url"])
+        self.assertEqual(after["data"], before["data"])
+        self.assertEqual(after["sources"]["S1"]["exhausted"], before["sources"]["S1"]["exhausted"])
+
+    def test_mid_pagination_failure_within_one_run_retains_completed_page_and_resumes_at_failed_page(self):
+        # Item 5 (in-run shape, WRKOPS t_20261004_adgops335 corrective C3):
+        # a SINGLE run configured for up to 2 pages where page 1 succeeds
+        # and page 2 then fails after exhausting all retries. Asserts the
+        # actual documented policy fetch_source()/main() already implement:
+        # "retain only fully completed pages, resume at the first failed
+        # page" (NOT whole-attempt rollback) --
+        #   - page 1's entry IS present in the staged candidate (not rolled
+        #     back);
+        #   - the staged cursor for this source is exactly page 2's own
+        #     href (the page that failed), never skipped past it and never
+        #     reset to page 1;
+        #   - exhausted stays False and acquisition_complete is False (D4
+        #     fail-closed signal, distinct from is_partial/run_status);
+        #   - no duplicate publication and no canonical/public artifact
+        #     mutation result from this run (this test only exercises
+        #     fl.main()'s own candidate/staging output; sfm.run_live()'s
+        #     separate fail-closed gate, proven in
+        #     AcquisitionCompletenessGateTests below, is what actually
+        #     refuses canonicalize_and_project()/persist_internal_state()/
+        #     the public write for acquisition_complete=False).
+        staging_path = self.tmp / "staging.json"
+        page2_href = self._FAKE_BASE_URL + "?page=2"
+        page1 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-1"),
+            next_href=page2_href,
+        ))
+        page2_failures = [_FakeResponse(status_code=503) for _ in range(4)]  # 1 + default 3 retries
+        written = self._run(
+            _ScriptedSession([page1] + page2_failures), staging_path, self.tmp / "c1.json", pages=2,
+        )
+        staged = json.loads(staging_path.read_text(encoding="utf-8"))
+
+        self.assertFalse(written["acquisition_complete"])
+        self.assertTrue(written["failed_sources"])
+        self.assertEqual([d["contract_folder_id"] for d in written["data"]], ["CFID-1"])
+        self.assertEqual(staged["sources"]["S1"]["next_url"], page2_href)
+        self.assertFalse(staged["sources"]["S1"]["exhausted"])
+        self.assertEqual([d["contract_folder_id"] for d in staged["data"]], ["CFID-1"])
+
+    def test_repeated_completing_run_is_idempotent(self):
+        # Item 6: re-observing an already-exhausted source on a later run
+        # (simulating a crash before rotation, so the next run re-starts
+        # before the staging cycle was ever reset) makes zero new HTTP
+        # calls and produces byte-identical accumulated data.
+        staging_path = self.tmp / "staging.json"
+        page1 = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-1"),
+        ))  # naturally exhausts in one page, no next link
+        written1 = self._run(_ScriptedSession([page1]), staging_path, self.tmp / "c1.json")
+        self.assertTrue(written1["acquisition_complete"])
+
+        written2 = self._run(_ScriptedSession([]), staging_path, self.tmp / "c2.json")
+        self.assertTrue(written2["acquisition_complete"])
+        self.assertEqual(written1["data"], written2["data"])
+
+
+class CrossSourceCursorIsolationTests(unittest.TestCase):
+    """WRKOPS t_20261004_adgops335 corrective C1/C2, end-to-end through
+    fl.main(): a staged cursor whose `next_url` actually belongs to a
+    DIFFERENT (but still globally-authorized) source must not be silently
+    resumed under the wrong source, and discovering it must discard the
+    WHOLE acquisition cycle -- not a per-source page-1 reset that quietly
+    retains the rest of the cycle's accumulated data/tombstones (C1), and
+    the detection itself must be bound to the source's OWN host, not the
+    global authorized-host set (C2)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self._pprint_patch = mock.patch.object(fl, "pprint", lambda *a, **kw: None)
+        self._pprint_patch.start()
+        self._sleep_patch = mock.patch.object(fl.time, "sleep", lambda secs: None)
+        self._sleep_patch.start()
+
+    def tearDown(self):
+        self._sleep_patch.stop()
+        self._pprint_patch.stop()
+        self._tmp.cleanup()
+
+    _URL_A = "https://source-a.invalid/feed"
+    _URL_B = "https://source-b.invalid/feed"
+
+    def test_cross_source_cursor_triggers_whole_cycle_discard(self):
+        fake_sources = [
+            {"name": "SA", "ccaa": None, "url": self._URL_A},
+            {"name": "SB", "ccaa": None, "url": self._URL_B},
+        ]
+        staging_path = self.tmp / "staging.json"
+
+        # Hand-craft a staging cycle whose SA cursor actually points at
+        # SB's host -- the exact cross-source-bleed shape C2 names
+        # ("PLACSP-643 staging cannot silently resume through a
+        # continuation that belongs to PLACSP-1044").
+        corrupt = acquisition_staging.new_cycle(fake_sources)
+        corrupt["sources"]["SA"]["next_url"] = self._URL_B + "?page=7"
+        corrupt["data"] = [{"id": "STALE", "contract_folder_id": "CFID-STALE"}]
+        corrupt["tombstones"] = [{"ref": "STALE-REF", "when": "2026-01-01"}]
+        acquisition_staging.write_atomic(staging_path, corrupt)
+        old_cycle_id = corrupt["cycle_id"]
+
+        page_a = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("EA", cfid="CFID-A"),
+        ))
+        page_b = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("EB", cfid="CFID-B"),
+        ))
+        session = _ScriptedSession([page_a, page_b])
+        out_path = self.tmp / "candidate.json"
+        argv = ["fetch_licitaciones.py", "--output", str(out_path),
+                "--bounded-mode", "--global-deadline", "60.0", "--no-progress",
+                "--acquisition-staging-path", str(staging_path)]
+        with mock.patch.object(fl, "SOURCES", fake_sources), \
+             mock.patch.object(fl, "build_bounded_session", lambda: session), \
+             mock.patch.object(fetch_bounds, "verify_source_registry",
+                                lambda active_sources, registry=None: None), \
+             mock.patch.object(sys, "argv", argv), \
+             redirect_stdout(io.StringIO()):
+            fl.main()
+        written = json.loads(out_path.read_text(encoding="utf-8"))
+        staged = json.loads(staging_path.read_text(encoding="utf-8"))
+
+        # Both sources were fetched from their OWN base URL this run --
+        # the corrupted cursor was never resumed under either source.
+        self.assertEqual([c["url"] for c in session.calls], [self._URL_A, self._URL_B])
+        # The whole cycle was discarded -- a new cycle_id, and the stale
+        # data/tombstones from the corrupted cycle are gone entirely, not
+        # merely the one offending source's cursor.
+        self.assertNotEqual(staged["cycle_id"], old_cycle_id)
+        self.assertNotIn("CFID-STALE", [d.get("contract_folder_id") for d in staged["data"]])
+        self.assertEqual(staged.get("tombstones", []), [])
+        # Forward progress still happened: this run's own fresh fetch for
+        # both sources is present in the new cycle and the candidate.
+        self.assertEqual({d["contract_folder_id"] for d in written["data"]}, {"CFID-A", "CFID-B"})
+        self.assertEqual({d["contract_folder_id"] for d in staged["data"]}, {"CFID-A", "CFID-B"})
+
+
+class AcquisitionCompletenessGateTests(unittest.TestCase):
+    """P334 §13 item 8 -- all four required properties of the new
+    acquisition_complete fail-closed gate in sfm.run_live(): (1) the signal
+    is set false, (2) distinct from is_partial/run_status, (3) refusal
+    occurs before persist_internal_state()/canonicalize_and_project()/public
+    write, (4) both production surfaces remain byte-identical before/after.
+    subprocess.run is faked to write a real candidate JSON file (not merely
+    mocked away), so normalize_candidate_envelope()/validate_structure() run
+    for real too. No network; nothing is ever written outside a temp dir
+    (PRODUCTION_PATH/TMP_DIR are both redirected for the duration of this
+    class)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self._saved_tmp_dir = sfm.TMP_DIR
+        sfm.TMP_DIR = self.tmp
+        self._saved_prod_path = sfm.PRODUCTION_PATH
+        self.prod_path = self.tmp / "licitaciones.json"
+        self.prod_path.write_text(json.dumps({"meta": {"sentinel": True}, "data": []}), encoding="utf-8")
+        sfm.PRODUCTION_PATH = self.prod_path
+        self.internal_state_path = self.tmp / "internal_state.json"
+        self.internal_state_path.write_text(
+            json.dumps({"meta": {"sentinel": True}, "data": []}), encoding="utf-8"
+        )
+        # run_live()'s backup step hardcodes Path("data/_backup") relative to
+        # CWD (not derived from PRODUCTION_PATH) and always mkdir(exist_ok=
+        # True)s it even though shutil.copy2 into it is mocked below -- track
+        # whether this repo-relative directory pre-existed so the "proceeds"
+        # test can remove it again afterward rather than leaving a stray
+        # empty directory behind (gitignored, but still an unrequested
+        # filesystem side effect outside this test's own temp dir).
+        self._real_backup_dir = Path("data/_backup")
+        self._backup_dir_preexisted = self._real_backup_dir.exists()
+
+    def tearDown(self):
+        sfm.PRODUCTION_PATH = self._saved_prod_path
+        sfm.TMP_DIR = self._saved_tmp_dir
+        self._tmp.cleanup()
+        if not self._backup_dir_preexisted and self._real_backup_dir.exists():
+            self._real_backup_dir.rmdir()  # fails loudly if unexpectedly non-empty
+
+    def _args(self, acquisition_staging_path):
+        return types.SimpleNamespace(
+            allow_production_write=True,
+            internal_state_path=str(self.internal_state_path),
+            link_checks_path=None,
+            acquisition_staging_path=acquisition_staging_path,
+        )
+
+    @staticmethod
+    def _fake_subprocess_run(candidate_payload):
+        def _run(cmd, **kwargs):
+            out_idx = cmd.index("--output")
+            candidate_path = Path(cmd[out_idx + 1])
+            candidate_path.parent.mkdir(parents=True, exist_ok=True)
+            candidate_path.write_text(json.dumps(candidate_payload), encoding="utf-8")
+            return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+        return _run
+
+    @staticmethod
+    def _incomplete_candidate():
+        return {
+            "generated_at": "2026-10-05T00:00:00Z",
+            "is_partial": False,
+            "run_status": "FULL_SUCCESS",
+            "failed_sources": [],
+            "source_errors": {},
+            "requested_sources": ["S1"],
+            "completed_sources": ["S1"],
+            "acquisition_complete": False,
+            "data": [],
+        }
+
+    def test_refuses_distinct_from_is_partial_before_any_state_mutation(self):
+        staging_path = self.tmp / "staging.json"
+        before_prod = self.prod_path.read_bytes()
+        before_state = self.internal_state_path.read_bytes()
+
+        with mock.patch.object(sfm.subprocess, "run",
+                                side_effect=self._fake_subprocess_run(self._incomplete_candidate())), \
+             mock.patch.object(sfm, "load_internal_state") as load_state_mock, \
+             mock.patch.object(sfm, "canonicalize_and_project") as canon_mock, \
+             mock.patch.object(sfm, "write_json") as write_json_mock, \
+             mock.patch.object(acquisition_staging, "rotate") as rotate_mock:
+            with self.assertRaises(SystemExit) as cm:
+                sfm.run_live(self._args(str(staging_path)))
+
+        # (1)+(2): the message names the new signal, not is_partial -- this
+        # candidate's is_partial is False/run_status FULL_SUCCESS, so only
+        # the NEW gate's own code path can have produced this refusal.
+        self.assertIn("Acquisition incomplete", str(cm.exception))
+        self.assertIn("acquisition_complete", str(cm.exception))
+        # (3): refused before any of the three state-mutating calls.
+        load_state_mock.assert_not_called()
+        canon_mock.assert_not_called()
+        write_json_mock.assert_not_called()
+        rotate_mock.assert_not_called()
+        # (4): both production surfaces byte-identical.
+        self.assertEqual(self.prod_path.read_bytes(), before_prod)
+        self.assertEqual(self.internal_state_path.read_bytes(), before_state)
+
+    def test_proceeds_and_rotates_when_acquisition_complete_true(self):
+        staging_path = self.tmp / "staging.json"
+        complete_candidate = dict(self._incomplete_candidate())
+        complete_candidate["acquisition_complete"] = True
+
+        with mock.patch.object(sfm.subprocess, "run",
+                                side_effect=self._fake_subprocess_run(complete_candidate)), \
+             mock.patch.object(sfm, "load_internal_state",
+                                return_value={"data": [], "meta": {}}) as load_state_mock, \
+             mock.patch.object(sfm, "canonicalize_and_project", return_value=[]) as canon_mock, \
+             mock.patch.object(sfm.shutil, "copy2") as copy2_mock, \
+             mock.patch.object(acquisition_staging, "rotate") as rotate_mock:
+            sfm.run_live(self._args(str(staging_path)))
+
+        load_state_mock.assert_called_once()
+        canon_mock.assert_called_once()
+        copy2_mock.assert_called_once()  # backup step neutralized, not skipped silently
+        rotate_mock.assert_called_once()
+        written = json.loads(self.prod_path.read_bytes())
+        self.assertEqual(written["data"], [])
+
+    def test_legacy_mode_without_staging_path_skips_new_gate(self):
+        # Backward compatibility: omitting --acquisition-staging-path
+        # entirely must preserve the exact pre-existing behavior -- an
+        # acquisition_complete=false candidate is NOT refused by the new
+        # gate when the D1 staging authority is not in play for this call.
+        with mock.patch.object(sfm.subprocess, "run",
+                                side_effect=self._fake_subprocess_run(self._incomplete_candidate())), \
+             mock.patch.object(sfm, "load_internal_state",
+                                return_value={"data": [], "meta": {}}) as load_state_mock, \
+             mock.patch.object(sfm, "canonicalize_and_project",
+                                side_effect=RuntimeError("reached-canonicalize-probe")) as canon_mock:
+            with self.assertRaises(RuntimeError):
+                sfm.run_live(self._args(None))
+        load_state_mock.assert_called_once()
+        canon_mock.assert_called_once()
+
+    def test_subprocess_cmd_carries_staging_flag_only_when_set(self):
+        captured = {}
+
+        def _run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            raise sfm.subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout"))
+
+        with mock.patch.object(sfm.subprocess, "run", side_effect=_run):
+            with self.assertRaises(SystemExit):
+                sfm.run_live(self._args(str(self.tmp / "staging.json")))
+        self.assertIn("--acquisition-staging-path", captured["cmd"])
+        idx = captured["cmd"].index("--acquisition-staging-path")
+        self.assertEqual(captured["cmd"][idx + 1], str(self.tmp / "staging.json"))
+
+        with mock.patch.object(sfm.subprocess, "run", side_effect=_run):
+            with self.assertRaises(SystemExit):
+                sfm.run_live(self._args(None))
+        self.assertNotIn("--acquisition-staging-path", captured["cmd"])
 
 
 # ---------------------------------------------------------------------------

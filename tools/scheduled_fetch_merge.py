@@ -79,6 +79,14 @@ try:
 except ImportError:  # pragma: no cover - direct-run fallback
     import fetch_bounds
 
+# WRKOPS t_20261004_adgops335 (P331-B15 D1/D4 repair): optional acquisition-
+# layer staging authority -- rotated here only after a successful public
+# write of a fully-acquired cycle. Never read for merge/lifecycle decisions.
+try:
+    from tools import acquisition_staging
+except ImportError:  # pragma: no cover - direct-run fallback
+    import acquisition_staging
+
 # Canonicalization (Prompt 292, closed) and public-record projection
 # (Prompt 289, closed). Used only by --run-live (p294): the internal
 # continuity merge, canonicalization, and public projection are three
@@ -189,6 +197,98 @@ PROVENANCE_PREFIXES = ("recovery_", "delta_", "merge_")
 _OPEN_KWS   = ("vigent", "en plazo", "activ", "publicad", "anunciad", "open", "actiu")
 _CLOSED_KWS = ("adjudicad", "award", "desiert", "deserta", "closed", "cancelad",
                "resolt", "resolut", "terminad", "finalizad", "archivad")
+
+# B21 repair (WRKOPS t_20261002_adgops332): an open-looking record whose
+# stored submission deadline (`data_limit`) has already passed is demoted to
+# this category instead of CLEAR_OPEN. This is a review/eligibility signal
+# only -- it must never be read as award, cancellation, desertion, or any
+# other official lifecycle status. `estat`/`estat_raw` and award evidence are
+# untouched by this classification.
+DEADLINE_EXPIRED_CATEGORY = "CLEAR_OPEN_DEADLINE_EXPIRED"
+
+
+def _default_reference_date():
+    return datetime.now(timezone.utc).date()
+
+
+def is_deadline_expired(data_limit, reference_date=None) -> bool:
+    """True only when `data_limit` parses as a YYYY-MM-DD date strictly
+    before `reference_date`. A missing, empty, or unparsable `data_limit`
+    is never treated as expired -- absence of a deadline is not evidence of
+    closure (required behavior constraint 5)."""
+    if not data_limit:
+        return False
+    try:
+        deadline = datetime.strptime(str(data_limit).strip()[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return False
+    return deadline < (reference_date or _default_reference_date())
+
+
+# B16 repair (WRKOPS t_20261002_adgops333): the official Atom feed's
+# deleted-entry tombstone (<at:deleted-entry ref="..." when="...">,
+# fetch_licitaciones.py's parse_atom_tombstones()) is source-removal evidence
+# only -- it is never read as award, cancellation, desertion, or any other
+# official procurement outcome. This category marks that the matched
+# identity's source entry was withdrawn and removes it from active public
+# eligibility pending explicit official status evidence. It never overrides
+# a record that already carries stronger award/closure evidence.
+TOMBSTONE_CATEGORY = "WITHDRAWN_SOURCE_TOMBSTONE"
+_TOMBSTONE_PROTECTED_CATEGORIES = ("CLEAR_AWARDED", "OPEN_WITH_AWARD_EVIDENCE")
+
+
+def extract_tombstone_refs(cand_meta: dict) -> dict:
+    """Map atom-id ref -> tombstone `when` ("" if absent) from the candidate
+    envelope's `meta.tombstones` (fetch_licitaciones.py P331-B16 output).
+    Malformed/non-dict entries and empty refs are dropped; the first
+    occurrence of a repeated ref wins (deterministic)."""
+    refs: dict = {}
+    for t in (cand_meta.get("tombstones") or []):
+        if not isinstance(t, dict):
+            continue
+        ref = str(t.get("ref") or "").strip()
+        if ref and ref not in refs:
+            refs[ref] = str(t.get("when") or "").strip()
+    return refs
+
+
+def apply_tombstone_consequence(rec: dict, tombstone_when: str) -> dict:
+    """Apply the P331-B16 tombstone consequence to a known identity the
+    current candidate run no longer supplies (a production/state-only record
+    whose original atom `id` matches an observed deleted-entry ref).
+
+    Conservative and idempotent:
+      - a record already carrying award/closure evidence (CLEAR_AWARDED,
+        OPEN_WITH_AWARD_EVIDENCE) keeps its existing lifecycle fields
+        untouched -- only a provenance marker is added, never a downgrade;
+      - otherwise the record is demoted to TOMBSTONE_CATEGORY /
+        active_opportunity_eligible=False / lifecycle_review_required=True;
+      - `estat` / `estat_raw` / `adjudicatari` / `award_results` (raw source
+        fidelity) are never modified -- a tombstone is not synthesized into
+        a legal cancellation, desertion, or award;
+      - repeated application with the same input is a no-op beyond
+        `tombstone_observed_at`, which is set only once (first-seen).
+    """
+    result = dict(rec)
+    result["tombstone_ref_matched"] = True
+    if tombstone_when and not result.get("tombstone_observed_at"):
+        result["tombstone_observed_at"] = tombstone_when
+
+    if result.get("lifecycle_category") in _TOMBSTONE_PROTECTED_CATEGORIES:
+        return result
+
+    result["lifecycle_category"] = TOMBSTONE_CATEGORY
+    result["active_opportunity_eligible"] = False
+    result["lifecycle_review_required"] = True
+    result["dry_run_lifecycle_note"] = (
+        "Official Atom feed reported a deleted-entry tombstone for this "
+        "identity's source entry. This is source-removal evidence only -- "
+        "it is not proof of legal cancellation, desertion, award, or "
+        "closure. Removed from active public eligibility pending explicit "
+        "official status evidence."
+    )
+    return result
+
 
 # Fields skipped when iterating the candidate in merge_overlap.
 # LIFECYCLE_DECISION_FIELDS are excluded here — set by resolve_overlap_lifecycle().
@@ -368,8 +468,13 @@ def build_public_meta(records: list, cand_meta: dict) -> dict:
 # Lifecycle classification for candidate-only records
 # ---------------------------------------------------------------------------
 
-def classify_lifecycle(rec: dict) -> tuple[str, bool, bool]:
-    """Return (lifecycle_category, active_opportunity_eligible, lifecycle_review_required)."""
+def classify_lifecycle(rec: dict, reference_date=None) -> tuple[str, bool, bool]:
+    """Return (lifecycle_category, active_opportunity_eligible, lifecycle_review_required).
+
+    `reference_date` (a date object) is the deadline-expiry comparison point;
+    it defaults to the current UTC date but tests may pass an explicit value
+    for deterministic B21 coverage.
+    """
     estat = (rec.get("estat") or rec.get("status") or "").lower()
     adjudicatari = rec.get("adjudicatari") or rec.get("adjudicatario") or ""
     award_results = rec.get("award_results") or []
@@ -379,6 +484,10 @@ def classify_lifecycle(rec: dict) -> tuple[str, bool, bool]:
     is_closed = any(k in estat for k in _CLOSED_KWS)
 
     if is_open and not has_award:
+        # B21: award/closure evidence still dominates (checked above); only an
+        # open-looking, evidence-free record is subject to deadline demotion.
+        if is_deadline_expired(rec.get("data_limit"), reference_date):
+            return DEADLINE_EXPIRED_CATEGORY, False, True
         return "CLEAR_OPEN", True, False
     if is_open and has_award:
         return "OPEN_WITH_AWARD_EVIDENCE", False, True
@@ -391,7 +500,7 @@ def classify_lifecycle(rec: dict) -> tuple[str, bool, bool]:
 # Merge logic
 # ---------------------------------------------------------------------------
 
-def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
+def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict, reference_date=None) -> dict:
     """
     Determine lifecycle fields for an overlap (production + candidate) record.
 
@@ -404,8 +513,19 @@ def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
       2. Candidate open-like but has award evidence → OPEN_WITH_AWARD_EVIDENCE, active=False.
       3. Candidate has award evidence, status unclear → CLEAR_AWARDED, active=False.
       4. Candidate clearly open, no award evidence → preserve production if stronger
-         (CLEAR_AWARDED/OWA); otherwise CLEAR_OPEN, active=True.
+         (CLEAR_AWARDED/OWA); otherwise, if the candidate's stored data_limit has
+         already passed (B21), CLEAR_OPEN_DEADLINE_EXPIRED, active=False, review=True;
+         otherwise CLEAR_OPEN, active=True.
       5. Candidate unclear → preserve production if stronger; else UNKNOWN_LIFECYCLE.
+
+    `reference_date` (a date object) is the B21 deadline-expiry comparison
+    point; it defaults to the current UTC date but tests may pass an explicit
+    value for deterministic coverage.
+
+    Award/closure evidence (Rules 1-3) always dominates a B21 deadline check —
+    deadline expiry is only ever consulted once open-with-no-award status has
+    already been established, so it can never relabel a genuinely awarded,
+    cancelled, or deserted record.
 
     Returns dict: category, active, review, and optionally note, recommended_status.
     """
@@ -451,6 +571,17 @@ def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
         if prod_lc in ("CLEAR_AWARDED", "OPEN_WITH_AWARD_EVIDENCE"):
             # Production is more conservative — preserve it.
             return {"category": prod_lc, "active": False, "review": prod_review}
+        if is_deadline_expired(cand_rec.get("data_limit"), reference_date):
+            return {
+                "category": DEADLINE_EXPIRED_CATEGORY,
+                "active":   False,
+                "review":   True,
+                "note": (
+                    "Stored submission deadline has passed with no award/"
+                    "cancellation evidence; demoted from active eligibility "
+                    "pending official status update. Not an official closure."
+                ),
+            }
         return {"category": "CLEAR_OPEN", "active": True, "review": False}
 
     # Rule 5: Candidate status unclear, no award evidence.
@@ -461,7 +592,7 @@ def resolve_overlap_lifecycle(prod_rec: dict, cand_rec: dict) -> dict:
     return {"category": "UNKNOWN_LIFECYCLE", "active": False, "review": True}
 
 
-def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
+def merge_overlap(prod_rec: dict, cand_rec: dict, reference_date=None) -> tuple[dict, list]:
     """
     Start from production record. Update with candidate's fresh-fetch fields.
 
@@ -469,6 +600,9 @@ def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
     resolve_overlap_lifecycle() rather than blindly preserved from production.
     Enrichment, gate, provenance, and source_merge_class are always from production.
     LIST_UNION_FIELDS are safely unioned. Scalar conflicts are logged.
+
+    `reference_date` is passed through to resolve_overlap_lifecycle() for the
+    B21 deadline-expiry check; defaults to the current UTC date.
     """
     result: dict = dict(prod_rec)
     conflicts: list = []
@@ -499,7 +633,7 @@ def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
             result[field] = merged_list
 
     # Resolve lifecycle via candidate evidence precedence (119 correction).
-    lc = resolve_overlap_lifecycle(prod_rec, cand_rec)
+    lc = resolve_overlap_lifecycle(prod_rec, cand_rec, reference_date)
     result["lifecycle_category"]          = lc["category"]
     result["active_opportunity_eligible"] = lc["active"]
     result["lifecycle_review_required"]   = lc["review"]
@@ -511,10 +645,10 @@ def merge_overlap(prod_rec: dict, cand_rec: dict) -> tuple[dict, list]:
     return result, conflicts
 
 
-def build_candidate_record(cand_rec: dict) -> dict:
+def build_candidate_record(cand_rec: dict, reference_date=None) -> dict:
     """Assign lifecycle classification to a candidate-only (new) record."""
     result = dict(cand_rec)
-    lc_cat, active, review = classify_lifecycle(cand_rec)
+    lc_cat, active, review = classify_lifecycle(cand_rec, reference_date)
     result["lifecycle_category"] = lc_cat
     result["active_opportunity_eligible"] = active
     result["lifecycle_review_required"] = review
@@ -567,16 +701,18 @@ def validate_structure(data: dict, label: str) -> list[str]:
 
 
 def validate_lifecycle_integrity(records: list) -> tuple[bool, list[str]]:
-    """OPEN_WITH_AWARD_EVIDENCE must not have active_opportunity_eligible=True."""
+    """OPEN_WITH_AWARD_EVIDENCE and WITHDRAWN_SOURCE_TOMBSTONE (P331-B16)
+    must not have active_opportunity_eligible=True."""
     issues: list[str] = []
     for i, rec in enumerate(records):
         key = get_merge_key(rec) or f"index:{i}"
+        category = rec.get("lifecycle_category")
         if (
-            rec.get("lifecycle_category") == "OPEN_WITH_AWARD_EVIDENCE"
+            category in ("OPEN_WITH_AWARD_EVIDENCE", TOMBSTONE_CATEGORY)
             and rec.get("active_opportunity_eligible") is True
         ):
             issues.append(
-                f"{key}: OPEN_WITH_AWARD_EVIDENCE has active_opportunity_eligible=True (UNSAFE)"
+                f"{key}: {category} has active_opportunity_eligible=True (UNSAFE)"
             )
     return (len(issues) == 0), issues
 
@@ -807,13 +943,19 @@ def run_merge_dry_run(args) -> None:
 
     prod_index = build_index(prod_rows)
     cand_index = build_index(cand_rows)
+    tombstone_refs = extract_tombstone_refs(cand_meta)
 
     merged_rows: list = []
     all_conflicts: list = []
     overlap_keys: list = []
     candidate_only_keys: list = []
+    tombstones_applied = 0
 
     # Process production records: merge overlaps, preserve production-only.
+    # P331-B16: a production-only record (absent from this candidate) whose
+    # original atom `id` matches an observed deleted-entry ref is demoted via
+    # apply_tombstone_consequence() instead of being blindly carried forward
+    # unchanged -- see that function for the conservative/idempotent rules.
     for rec in prod_rows:
         key = get_merge_key(rec)
         if key and key in cand_index:
@@ -823,7 +965,12 @@ def run_merge_dry_run(args) -> None:
                 all_conflicts.extend({"merge_key": key, **c} for c in conflicts)
             overlap_keys.append(key)
         else:
-            merged_rows.append(dict(rec))
+            tomb_when = tombstone_refs.get(rec.get("id"))
+            if tomb_when is not None:
+                merged_rows.append(apply_tombstone_consequence(rec, tomb_when))
+                tombstones_applied += 1
+            else:
+                merged_rows.append(dict(rec))
 
     # Append candidate-only records (not in production).
     for cand_rec in cand_rows:
@@ -848,6 +995,7 @@ def run_merge_dry_run(args) -> None:
         "overlap_count": len(overlap_keys),
         "candidate_only_added": len(candidate_only_keys),
         "production_only_preserved": prod_only_count,
+        "tombstones_applied": tombstones_applied,
     })
     write_json(output_path, {"meta": output_meta, "data": merged_rows})
 
@@ -860,6 +1008,7 @@ def run_merge_dry_run(args) -> None:
         "overlap_count": len(overlap_keys),
         "production_only_preserved": prod_only_count,
         "candidate_only_added": len(candidate_only_keys),
+        "tombstones_applied": tombstones_applied,
         "active_true": merged_counts["active_true"],
         "review_true": merged_counts["review_true"],
         "rs_count": merged_counts["rs_count"],
@@ -885,6 +1034,7 @@ def run_merge_dry_run(args) -> None:
     print(f"  overlap merged      : {len(overlap_keys)}")
     print(f"  candidate only added: {len(candidate_only_keys)}")
     print(f"  production preserved: {prod_only_count}")
+    print(f"  tombstones applied  : {tombstones_applied}")
     print(f"  merged total        : {len(merged_rows)}")
     print(f"  active_true         : {merged_counts['active_true']}")
     print(f"  review_true         : {merged_counts['review_true']}")
@@ -1049,6 +1199,18 @@ def run_live(args) -> None:
         )
     internal_state_path = Path(args.internal_state_path)
 
+    # WRKOPS t_20261004_adgops335 (P331-B15 D1/D4): optional, strictly
+    # additive. getattr() guards callers (and existing tests) that construct
+    # args without this field -- absent (the default), run_live() is
+    # byte-for-byte the legacy single-run behavior this task found it in,
+    # including the legacy acquisition_complete gate being skipped entirely
+    # (see below): there is no continuation mechanism yet for such a caller,
+    # so enforcing the new fail-closed gate without one would only convert
+    # today's always-publishes-something behavior into an unconditional,
+    # un-recoverable refusal -- exactly the "routine ceiling-hit creates
+    # indefinite stale state" failure this task's design is meant to avoid.
+    acquisition_staging_path = getattr(args, "acquisition_staging_path", None)
+
     TMP_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     candidate_path = TMP_DIR / f"scheduled_live_candidate_{ts}.json"
@@ -1082,16 +1244,20 @@ def run_live(args) -> None:
     print(f"[run-live] Fetching to: {candidate_path}")
     print(f"[run-live] bounded-mode: global deadline={GLOBAL_DEADLINE_S}s "
           f"(sources={active_source_count}, hard subprocess timeout=same value)")
+    fetch_cmd = [
+        sys.executable, str(FETCHER_SCRIPT),
+        "--output", str(candidate_path),
+        "--min-score", "20",
+        "--no-progress",
+        "--bounded-mode",
+        "--global-deadline", str(GLOBAL_DEADLINE_S),
+    ]
+    if acquisition_staging_path:
+        fetch_cmd += ["--acquisition-staging-path", str(acquisition_staging_path)]
+        print(f"[run-live] acquisition staging: {acquisition_staging_path}")
     try:
         result = subprocess.run(
-            [
-                sys.executable, str(FETCHER_SCRIPT),
-                "--output", str(candidate_path),
-                "--min-score", "20",
-                "--no-progress",
-                "--bounded-mode",
-                "--global-deadline", str(GLOBAL_DEADLINE_S),
-            ],
+            fetch_cmd,
             capture_output=True,
             text=True,
             timeout=GLOBAL_DEADLINE_S,
@@ -1148,6 +1314,35 @@ def run_live(args) -> None:
                 "Investigate fetcher output before re-running."
             )
 
+    # WRKOPS t_20261004_adgops335 (P331-B15 D4): a SEPARATE fail-closed gate
+    # from the is_partial check above -- deliberately not conflated with it.
+    # Only enforced when the D1 acquisition-staging authority is active
+    # (acquisition_staging_path set): without a continuation mechanism,
+    # enforcing this unconditionally would turn every ordinary, error-free
+    # run into a permanent refusal (both live sources are known to exceed a
+    # single bounded run's page ceiling -- P334 §14(c)/addendum R1B), which
+    # is exactly the "routine ceiling-hit creates indefinite stale state"
+    # failure this design exists to avoid. acquisition_complete missing
+    # entirely is treated as incomplete (fail closed on an unexpected
+    # candidate shape, never default-true). Not overridable by
+    # --allow-partial-production-write -- that flag does not exist on this
+    # module's own CLI surface at all (it belongs to fetch_licitaciones.py's
+    # unrelated direct-write guard) and this task authorizes no new override.
+    cand_acquisition_complete = cand_meta.get("acquisition_complete")
+    print(f"[run-live] candidate acquisition_complete={cand_acquisition_complete!r}")
+    if acquisition_staging_path and cand_acquisition_complete is not True:
+        sys.exit(
+            "[ERROR] Acquisition incomplete (acquisition_complete="
+            f"{cand_acquisition_complete!r}) — refusing production write. "
+            "This is distinct from the is_partial/run_status check above: "
+            "the bounded acquisition path has not yet reached every "
+            "required source's own feed-terminal condition. Bounded "
+            "forward progress has already been persisted to the "
+            "acquisition-staging authority for this cycle; a later "
+            "scheduled run will continue it automatically. This is not a "
+            "fetch failure."
+        )
+
     # Load the authoritative private internal-continuity state (never
     # data/licitaciones.json — that is now derived output, not input).
     state_data = load_internal_state(internal_state_path)
@@ -1156,12 +1351,18 @@ def run_live(args) -> None:
     cand_rows   = cand_data["data"]
     state_index = build_index(state_rows)
     cand_index  = build_index(cand_rows)
+    tombstone_refs = extract_tombstone_refs(cand_meta)
 
     merged_rows: list = []
     all_conflicts: list = []
     overlap_keys: list = []
     candidate_only_keys: list = []
+    tombstones_applied = 0
 
+    # P331-B16: a state-only record (absent from this candidate) whose
+    # original atom `id` matches an observed deleted-entry ref is demoted via
+    # apply_tombstone_consequence() instead of being blindly carried forward
+    # unchanged -- see that function for the conservative/idempotent rules.
     for rec in state_rows:
         key = get_merge_key(rec)
         if key and key in cand_index:
@@ -1171,7 +1372,12 @@ def run_live(args) -> None:
                 all_conflicts.extend({"merge_key": key, **c} for c in conflicts)
             overlap_keys.append(key)
         else:
-            merged_rows.append(dict(rec))
+            tomb_when = tombstone_refs.get(rec.get("id"))
+            if tomb_when is not None:
+                merged_rows.append(apply_tombstone_consequence(rec, tomb_when))
+                tombstones_applied += 1
+            else:
+                merged_rows.append(dict(rec))
 
     for cand_rec in cand_rows:
         key = get_merge_key(cand_rec)
@@ -1220,6 +1426,15 @@ def run_live(args) -> None:
     public_meta = build_public_meta(public_records, cand_meta)
     write_json(PRODUCTION_PATH, {"meta": public_meta, "data": public_records})
     print(f"[run-live] Written: {PRODUCTION_PATH} ({len(public_records)} canonical public records)")
+
+    # WRKOPS t_20261004_adgops335 (P331-B15 D1): rotate the acquisition-
+    # staging cycle only AFTER the public write above has succeeded -- a
+    # failure at any point before this line (canonicalization, projection,
+    # backup, write) leaves the completed cycle's staged data intact, so a
+    # later run can retry the merge/publish step alone, with zero re-fetch.
+    if acquisition_staging_path:
+        acquisition_staging.rotate(Path(acquisition_staging_path), pc.PUBLIC_SOURCES)
+        print(f"[run-live] Acquisition cycle complete; staging rotated: {acquisition_staging_path}")
     print(
         f"[run-live] generation_id={public_meta['generation_id']} "
         f"dataset_sha256={public_meta['dataset_sha256'][:12]}... "
@@ -1247,6 +1462,7 @@ def run_live(args) -> None:
     print(
         f"[run-live] merged={len(merged_rows)} "
         f"overlap={len(overlap_keys)} added={len(candidate_only_keys)} "
+        f"tombstones_applied={tombstones_applied} "
         f"active={merged_counts['active_true']} review={merged_counts['review_true']} "
         f"rs={merged_counts['rs_count']}"
     )
@@ -1297,6 +1513,16 @@ def main() -> None:
                          "reviewed adgops.link_checks/1 sidecar to overlay onto "
                          "--run-live's public output. Absent by default (no behavior "
                          "change). Never derived/guessed -- must be explicit.")
+    ap.add_argument("--acquisition-staging-path", metavar="PATH", dest="acquisition_staging_path",
+                    default=None,
+                    help="WRKOPS t_20261004_adgops335 (P331-B15 D1/D4): optional path to the "
+                         "dedicated, private acquisition-staging file (sibling to "
+                         "--internal-state-path in the same private companion-repo working "
+                         "copy). When set, --run-live passes it through to the fetcher "
+                         "subprocess, enforces the new acquisition_complete fail-closed gate, "
+                         "and rotates the staging cycle after a successful public write. "
+                         "Absent by default -- --run-live remains the legacy single-run "
+                         "behavior with no acquisition_complete enforcement.")
 
     args = ap.parse_args()
 

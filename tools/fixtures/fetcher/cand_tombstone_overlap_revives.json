@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "generated_at": "2026-09-15T06:00:00Z",
+    "run_status": "FULL_SUCCESS",
+    "is_partial": false,
+    "failed_sources": [],
+    "source_errors": {}
+  },
+  "data": [
+    {
+      "id": "FIX-OPEN-001",
+      "contract_folder_id": "CFID-OPEN-001",
+      "titol": "Synthetic open tender alpha (republished)",
+      "organisme": "Ajuntament Fixticia",
+      "estat": "vigent",
+      "adjudicatari": "",
+      "pressupost": 100000,
+      "data_pub": "2026-05-01",
+      "data_limit": "2027-03-31",
+      "url": "https://example.invalid/fixture/open-001",
+      "historial": [],
+      "award_results": []
+    }
+  ]
+}

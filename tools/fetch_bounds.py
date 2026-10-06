@@ -89,6 +89,29 @@ def is_authorized_host(hostname, registry=None) -> bool:
     return hostname.lower() in allowed_hosts(registry)
 
 
+def is_valid_continuation_url(next_url, source_url) -> bool:
+    """True iff `next_url` (a persisted, server-supplied `rel=next` href)
+    is bound to the SAME host as `source_url`, the specific source that
+    minted it.
+
+    WRKOPS t_20261004_adgops335 corrective C2: `is_authorized_host()` alone
+    only proves `next_url` belongs to SOME globally-authorized source --
+    with two or more authorized hosts in the registry, that cannot detect a
+    stored cursor for one source silently resuming through a continuation
+    href that actually belongs to a different, also-authorized source. This
+    check binds the continuation href to its OWN source's host boundary
+    instead, so a cross-source cursor mix-up fails this check even though
+    both hosts individually pass is_authorized_host().
+    """
+    if not next_url or not source_url:
+        return False
+    next_host = urlparse(next_url).hostname
+    src_host = urlparse(source_url).hostname
+    if not next_host or not src_host:
+        return False
+    return next_host.lower() == src_host.lower()
+
+
 def verify_source_registry(active_sources, registry=None) -> None:
     """Fail-closed registry-consistency check (Stage A Sec F).
 

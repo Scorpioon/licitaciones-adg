@@ -5,6 +5,12 @@
 #       adjudicatario enrichment. Writes data/licitaciones.json.
 #
 # CHANGELOG (newest first)
+# 0.4.6  Oct 2026  Add parse_atom_tombstones(): P331-B16 official Atom
+#                  deleted-entry tombstone signal is now captured per page and
+#                  surfaced in the candidate envelope (meta.tombstones, online
+#                  fetch only). Raw signal only -- product consequence is
+#                  resolved in tools/scheduled_fetch_merge.py (WRKOPS
+#                  t_20261002_adgops333).
 # 0.4.5z May 2026  Bugfix: seen_ids.add deferred after score gate; observed/candidate/accepted accounting.
 # 0.4.5f May 2026  Add merge_master_v2: ContractFolderID-aware merge; canonical_key dedup path.
 # 0.4.4o May 2026  Per-page retry/backoff for transient SSL/network failures in fetch_source().
@@ -51,6 +57,17 @@ try:
     from tools import fetch_bounds
 except ImportError:  # pragma: no cover - direct-run fallback
     import fetch_bounds
+
+# WRKOPS t_20261004_adgops335 (P331-B15 D1/D4 repair): optional
+# acquisition-layer staging authority -- bounded multi-run continuation
+# across the opaque Atom rel=next sequence. Pure, no side effects on
+# import; every existing call site is unaffected unless it explicitly
+# opts in via --acquisition-staging-path (and only takes effect combined
+# with --bounded-mode).
+try:
+    from tools import acquisition_staging
+except ImportError:  # pragma: no cover - direct-run fallback
+    import acquisition_staging
 
 OUTPUT_FILE       = Path("data.json")
 MIN_SCORE_DEFAULT = 20
@@ -558,6 +575,30 @@ def parse_atom_entries(root):
     if entries:
         return entries
     return [e for e in root.iter() if str(e.tag).endswith("entry")]
+
+
+def parse_atom_tombstones(root) -> list:
+    """Official Atom Tombstones (P331-B16): `<at:deleted-entry ref="..."
+    when="...">` elements the PLACSP feed emits alongside ordinary
+    `<atom:entry>` elements when a source entry is removed. Matched by local
+    name only -- namespace prefix in the wild is not guaranteed -- which is
+    safe because a `ref` is only ever acted on after being matched against a
+    known stable identity (see tools/scheduled_fetch_merge.py); an unrelated
+    element that happened to share the local name would simply fail to match
+    anything and be ignored.
+
+    Never itself represents a legal procurement outcome -- it is raw source
+    deletion evidence, carried through unmodified for the merge layer to
+    consume.
+    """
+    tombstones = []
+    for el in root.iter():
+        if localname_lower(el.tag) == "deleted-entry":
+            ref = (el.get("ref") or "").strip()
+            if not ref:
+                continue
+            tombstones.append({"ref": ref, "when": (el.get("when") or "").strip()})
+    return tombstones
 
 
 def get_entry_text(entry, tag):
@@ -1423,11 +1464,23 @@ def _describe_non_atom_response(resp) -> str:
 def fetch_source(session, source: dict, max_pages: int, min_score: int,
                  retries: int = 3, retry_delay: float = 2.0, retry_backoff: float = 2.0,
                  allow_redirects: bool = True, request_timeout: float = None,
-                 max_source_records: int = None, budget=None, deadline=None) -> dict:
+                 max_source_records: int = None, budget=None, deadline=None,
+                 start_url: str = None) -> dict:
     """Returns dict: {results, pages_done, had_error, error_msg, retry_count, retried_pages,
-    retry_errors, deadline_exhausted, budget_exhausted}.
+    retry_errors, deadline_exhausted, budget_exhausted, exhausted, next_url}.
     had_error is True only after all retry attempts are exhausted on an actual failure, or when
     deadline_exhausted/budget_exhausted is True.
+
+    exhausted is True only when the feed's own pagination terminated
+    (_get_next_url() returned empty) for the last page actually fetched in
+    this call AND had_error is False -- it is False on a ceiling hit
+    (pages_done == max_pages with a non-empty next link still pending), on
+    any error, and on deadline/budget exhaustion (WRKOPS t_20261004_adgops335
+    P331-B15 D4: the explicit acquisition-completeness signal, deliberately
+    not overloading is_partial/had_error). next_url is the href this call
+    stopped at ("" when exhausted, otherwise the next unfetched page's
+    opaque server-supplied href) -- the resume cursor a later call may pass
+    back in as start_url to continue the same source's traversal.
 
     Bounded-mode parameters (Prompt 323 Stage B, WRKOPS t_20260923_adgops323 -- all additive;
     every default below preserves the exact current behavior of every existing call site when
@@ -1446,10 +1499,14 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
       deadline              -- a tools.fetch_bounds.Deadline; check() is called at every Stage A
                               Sec E.1 checkpoint. Default None disables all deadline enforcement
                               (legacy behavior).
+      start_url             -- resume cursor (WRKOPS t_20261004_adgops335): when not None/empty,
+                              fetching starts from this opaque href instead of source["url"].
+                              Default None preserves current behavior (always starts at the
+                              source's base feed URL) for every existing call site.
     """
     name = source["name"]
     src_ccaa = source.get("ccaa")
-    url = source["url"]
+    url = start_url if start_url else source["url"]
     timeout_s = TIMEOUT if request_timeout is None else request_timeout
 
     _check_deadline = deadline.check if deadline is not None else (lambda: None)
@@ -1457,6 +1514,7 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
 
     pprint(f"  ↓ {name}  [hasta {max_pages} página(s) × ~100 items]")
     all_results = []
+    all_tombstones = []
     seen_ids = set()
     pages_done = 0
     had_error = False
@@ -1562,6 +1620,12 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
             if not _QUIET:
                 pprint(f"    → {len(entries)} entries")
 
+            tombstones = parse_atom_tombstones(root)
+            if tombstones:
+                all_tombstones.extend(tombstones)
+                if not _QUIET:
+                    pprint(f"    → {len(tombstones)} deleted-entry tombstones")
+
             page_results, discarded = _process_entries(entries, src_ccaa, name, seen_ids, today, min_score)
             if not _QUIET:
                 dup_info = f" dup={discarded['dup']}" if discarded["dup"] else ""
@@ -1601,8 +1665,18 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
     if pages_done > 1 or _QUIET:
         pprint(f"    ── {pages_done} página(s), {len(all_results)} relevantes en total")
 
+    # WRKOPS t_20261004_adgops335 (P331-B15 D4): exhausted is true only on a
+    # genuine feed-terminal stop (no pending next link) with no error of any
+    # kind -- a ceiling hit (url still truthy, pages_done==max_pages), any
+    # had_error, or deadline/budget exhaustion are all exhausted=False by
+    # construction. url/pages_done/all_results are only ever mutated together
+    # after a page's full successful processing (never for an in-flight or
+    # failed page), so next_url always reflects genuinely-completed progress.
+    exhausted = bool((not url) and not had_error)
+
     return {
         "results": all_results,
+        "tombstones": all_tombstones,
         "pages_done": pages_done,
         "had_error": had_error,
         "error_msg": error_msg,
@@ -1611,6 +1685,8 @@ def fetch_source(session, source: dict, max_pages: int, min_score: int,
         "retry_errors": retry_errors,
         "deadline_exhausted": deadline_exhausted,
         "budget_exhausted": budget_exhausted,
+        "exhausted": exhausted,
+        "next_url": url,
     }
 
 
@@ -1621,6 +1697,59 @@ def _merge_discarded(total: dict, delta: dict) -> None:
         total[k] = total.get(k, 0) + delta.get(k, 0)
     for sk, cnt in delta.get("low_score_by_score", {}).items():
         total["low_score_by_score"][sk] = total["low_score_by_score"].get(sk, 0) + cnt
+
+
+def dedup_merge_items(existing_items: list, new_items: list) -> list:
+    """Merge `new_items` into `existing_items` keyed by canonical_key/id,
+    applying the same status_rank-then-rellevancia precedence as main()'s
+    own cross-source dedup_new block (WRKOPS t_20261004_adgops335: used only
+    by the acquisition-staging accumulation path, to fold one attempt's
+    newly-fetched page(s) into a cycle's running candidate population across
+    many scheduled runs). Order-stable: an existing identity keeps its
+    position; a genuinely new identity is appended in new_items order.
+    Idempotent -- re-merging the same items again is a no-op (required for
+    duplicate-replay safety across repeated/retried attempts)."""
+    result = list(existing_items)
+    index: dict = {}
+    for i, item in enumerate(result):
+        key = item.get("canonical_key") or item.get("id")
+        if key is not None and key not in index:
+            index[key] = i
+    for item in new_items:
+        key = item.get("canonical_key") or item.get("id")
+        if key is None:
+            result.append(item)
+            continue
+        if key not in index:
+            index[key] = len(result)
+            result.append(item)
+            continue
+        idx = index[key]
+        existing = result[idx]
+        item_rank = STATUS_RANK.get(item.get("notice_type", "UNKNOWN"), 0)
+        exist_rank = STATUS_RANK.get(existing.get("notice_type", "UNKNOWN"), 0)
+        if item_rank > exist_rank or (
+            item_rank == exist_rank and item.get("rellevancia", 0) > existing.get("rellevancia", 0)
+        ):
+            result[idx] = item
+    return result
+
+
+def _dedup_tombstone_list(existing: list, new: list) -> list:
+    """Accumulate tombstones by ref, first occurrence wins (mirrors main()'s
+    own per-run tombstone dedup) -- used only by the acquisition-staging
+    accumulation path to fold one attempt's observed tombstones into a
+    cycle's running tombstone evidence across many scheduled runs."""
+    seen = {t.get("ref") for t in existing if isinstance(t, dict) and t.get("ref")}
+    result = list(existing)
+    for t in new:
+        if not isinstance(t, dict):
+            continue
+        ref = t.get("ref")
+        if ref and ref not in seen:
+            seen.add(ref)
+            result.append(t)
+    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1832,6 +1961,14 @@ def main():
                     help="Bounded-mode optional fail-closed per-source volume sanity ceiling. "
                          "Aborts (never truncates) if a source's accepted-record count exceeds "
                          "this value. Default: no ceiling (unlimited, current behavior).")
+    ap.add_argument("--acquisition-staging-path", default=None, dest="acquisition_staging_path",
+                    help="WRKOPS t_20261004_adgops335 (P331-B15 D1/D4): optional path to the "
+                         "dedicated, private acquisition-staging file. Only takes effect "
+                         "combined with --bounded-mode. When set, each active source resumes "
+                         "from its persisted rel=next cursor instead of restarting at page 1, "
+                         "and the candidate's 'data'/'tombstones' become the full cycle-"
+                         "accumulated population (not just this run's own page(s)). Absent by "
+                         "default -- no behavior change for any existing call site.")
     args = ap.parse_args()
 
     global _QUIET, _NO_PROGRESS
@@ -1864,6 +2001,7 @@ def main():
     pprint(f"  Datos anteriores cargados: {len(previous)} items\n")
 
     all_new_items = []
+    all_tombstones: list = []
     _local_stats = None
 
     # Run-level tracking (live mode only)
@@ -1878,6 +2016,16 @@ def main():
     retry_errors_by_source: dict = {}
     deadline_exhausted_any = False
     budget_exhausted_any = False
+
+    # WRKOPS t_20261004_adgops335 (P331-B15 D4): acquisition-completeness
+    # signal, deliberately separate from is_partial/run_status. ZIP backfill
+    # has no pagination-completeness concept at all, so it is unconditionally
+    # complete by definition; the live-feed branch below recomputes this.
+    overall_acquisition_complete = True
+    staging = None
+    acquisition_staging_path = None
+    acquisition_cycle_id = None
+    source_exhausted: dict = {}
 
     if args.local_dir:
         _local_items, _local_stats = fetch_local_dir(Path(args.local_dir), args.min_score, t_start,
@@ -1920,16 +2068,82 @@ def main():
             deadline = fetch_bounds.Deadline(deadline_s)
             pprint(f"  Bounded mode: ON  |  deadline={deadline_s:.1f}s  budget={budget.max_total} attempts")
 
+        # WRKOPS t_20261004_adgops335 (P331-B15 D1): optional acquisition-
+        # staging authority. Only takes effect combined with --bounded-mode;
+        # absent (the default), every line below this block is unreachable
+        # and behavior is byte-for-byte unchanged from before this task.
+        acquisition_staging_path = args.acquisition_staging_path if bounded else None
+        if acquisition_staging_path:
+            staging, _staging_fresh, _staging_reason = acquisition_staging.load_or_new(
+                Path(acquisition_staging_path), active_sources
+            )
+            if _staging_fresh:
+                pprint(f"  Acquisition staging: fresh cycle ({_staging_reason}) — {acquisition_staging_path}")
+            else:
+                pprint(f"  Acquisition staging: resuming cycle {staging['cycle_id']} — {acquisition_staging_path}")
+
+            # WRKOPS t_20261004_adgops335 corrective C1/C2: validate every
+            # stored continuation href against its OWN source's host
+            # boundary (fetch_bounds.is_valid_continuation_url(), not the
+            # global is_authorized_host() set -- a cursor for one
+            # globally-authorized source must not silently resume through a
+            # continuation that actually belongs to another, also-
+            # authorized source) BEFORE any source is fetched this run, and
+            # ALL upfront, not source-by-source mid-loop. If any source
+            # fails this check, the ENTIRE cycle is discarded and replaced
+            # with a genuinely fresh one -- never a per-source page-1 reset
+            # that silently retains the rest of the cycle's accumulated
+            # `data`/`tombstones`. Those are cycle-level, not source-
+            # partitioned, so one source's broken continuation means the
+            # whole cycle can no longer be trusted as one continuous
+            # traversal (C1: "Do not retain prior-cycle accumulated
+            # records/tombstones ... merely because identity-keyed dedup
+            # would collapse duplicates").
+            _invalid_cursor_sources = [
+                src["name"] for src in active_sources
+                if staging["sources"][src["name"]].get("next_url")
+                and not fetch_bounds.is_valid_continuation_url(
+                    staging["sources"][src["name"]]["next_url"], src["url"]
+                )
+            ]
+            if _invalid_cursor_sources:
+                pprint(
+                    f"  [!] Acquisition staging: stored continuation href failed "
+                    f"source-bound validation for {_invalid_cursor_sources} "
+                    f"(cycle_id={staging['cycle_id']}) — discarding the entire "
+                    "cycle and starting a genuinely fresh one"
+                )
+                staging = acquisition_staging.new_cycle(active_sources)
+
         for src in active_sources:
+            sname = src["name"]
+            start_url = None
+            if staging is not None:
+                src_stage = staging["sources"][sname]
+                if src_stage["exhausted"]:
+                    # Already reached this source's feed-terminal condition
+                    # earlier in this cycle -- no further network call is
+                    # needed; this run's publish-readiness depends only on
+                    # whether every OTHER required source also finishes.
+                    completed_pages_by_source[sname] = 0
+                    retry_counts_by_source[sname] = 0
+                    failed_pages_by_source[sname] = 0
+                    completed_sources.append(sname)
+                    source_exhausted[sname] = True
+                    pprint(f"  ↓ {sname}  [already exhausted this acquisition cycle — skipped]\n")
+                    continue
+                start_url = src_stage.get("next_url") or None
+
             src_result = fetch_source(session, src, args.pages, args.min_score,
                                       retries=args.retries, retry_delay=args.retry_delay,
                                       retry_backoff=args.retry_backoff,
                                       allow_redirects=allow_redirects,
                                       request_timeout=request_timeout,
                                       max_source_records=max_source_records,
-                                      budget=budget, deadline=deadline)
+                                      budget=budget, deadline=deadline,
+                                      start_url=start_url)
             all_new_items.extend(src_result["results"])
-            sname = src["name"]
+            all_tombstones.extend(src_result.get("tombstones", []))
             completed_pages_by_source[sname] = src_result["pages_done"]
             retry_counts_by_source[sname] = src_result["retry_count"]
             if src_result["retried_pages"]:
@@ -1947,11 +2161,59 @@ def main():
             else:
                 failed_pages_by_source[sname] = 0
                 completed_sources.append(sname)
+            # .get(..., False/"") rather than direct indexing: tolerates a
+            # stubbed fetch_source() (e.g. BoundedMainEnvelopeStatusTests
+            # above, which predates this field and returns a fixed dict
+            # without it) by defaulting to the safe value -- never claims
+            # feed-terminal completeness fetch_source() did not itself report.
+            source_exhausted[sname] = src_result.get("exhausted", False)
+
+            if staging is not None:
+                src_stage = staging["sources"][sname]
+                src_stage["pages_fetched_cycle"] = (
+                    src_stage.get("pages_fetched_cycle", 0) + src_result["pages_done"]
+                )
+                src_stage["exhausted"] = src_result.get("exhausted", False)
+                src_stage["next_url"] = src_result.get("next_url") or None
+                src_stage["last_attempt_at"] = now_iso
+                src_stage["last_attempt_status"] = (
+                    "ATTEMPT_ERROR" if src_result["had_error"] else "ATTEMPT_OK"
+                )
+                staging["attempt_count"] = staging.get("attempt_count", 0) + 1
+                if src_result["results"]:
+                    staging["data"] = dedup_merge_items(staging["data"], src_result["results"])
+                if src_result.get("tombstones"):
+                    staging["tombstones"] = _dedup_tombstone_list(
+                        staging["tombstones"], src_result["tombstones"]
+                    )
+
             pprint("")
             if deadline_exhausted_any or budget_exhausted_any:
                 # Fail closed for remaining sources once the shared deadline/budget is
                 # exhausted -- no further real HTTP attempt is made (Stage A Sec E.1/H).
                 break
+
+        if staging is not None:
+            acquisition_staging.write_atomic(Path(acquisition_staging_path), staging)
+            acquisition_cycle_id = staging.get("cycle_id")
+            # The candidate's data/tombstones become the full cycle-accumulated
+            # population (every attempt so far, this run included) rather than
+            # just this run's own page(s) -- required so a later run's merge
+            # sees every record/tombstone observed anywhere in the cycle, not
+            # only what happened to be fetched in the single run that finally
+            # completes it (WRKOPS t_20261004_adgops335 D1 §"accumulated
+            # parsed candidate records"/"accumulated tombstone evidence").
+            all_new_items = list(staging["data"])
+            all_tombstones = list(staging["tombstones"])
+            overall_acquisition_complete = acquisition_staging.all_sources_exhausted(staging)
+        else:
+            # No staging: completeness is meaningful per-run too (D4's own
+            # contract, independent of D1's cross-run mechanism) -- true only
+            # if every active source's own fetch_source() call in THIS run
+            # reached the feed's own terminal condition with no error.
+            overall_acquisition_complete = bool(active_sources) and all(
+                source_exhausted.get(s["name"], False) for s in active_sources
+            )
 
     # Dedup dentro de la corrida actual (status_rank primero, rellevancia como desempate)
     dedup_new: dict = {}
@@ -2077,6 +2339,21 @@ def main():
         elif is_prod:
             pprint("  [WARNING] --allow-partial-production-write active. Writing partial run to production.")
 
+    # WRKOPS t_20261004_adgops335 (P331-B15 D4): a separate, non-overridable
+    # fail-closed guard for the new acquisition-completeness signal. Deliberately
+    # NOT reusing --allow-partial-production-write -- that flag is scoped to the
+    # pre-existing is_partial check only; this task provides no authorization for
+    # any flag to bypass acquisition_complete=false.
+    if not args.local_dir and not overall_acquisition_complete:
+        try:
+            is_prod = out_path.resolve() == _PRODUCTION_PATH.resolve()
+        except OSError:
+            is_prod = out_path == _PRODUCTION_PATH
+        if is_prod:
+            pprint(f"\n  [BLOCKED] Incomplete acquisition (acquisition_complete=false) refused for production path: {out_path}")
+            pprint("  Not overridable by --allow-partial-production-write (that flag covers is_partial only).")
+            sys.exit(1)
+
     # ── Build envelope ────────────────────────────────────────────────────────
     envelope = {
         "generated_at":    now_iso,
@@ -2085,6 +2362,12 @@ def main():
         "run_status":      run_status,
         "run_mode":        "ZIP_BACKFILL" if args.local_dir else "LIVE_FEED",
         "is_partial":      is_partial,
+        # WRKOPS t_20261004_adgops335 (P331-B15 D4): explicit, separate
+        # acquisition-completeness signal -- never overloaded onto is_partial.
+        # True only when every required source reached the feed's own terminal
+        # condition (directly, or cumulatively across an acquisition-staging
+        # cycle) with no error.
+        "acquisition_complete": overall_acquisition_complete,
     }
 
     if not args.local_dir:
@@ -2100,9 +2383,23 @@ def main():
         envelope["retry_counts_by_source"]    = retry_counts_by_source
         envelope["retried_pages_by_source"]   = retried_pages_by_source
         envelope["retry_errors_by_source"]    = retry_errors_by_source
+        envelope["acquisition_staging_active"] = staging is not None
+        envelope["acquisition_cycle_id"]       = acquisition_cycle_id
         envelope["bounded_mode"]              = args.bounded_mode
         envelope["deadline_exhausted"]        = deadline_exhausted_any
         envelope["budget_exhausted"]          = budget_exhausted_any
+
+        # P331-B16: official Atom deleted-entry tombstones observed this run
+        # (deduplicated by ref, first occurrence wins). Raw source-removal
+        # evidence only -- the merge layer (tools/scheduled_fetch_merge.py)
+        # decides product consequence; this envelope never itself asserts a
+        # legal procurement outcome.
+        _tombstones_by_ref: dict = {}
+        for _t in all_tombstones:
+            _ref = _t.get("ref")
+            if _ref and _ref not in _tombstones_by_ref:
+                _tombstones_by_ref[_ref] = _t
+        envelope["tombstones"] = list(_tombstones_by_ref.values())
 
     if _local_stats is not None:
         envelope["observed_entries_count"]    = _local_stats["observed_entries_count"]
