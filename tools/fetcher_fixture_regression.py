@@ -3738,6 +3738,77 @@ class FetchBoundsUnitTests(unittest.TestCase):
         self.assertFalse(fetch_bounds.is_valid_continuation_url(None, "https://s1.invalid/feed"))
         self.assertFalse(fetch_bounds.is_valid_continuation_url("https://s1.invalid/feed?p=2", ""))
 
+    # --- WRKOPS t_20261007_adgops338 corrective (DF-1 / P331-B15 lineage):
+    # source-bound continuation-host AUTHORIZATION, additive to the C2
+    # same-host check above, never a replacement for it ------------------
+
+    def test_is_valid_continuation_url_placsp1044_accepts_authorized_alt_host(self):
+        placsp_1044_url = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-1044"]["url"]
+        authorized_alt_href = "https://contrataciondelestado.es/_wrkops_test_fixture_feed?page=9"
+        self.assertTrue(fetch_bounds.is_valid_continuation_url(
+            authorized_alt_href, placsp_1044_url, source_id="PLACSP-1044",
+        ))
+
+    def test_is_valid_continuation_url_placsp1044_rejects_unrelated_host(self):
+        placsp_1044_url = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-1044"]["url"]
+        self.assertFalse(fetch_bounds.is_valid_continuation_url(
+            "https://unrelated-host.invalid/feed?page=9", placsp_1044_url,
+            source_id="PLACSP-1044",
+        ))
+
+    def test_is_valid_continuation_url_placsp643_accepts_own_host(self):
+        placsp_643_url = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-643"]["url"]
+        self.assertTrue(fetch_bounds.is_valid_continuation_url(
+            "https://contrataciondelestado.es/_wrkops_test_fixture_feed?page=2",
+            placsp_643_url, source_id="PLACSP-643",
+        ))
+
+    def test_is_valid_continuation_url_placsp643_rejects_host_authorized_only_for_placsp1044(self):
+        # PLACSP-1044's own registered host happens to be the exact host
+        # PLACSP-643 already resolves same-host against, so this proves the
+        # authorization lookup is keyed strictly by source_id: PLACSP-643
+        # gets no benefit from an entry that exists only under "PLACSP-1044"
+        # in tools.public_contract.CONTINUATION_HOST_AUTHORIZATIONS.
+        placsp_643_url = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-643"]["url"]
+        placsp_1044_host_href = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-1044"]["url"] + "?page=9"
+        self.assertFalse(fetch_bounds.is_valid_continuation_url(
+            placsp_1044_host_href, placsp_643_url, source_id="PLACSP-643",
+        ))
+
+    def test_is_valid_continuation_url_unknown_source_id_rejects_unauthorized_host(self):
+        self.assertFalse(fetch_bounds.is_valid_continuation_url(
+            "https://contrataciondelestado.es/_wrkops_test_fixture_feed?page=9",
+            "https://unregistered-source.invalid/feed", source_id="UNKNOWN-SOURCE-999",
+        ))
+
+    def test_is_valid_continuation_url_rejects_non_https(self):
+        placsp_1044_url = fetch_bounds.pc.PUBLIC_SOURCES["PLACSP-1044"]["url"]
+        # http:// (not https://) to the otherwise-authorized alt host --
+        # malformed/unsafe continuation must still fail closed.
+        self.assertFalse(fetch_bounds.is_valid_continuation_url(
+            "http://contrataciondelestado.es/_wrkops_test_fixture_feed?page=9",
+            placsp_1044_url, source_id="PLACSP-1044",
+        ))
+
+    def test_is_valid_continuation_url_alt_host_authorization_is_additive_not_override(self):
+        # host_authorizations seam lets a test substitute the registry
+        # without touching tools.public_contract's real one; proves the
+        # same-host match still passes even when the substitute registry
+        # has no entry at all for that source_id (additive, never a
+        # replacement for the base same-host check).
+        self.assertTrue(fetch_bounds.is_valid_continuation_url(
+            "https://s1.invalid/feed?p=2", "https://s1.invalid/feed",
+            source_id="S1", host_authorizations={},
+        ))
+        self.assertFalse(fetch_bounds.is_valid_continuation_url(
+            "https://s2.invalid/feed?p=2", "https://s1.invalid/feed",
+            source_id="S1", host_authorizations={"S1": frozenset({"s3.invalid"})},
+        ))
+        self.assertTrue(fetch_bounds.is_valid_continuation_url(
+            "https://s3.invalid/feed?p=2", "https://s1.invalid/feed",
+            source_id="S1", host_authorizations={"S1": frozenset({"s3.invalid"})},
+        ))
+
     # --- request-budget formula -----------------------------------------
 
     def test_max_total_requests_formula_not_a_frozen_literal(self):
@@ -4955,6 +5026,96 @@ class CrossSourceCursorIsolationTests(unittest.TestCase):
         # both sources is present in the new cycle and the candidate.
         self.assertEqual({d["contract_folder_id"] for d in written["data"]}, {"CFID-A", "CFID-B"})
         self.assertEqual({d["contract_folder_id"] for d in staged["data"]}, {"CFID-A", "CFID-B"})
+
+    # --- WRKOPS t_20261007_adgops338 (DF-1 / P331-B15 lineage): PLACSP-1044's
+    # explicitly authorized alternate pagination host must resume normally
+    # through this exact C1 whole-cycle-discard seam, never falling into it;
+    # an unrelated host for the same source must still fall into it. Source
+    # url below is a synthetic placeholder (verify_source_registry is
+    # bypassed, as in every other test in this class) -- only the source
+    # NAME "PLACSP-1044" need be real, since tools.public_contract.
+    # CONTINUATION_HOST_AUTHORIZATIONS is keyed by source id, and only the
+    # resumed continuation host below is a real, already-public hostname
+    # (P337 §12), with a synthetic path/query, per this class's and
+    # StagedAcquisitionMainIntegrationTests' existing convention.
+    _PLACSP1044_SYNTHETIC_URL = "https://source-placsp1044.invalid/feed"
+    _PLACSP1044_AUTHORIZED_ALT_HREF = (
+        "https://contrataciondelestado.es/_wrkops_test_fixture_feed?page=9"
+    )
+
+    def test_placsp1044_authorized_alt_host_resumes_without_whole_cycle_discard(self):
+        fake_sources = [{"name": "PLACSP-1044", "ccaa": None, "url": self._PLACSP1044_SYNTHETIC_URL}]
+        staging_path = self.tmp / "staging.json"
+
+        staging = acquisition_staging.new_cycle(fake_sources)
+        staging["sources"]["PLACSP-1044"]["next_url"] = self._PLACSP1044_AUTHORIZED_ALT_HREF
+        staging["data"] = [{"id": "PRIOR", "contract_folder_id": "CFID-PRIOR"}]
+        acquisition_staging.write_atomic(staging_path, staging)
+        old_cycle_id = staging["cycle_id"]
+
+        page = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-NEW"),
+        ))  # no further next link -- natural exhaustion
+        session = _ScriptedSession([page])
+        out_path = self.tmp / "candidate.json"
+        argv = ["fetch_licitaciones.py", "--output", str(out_path),
+                "--bounded-mode", "--global-deadline", "60.0", "--no-progress",
+                "--acquisition-staging-path", str(staging_path)]
+        with mock.patch.object(fl, "SOURCES", fake_sources), \
+             mock.patch.object(fl, "build_bounded_session", lambda: session), \
+             mock.patch.object(fetch_bounds, "verify_source_registry",
+                                lambda active_sources, registry=None: None), \
+             mock.patch.object(sys, "argv", argv), \
+             redirect_stdout(io.StringIO()):
+            fl.main()
+        written = json.loads(out_path.read_text(encoding="utf-8"))
+        staged = json.loads(staging_path.read_text(encoding="utf-8"))
+
+        # The cycle was RESUMED, not discarded: same cycle_id, prior
+        # accumulated data retained, and the real HTTP call went to the
+        # staged continuation href itself, not a page-1 reset to the
+        # source's own base URL.
+        self.assertEqual(staged["cycle_id"], old_cycle_id)
+        self.assertEqual([c["url"] for c in session.calls], [self._PLACSP1044_AUTHORIZED_ALT_HREF])
+        self.assertIn("CFID-PRIOR", [d.get("contract_folder_id") for d in staged["data"]])
+        self.assertTrue(written["acquisition_complete"])
+        self.assertEqual(
+            {d["contract_folder_id"] for d in written["data"]}, {"CFID-PRIOR", "CFID-NEW"},
+        )
+
+    def test_placsp1044_unrelated_host_still_triggers_whole_cycle_discard(self):
+        fake_sources = [{"name": "PLACSP-1044", "ccaa": None, "url": self._PLACSP1044_SYNTHETIC_URL}]
+        staging_path = self.tmp / "staging.json"
+
+        staging = acquisition_staging.new_cycle(fake_sources)
+        staging["sources"]["PLACSP-1044"]["next_url"] = "https://unrelated-host.invalid/feed?page=9"
+        staging["data"] = [{"id": "STALE", "contract_folder_id": "CFID-STALE"}]
+        acquisition_staging.write_atomic(staging_path, staging)
+        old_cycle_id = staging["cycle_id"]
+
+        page = _FakeResponse(status_code=200, content=_atom_bytes(
+            entries_xml=_design_entry_xml("E1", cfid="CFID-FRESH"),
+        ))
+        session = _ScriptedSession([page])
+        out_path = self.tmp / "candidate.json"
+        argv = ["fetch_licitaciones.py", "--output", str(out_path),
+                "--bounded-mode", "--global-deadline", "60.0", "--no-progress",
+                "--acquisition-staging-path", str(staging_path)]
+        with mock.patch.object(fl, "SOURCES", fake_sources), \
+             mock.patch.object(fl, "build_bounded_session", lambda: session), \
+             mock.patch.object(fetch_bounds, "verify_source_registry",
+                                lambda active_sources, registry=None: None), \
+             mock.patch.object(sys, "argv", argv), \
+             redirect_stdout(io.StringIO()):
+            fl.main()
+        staged = json.loads(staging_path.read_text(encoding="utf-8"))
+
+        # Discard semantics preserved: new cycle_id, stale data gone, and
+        # the real HTTP call went to the source's OWN base URL (page 1),
+        # never to the unauthorized stored href.
+        self.assertNotEqual(staged["cycle_id"], old_cycle_id)
+        self.assertEqual([c["url"] for c in session.calls], [self._PLACSP1044_SYNTHETIC_URL])
+        self.assertNotIn("CFID-STALE", [d.get("contract_folder_id") for d in staged["data"]])
 
 
 class AcquisitionCompletenessGateTests(unittest.TestCase):
