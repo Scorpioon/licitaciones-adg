@@ -89,10 +89,13 @@ def is_authorized_host(hostname, registry=None) -> bool:
     return hostname.lower() in allowed_hosts(registry)
 
 
-def is_valid_continuation_url(next_url, source_url) -> bool:
-    """True iff `next_url` (a persisted, server-supplied `rel=next` href)
-    is bound to the SAME host as `source_url`, the specific source that
-    minted it.
+def is_valid_continuation_url(next_url, source_url, source_id=None,
+                               host_authorizations=None) -> bool:
+    """True iff `next_url` (a persisted, server-supplied `rel=next` href) is
+    bound to the SAME host as `source_url`, the specific source that minted
+    it -- OR, only when `source_id` is given, to a host explicitly
+    authorized for that EXACT source id in
+    tools.public_contract.CONTINUATION_HOST_AUTHORIZATIONS.
 
     WRKOPS t_20261004_adgops335 corrective C2: `is_authorized_host()` alone
     only proves `next_url` belongs to SOME globally-authorized source --
@@ -102,14 +105,44 @@ def is_valid_continuation_url(next_url, source_url) -> bool:
     check binds the continuation href to its OWN source's host boundary
     instead, so a cross-source cursor mix-up fails this check even though
     both hosts individually pass is_authorized_host().
+
+    WRKOPS t_20261007_adgops338 corrective (DF-1 / P331-B15 lineage): some
+    sources legitimately paginate through a different, real host than their
+    own registered source host (a genuine same-feed pagination-host
+    relationship, confirmed for PLACSP-1044 -- P337 §12). `source_id` is the
+    OPTIONAL, backward-compatible seam for that: omitted (every pre-existing
+    call site/test), behavior is byte-identical to the original same-host-
+    only check. Given, the additional per-source allowance is consulted, but
+    ONLY for that exact source_id -- it is never extended to any other
+    source, never a global allow rule, and a source with no registry entry
+    gets no additional allowance at all. `host_authorizations` lets a test
+    substitute the registry; it defaults to
+    tools.public_contract.CONTINUATION_HOST_AUTHORIZATIONS.
+
+    Fails closed (False) for empty/missing next_url/source_url, a
+    non-HTTPS next_url (malformed/unsafe continuation), or either URL
+    missing a parseable hostname.
     """
     if not next_url or not source_url:
+        return False
+    if urlparse(next_url).scheme != "https":
         return False
     next_host = urlparse(next_url).hostname
     src_host = urlparse(source_url).hostname
     if not next_host or not src_host:
         return False
-    return next_host.lower() == src_host.lower()
+    next_host = next_host.lower()
+    src_host = src_host.lower()
+    if next_host == src_host:
+        return True
+    if not source_id:
+        return False
+    authorizations = (
+        pc.CONTINUATION_HOST_AUTHORIZATIONS if host_authorizations is None
+        else host_authorizations
+    )
+    authorized_alt_hosts = {h.lower() for h in authorizations.get(source_id, ())}
+    return next_host in authorized_alt_hosts
 
 
 def verify_source_registry(active_sources, registry=None) -> None:

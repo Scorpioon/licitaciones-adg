@@ -2099,11 +2099,19 @@ def main():
             # traversal (C1: "Do not retain prior-cycle accumulated
             # records/tombstones ... merely because identity-keyed dedup
             # would collapse duplicates").
+            #
+            # WRKOPS t_20261007_adgops338 (DF-1 / P331-B15 lineage): passes
+            # src["name"] as source_id so a source's own explicitly
+            # authorized alternate pagination host (tools.public_contract.
+            # CONTINUATION_HOST_AUTHORIZATIONS) is accepted here -- bound to
+            # that exact source only, never a global or cross-source
+            # allowance.
             _invalid_cursor_sources = [
                 src["name"] for src in active_sources
                 if staging["sources"][src["name"]].get("next_url")
                 and not fetch_bounds.is_valid_continuation_url(
-                    staging["sources"][src["name"]]["next_url"], src["url"]
+                    staging["sources"][src["name"]]["next_url"], src["url"],
+                    source_id=src["name"]
                 )
             ]
             if _invalid_cursor_sources:

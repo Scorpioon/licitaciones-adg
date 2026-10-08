@@ -91,6 +91,28 @@ PUBLIC_SOURCES = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# Per-source continuation-host authorization (WRKOPS t_20261007_adgops338,
+# DF-1 / P331-B15 lineage repair)
+#
+# A source's persisted `rel=next` pagination continuation normally resolves
+# to that SAME source's own registered host (tools.fetch_bounds.
+# is_valid_continuation_url()'s default same-host match). PLACSP-1044 is a
+# confirmed exception: its own legitimately-issued continuation href
+# resolves to a different, real host than its registered source host (P337
+# §12 forensic) -- a genuine same-feed pagination-host relationship, not
+# cross-source bleed.
+#
+# This registry is the ONLY place such a relationship may be declared, keyed
+# by source id, and it is strictly additive and source-bound: an entry here
+# authorizes the listed host(s) for THAT source id's continuation ONLY. It
+# never authorizes a host for any other source, and a source with no entry
+# here keeps the unmodified same-host-only behavior.
+# ---------------------------------------------------------------------------
+CONTINUATION_HOST_AUTHORIZATIONS = {
+    "PLACSP-1044": frozenset({"contrataciondelestado.es"}),
+}
+
 SOURCE_STATUS_OK       = "ok"
 SOURCE_STATUS_DEGRADED = "degraded"
 SOURCE_STATUS_FAILED   = "failed"
