@@ -494,9 +494,10 @@ function render() {
     : { lbl: dataFreshnessLabel() || 'Datos reales', cls: 'ok' };
 
   // ── Lifecycle / status ───────────────────────────────────────────────────
-  // "Sin adjudicar" = active_opportunity_eligible (lifecycle: not yet awarded),
-  // NOT "open for bids now". Estado is the declared expediente status.
-  const sinAdjudicar = rows.filter(r => r.active_opportunity_eligible === true).length;
+  // "Sin adjudicar" uses the public-safe isOpenOpportunity() selector (app.js),
+  // not any internal Runtime Core lifecycle field. Estado (vigentes, below) is
+  // the separate declared expediente status.
+  const sinAdjudicar = rows.filter(r => isOpenOpportunity(r)).length;
   const vigentes     = rows.filter(r => r.estat === 'Vigente').length;
   const adjudicadas  = rows.filter(r => r.estat === 'Adjudicado').length;
   const desiertas    = rows.filter(r => r.estat === 'Desierta').length;

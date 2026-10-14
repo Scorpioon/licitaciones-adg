@@ -95,7 +95,7 @@ function getFiltered() {
   let rows = ADG.canonicalData || ADG.data;
   const statusKey = normalizeStatusKey(S.estat);
   if (statusKey) rows = rows.filter(r => getDisplayStatus(r).key === statusKey);
-  if (S.soloActivas) rows = rows.filter(r => r.active_opportunity_eligible === true);
+  if (S.soloActivas) rows = rows.filter(r => isOpenOpportunity(r));
   if (S.ccaa)    rows = rows.filter(r => r.ccaa === S.ccaa);
   if (S.year)    rows = rows.filter(r => (r.data_pub||'').startsWith(S.year));
   if (S.discs.size) {
@@ -813,7 +813,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function _updateActiveStats() {
-  const activeCount = (ADG.canonicalData || ADG.data).filter(r => r.active_opportunity_eligible === true).length;
+  const activeCount = (ADG.canonicalData || ADG.data).filter(r => isOpenOpportunity(r)).length;
   const sVig = el('s-vigent');
   if (sVig) sVig.textContent = activeCount.toLocaleString('es-ES');
   const sacCount = el('solo-activas-count');
